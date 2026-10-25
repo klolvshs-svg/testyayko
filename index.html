@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v35_sequential_fists_smart_aim";
+        const CURRENT_APP_VERSION = "v36_boss_hp_system_phase2";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -145,6 +145,9 @@
         let slowUntil = 0;       
         let targetX = canvas.width / 2;
 
+        // Игрок со шкалой HP
+        const player = { x: canvas.width / 2, y: canvas.height - 70, radius: 25, hp: 100, maxHp: 100 };
+
         // --- ДЖОЙСТИК АТАКИ В СТИЛЕ BS ---
         let attackStick = {
             active: false,
@@ -164,8 +167,6 @@
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
         let bossState = "none"; 
-        let bossTimer = 0;      
-        let bossDuration = 60000; 
         let introTimer = 0;
         let victoryTimer = 0;
         let activeLasers = [];  
@@ -186,9 +187,29 @@
         const cubeImg = new Image();
         cubeImg.src = "items/cubik.webp";
 
-        const player = { x: canvas.width / 2, y: canvas.height - 70, radius: 25 };
         let items = [];
         let spawnTimer = 0;
+
+        // Урон игроку с учетом щитов и касок
+        function damagePlayer(amount) {
+            const now = Date.now();
+            if (now < invincibleUntil) return;
+
+            if (hasShield) {
+                hasShield = false;
+                return;
+            }
+            if (hasHelmet) {
+                hasHelmet = false;
+                return;
+            }
+
+            player.hp -= amount;
+            if (player.hp <= 0) {
+                player.hp = 0;
+                showGameOver();
+            }
+        }
 
         // ВЫСТРЕЛ 2 КУЛАКАМИ ДРУГ ЗА ДРУГОМ
         function fireSequentialFists(angle) {
@@ -361,8 +382,30 @@
                 });
             }
 
-            // --- БОСС ДВИГАЕТСЯ И СТРЕЛЯЕТ ХП ---
+            // --- БОСС ДВИГАЕТСЯ ИАТАКУЕТ ---
             if (bossState === "active") {
+                // Если меньше половины HP (150), движение становится непредсказуемым
+                if (bossHp <= 150) {
+                    bossSpeedX += (Math.random() - 0.5) * 0.8;
+                    bossSpeedX = Math.max(-5.5, Math.min(5.5, bossSpeedX));
+                    if (Math.random() < 0.02) {
+                        bossSpeedX *= -1; // резкие рывки в другую сторону
+                    }
+
+                    // Стрельба веером из 3 бомб (каждая снимает 5 HP)
+                    if (Math.random() < 0.022) {
+                        [-0.35, 0, 0.35].forEach(angle => {
+                            items.push({
+                                x: bossX,
+                                y: bossY + 20,
+                                vx: Math.sin(angle) * 3.5,
+                                speed: 5.5,
+                                type: "boss_bomb"
+                            });
+                        });
+                    }
+                }
+
                 bossX += bossSpeedX;
                 if (bossX < 50 || bossX > canvas.width - 50) {
                     bossSpeedX *= -1;
@@ -385,7 +428,7 @@
                 ctx.fillRect(barX, barY, barWidth, barHeight);
 
                 let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
-                ctx.fillStyle = "#ff3333";
+                ctx.fillStyle = bossHp <= 150 ? "#ff9900" : "#ff3333";
                 ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
 
                 ctx.strokeStyle = "#ffffff";
@@ -430,11 +473,10 @@
 
                 if (introPassed >= introDuration) {
                     bossState = "active";
-                    bossTimer = now;
                 }
             }
 
-            // --- ФАЗА ПОБЕДЫ ---
+            // --- ФАЗА ПОБЕДЫ (Когда у босса 0 HP) ---
             if (bossState === "victory") {
                 let victoryPassed = now - victoryTimer;
                 let victoryDuration = 3500; 
@@ -473,29 +515,50 @@
                 }
             }
 
-            let bossTimePassed = 0;
-            if (bossState === "active") {
-                bossTimePassed = now - bossTimer;
-                if (bossHp <= 0 || bossTimePassed >= bossDuration) {
-                    bossState = "victory";
-                    victoryTimer = now;
-                    mlEarned += 5.0; 
-                    totalBank += 5.0;
-                    localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
-                    fists = []; 
+            // Проверка условия победы: строго когда bossHp <= 0
+            if (bossState === "active" && bossHp <= 0) {
+                bossState = "victory";
+                victoryTimer = now;
+                mlEarned += 5.0; 
+                totalBank += 5.0;
+                localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+                fists = []; 
+
+                // СРАЗУ ВЫЛЕТАЕТ 4 КУЛАКА В ПОБЕДНОМ САЛЮТЕ
+                for (let k = 0; k < 4; k++) {
+                    setTimeout(() => {
+                        if (!gameOver) {
+                            fists.push({
+                                x: player.x + (k - 1.5) * 20,
+                                y: player.y - 20,
+                                vx: (k - 1.5) * 1.5,
+                                vy: -16,
+                                radius: 12
+                            });
+                        }
+                    }, k * 120);
                 }
             }
 
             const speedMultiplier = 1 + Math.floor(mlEarned / 8) * 0.12;
 
-            // ИНТЕРФЕЙС
+            // ИНТЕРФЕЙС И HP ИГРОКА (Синяя подсветка)
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 15px Arial";
             ctx.textAlign = "left";
             ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
             ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
 
-            let statusY = 75;
+            // Синее HP игрока
+            ctx.save();
+            ctx.fillStyle = "#00d2ff";
+            ctx.shadowColor = "#00d2ff";
+            ctx.shadowBlur = 8;
+            ctx.font = "bold 16px Arial";
+            ctx.fillText(`💙 HP: ${player.hp} / ${player.maxHp}`, 12, 75);
+            ctx.restore();
+
+            let statusY = 100;
             if (isInvincible) {
                 ctx.fillStyle = "#ffcc00";
                 ctx.fillText("⛩ Непробиваемость!", 12, statusY);
@@ -567,7 +630,6 @@
                 let dragDist = Math.hypot(dx, dy);
                 let power = Math.min(1.0, dragDist / 50);
 
-                // Внешний прозрачный круг джойстика
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(attackStick.startX, attackStick.startY, 50, 0, Math.PI * 2);
@@ -577,7 +639,6 @@
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // МАЛЕНЬКАЯ КРАСНАЯ РУЧКА ПРИЦЕЛА (radius: 10)
                 ctx.beginPath();
                 ctx.arc(attackStick.currentX, attackStick.currentY, 10, 0, Math.PI * 2);
                 ctx.fillStyle = "#ff3333";
@@ -587,7 +648,6 @@
                 ctx.stroke();
                 ctx.restore();
 
-                // УМНАЯ ЛИНИЯ ПРИЦЕЛА (прямая достает чуть меньше чем до босса, трикшот — чуть больше для обхода)
                 if (dragDist > 10) {
                     ctx.save();
                     ctx.beginPath();
@@ -688,22 +748,22 @@
                 }
             }
 
-            // ЛАЗЕРЫ
-            let hasActiveLaserNow = false;
+            // ЛАЗЕРЫ ИЗ БОССА
             if (bossState === "active") {
-                if (activeLasers.length < 2 && Math.random() < 0.016) {
-                    let laserX = Math.random() * (canvas.width - 60) + 30;
+                if (activeLasers.length === 0 && Math.random() < 0.018) {
                     activeLasers.push({
-                        x: laserX,
-                        width: 18, 
-                        warningTime: now + 1100, 
-                        activeUntil: now + 2100  
+                        x: bossX, // Выходит прямо из босса
+                        width: 20, 
+                        warningTime: now + 1000, 
+                        activeUntil: now + 2000  
                     });
                 }
 
                 for (let l = activeLasers.length - 1; l >= 0; l--) {
                     let laser = activeLasers[l];
+                    // Лазер следует за боссом пока идет предупреждение
                     if (now < laser.warningTime) {
+                        laser.x = bossX;
                         ctx.fillStyle = "rgba(255, 204, 0, 0.18)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.strokeStyle = "#ffcc00";
@@ -712,23 +772,14 @@
                         ctx.strokeRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.setLineDash([]);
                     } else if (now < laser.activeUntil) {
-                        hasActiveLaserNow = true;
-                        ctx.fillStyle = "rgba(255, 204, 0, 0.8)";
+                        ctx.fillStyle = "rgba(255, 50, 50, 0.8)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.fillStyle = "#ffffff";
                         ctx.fillRect(laser.x - 2, 0, 4, canvas.height); 
 
+                        // Урон лазера по игроку
                         if (Math.abs(player.x - laser.x) < laser.width / 2 + player.radius - 5) {
-                            if (!isInvincible) {
-                                if (hasShield) {
-                                    hasShield = false;
-                                    activeLasers.splice(l, 1);
-                                    continue;
-                                } else {
-                                    showGameOver();
-                                    return;
-                                }
-                            }
+                            damagePlayer(20);
                         }
                     } else {
                         activeLasers.splice(l, 1);
@@ -739,7 +790,7 @@
             // СПАВН ПРЕДМЕТОВ
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
-                let currentSpawnInterval = hasActiveLaserNow ? 40 : Math.max(9, Math.floor(22 / speedMultiplier));
+                let currentSpawnInterval = Math.max(9, Math.floor(22 / speedMultiplier));
 
                 if (spawnTimer % currentSpawnInterval === 0) {
                     let type = "sword";
@@ -776,6 +827,7 @@
                     items.push({
                         x: Math.random() * (canvas.width - 60) + 30,
                         y: -30,
+                        vx: 0,
                         speed: (4 + Math.random() * 3) * speedMultiplier,
                         type: type
                     });
@@ -786,10 +838,13 @@
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
                 item.y += item.speed;
+                if (item.vx) {
+                    item.x += item.vx;
+                }
 
                 ctx.font = "35px Arial";
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
-                else if (item.type === "bomb") ctx.fillText("💣", item.x, item.y);
+                else if (item.type === "bomb" || item.type === "boss_bomb") ctx.fillText("💣", item.x, item.y);
                 else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
                 else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
                 else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
@@ -859,23 +914,12 @@
                         items.splice(i, 1);
                         continue;
                     } else {
-                        if (isInvincible) {
-                            items.splice(i, 1);
-                            continue;
-                        } 
-                        if (item.type === "bomb" && hasHelmet) {
-                            hasHelmet = false;
-                            items.splice(i, 1);
-                            continue;
-                        }
-                        if (hasShield) {
-                            hasShield = false;
-                            items.splice(i, 1);
-                            continue;
-                        } 
-
-                        showGameOver();
-                        return;
+                        // Обычные бомбы отнимают 25 HP, босс-бомбы отнимают 5 HP
+                        let dmg = (item.type === "boss_bomb") ? 5 : 25;
+                        damagePlayer(dmg);
+                        items.splice(i, 1);
+                        if (gameOver) return;
+                        continue;
                     }
                 }
 
@@ -902,6 +946,7 @@
 
         function restartGame() {
             mlEarned = 0.0;
+            player.hp = player.maxHp;
             items = [];
             fists = [];
             spawnTimer = 0;
@@ -980,7 +1025,7 @@
             localStorage.setItem("egg_last_promo_code", promo);
 
             document.getElementById("promoCodeDisplay").innerText = promo;
-            document.getElementById("botCommandTest").innerText = `/getb ${promo}`;
+            document.getElementById("botCommandText").innerText = `/getb ${promo}`;
 
             closeWithdrawModal();
             document.getElementById("promoModal").style.display = "flex";
