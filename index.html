@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <!-- Запрет кэша для быстрого обновления -->
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>Спаси Яйцо - Босс-Файт</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #18222d;
+        color: white;
+        font-family: Arial, sans-serif;
+        text-align: center;
+        overflow: hidden;
+        touch-action: none;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+        background: #0f1721;
+        margin: 0 auto;
+      }
+      .modal {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 33, 0.95);
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+      }
+      .btn {
+        background: #248bda;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+        margin: 8px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      }
+      .btn:active {
+        transform: scale(0.98);
+      }
+      .btn-withdraw {
+        background: #28a745;
+      }
+      .btn-secondary {
+        background: #6c757d;
+      }
+      input[type="number"] {
+        padding: 10px;
+        font-size: 18px;
+        width: 150px;
+        text-align: center;
+        border-radius: 8px;
+        border: 2px solid #248bda;
+        outline: none;
+        margin: 10px 0;
+      }
+      .promo-box {
+        background: #223040;
+        border: 2px dashed #00d2ff;
+        padding: 15px;
+        border-radius: 10px;
+        font-size: 20px;
+        font-weight: bold;
+        color: #00d2ff;
+        letter-spacing: 1px;
+        margin: 15px 0;
+        user-select: all;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Экран окончания игры -->
+    <div id="gameOverScreen" class="modal">
+      <h1 style="font-size: 36px; margin: 0">💀 ИГРА ОКОНЧЕНА</h1>
+      <p style="font-size: 18px; color: #aaa">Заработано за раунд:</p>
+      <p
+        style="font-size: 26px; color: #00d2ff; font-weight: bold"
+        id="roundScoreText"
+      >
+        +0.000 мл
+      </p>
+      <p style="font-size: 18px; color: #fff">
+        Общий баланс на сайте: <b id="totalBankText">0.000</b> мл
+      </p>
+
+      <div>
+        <button class="btn" onclick="restartGame()">Заново 🔄</button>
+        <button class="btn btn-withdraw" onclick="showWithdrawModal()">
+          Вывести мл 🎁
+        </button>
+      </div>
+    </div>
+
+    <!-- Модальное окно вывода -->
+    <div id="withdrawModal" class="modal">
+      <h2>🎁 Вывод миллилитров</h2>
+      <p style="color: #aaa; font-size: 14px; max-width: 80%">
+        Доступно:
+        <b id="withdrawBalanceText" style="color: #00d2ff">0</b> мл<br />
+        • Мин: <b>1 мл</b> | Макс: <b>500 мл</b><br />
+        • Только целые числа (1, 10, 100 и т.д.)
+      </p>
+      <input
+        type="number"
+        id="withdrawAmount"
+        placeholder="Например: 50"
+        min="1"
+        max="500"
+        step="1"
+      />
+      <div
+        id="withdrawError"
+        style="
+          color: #ff4d4d;
+          font-size: 14px;
+          display: none;
+          margin-bottom: 5px;
+        "
+      ></div>
+
+      <div>
+        <button class="btn btn-withdraw" onclick="processWithdraw()">
+          Получить код
+        </button>
+        <button
+          class="btn btn-secondary"
+          id="lastCodeBtn"
+          style="display: none"
+          onclick="showLastGeneratedCode()"
+        >
+          Последний код 🔑
+        </button>
+        <button class="btn" onclick="closeWithdrawModal()">Назад</button>
+      </div>
+    </div>
+
+    <!-- Модальное окно с кодом -->
+    <div id="promoModal" class="modal">
+      <h2>🎉 Код начисления готов!</h2>
+      <p style="color: #aaa">Скопируйте код и отправьте боту командой:</p>
+      <div class="promo-box" id="promoCodeDisplay">EGG-XXXX-XXXX-XXXX</div>
+      <p style="font-size: 14px; color: #888">
+        Команда для бота: <br /><code
+          id="botCommandText"
+          style="color: #fff; font-size: 16px"
+          >/getb EGG-XXXX-XXXX-XXXX</code
+        >
+      </p>
+      <button class="btn" onclick="closePromoModal()">Отлично 👍</button>
+    </div>
+
+    <script>
+      // Версия для авто-сброса кэша
+      const CURRENT_APP_VERSION = "v14_boss_webp";
+      if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
+        localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
+        window.location.reload(true);
+      }
+
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      let totalBank = parseFloat(
+        localStorage.getItem("egg_total_ml_bank") || "0.0",
+      );
+      let lastPromoCode = localStorage.getItem("egg_last_promo_code") || "";
+      let mlEarned = 0.0;
+      let gameOver = false;
+      let hasShield = false;
+      let hasHelmet = false;
+
+      let invincibleUntil = 0;
+      let slowUntil = 0;
+      let targetX = canvas.width / 2;
+      let egg20GuaranteedSpawned = false;
+
+      // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
+      let bossTriggered = false;
+      let bossState = "none";
+      let bossTimer = 0;
+      let bossDuration = 60000; // 1 минута
+      let introTimer = 0;
+      let victoryTimer = 0;
+      let activeLasers = [];
+
+      // Загрузка WEBP стикеров босса из папки swords/
+      const bossImgs = {
+        1: new Image(),
+        2: new Image(),
+        3: new Image(),
+      };
+      bossImgs[1].src = "swords/swordbossfight.webp";
+      bossImgs[2].src = "swords/swordbossfight2.webp";
+      bossImgs[3].src = "swords/swordbossfight3.webp";
+
+      const player = { x: canvas.width / 2, y: canvas.height - 70, radius: 25 };
+      let items = [];
+      let spawnTimer = 0;
+
+      function handleMove(e) {
+        if (gameOver || bossState === "intro") return;
+        targetX = e.touches ? e.touches[0].clientX : e.clientX;
+      }
+
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("touchmove", handleMove);
+
+      function gameLoop() {
+        if (gameOver) return;
+
+        const now = Date.now();
+        const isInvincible = now < invincibleUntil;
+        const isSlowed = now < slowUntil;
+
+        if (bossState !== "intro" && bossState !== "victory") {
+          if (isSlowed) {
+            player.x += (targetX - player.x) * 0.09;
+          } else {
+            player.x = targetX;
+          }
+        }
+        player.x = Math.max(
+          player.radius,
+          Math.min(canvas.width - player.radius, player.x),
+        );
+
+        if (bossState === "active") {
+          ctx.fillStyle = "#261218";
+        } else {
+          ctx.fillStyle = "#0f1721";
+        }
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // АКТИВАЦИЯ БОССА НА 1 МЛ
+        if (mlEarned >= 1.0 && !bossTriggered) {
+          bossTriggered = true;
+          bossState = "intro";
+          introTimer = now;
+          items = [];
+        }
+
+        if (bossState === "intro") {
+          ctx.fillStyle = "rgba(255, 0, 0, 0.25)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.fillStyle = "#ff3333";
+          ctx.font = "bold 42px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(
+            "⚡️ BOSS FIGHT ⚡️",
+            canvas.width / 2,
+            canvas.height / 2 - 30,
+          );
+          ctx.font = "bold 22px Arial";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(
+            "Приготовься к битве!",
+            canvas.width / 2,
+            canvas.height / 2 + 20,
+          );
+
+          if (now - introTimer > 3000) {
+            bossState = "active";
+            bossTimer = now;
+          }
+          requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        if (bossState === "victory") {
+          ctx.fillStyle = "rgba(0, 255, 100, 0.25)";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.fillStyle = "#00ff88";
+          ctx.font = "bold 40px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(
+            "🎉 ПОБЕДА НАД БОССОМ! 🎉",
+            canvas.width / 2,
+            canvas.height / 2 - 20,
+          );
+          ctx.font = "bold 24px Arial";
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(
+            "+5.0 мл получено в награду!",
+            canvas.width / 2,
+            canvas.height / 2 + 30,
+          );
+
+          if (now - victoryTimer > 3000) {
+            bossState = "normal";
+          }
+          requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        let bossTimePassed = 0;
+        if (bossState === "active") {
+          bossTimePassed = now - bossTimer;
+          if (bossTimePassed >= bossDuration) {
+            bossState = "victory";
+            victoryTimer = now;
+            mlEarned += 5.0;
+            totalBank += 5.0;
+            localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+            activeLasers = [];
+          }
+        }
+
+        const speedMultiplier = 1 + Math.floor(mlEarned / 8) * 0.12;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 16px Arial";
+        ctx.textAlign = "left";
+        ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 15, 30);
+        ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 15, 55);
+
+        if (bossState === "active") {
+          let timeLeft = Math.max(
+            0,
+            Math.ceil((bossDuration - bossTimePassed) / 1000),
+          );
+          ctx.fillStyle = "#ff4444";
+          ctx.font = "bold 20px Arial";
+          ctx.textAlign = "right";
+          ctx.fillText(
+            "⚠️ БОСС ОСТАЛОСЬ: " + timeLeft + " сек",
+            canvas.width - 20,
+            35,
+          );
+        }
+
+        let statusY = 80;
+        if (isInvincible) {
+          ctx.fillStyle = "#ffcc00";
+          ctx.fillText("⛩ Непробиваемость! (5 сек)", 15, statusY);
+          statusY += 20;
+        }
+        if (hasShield && !isInvincible) {
+          ctx.fillStyle = "#00d2ff";
+          ctx.fillText("🛡 Щит активен!", 15, statusY);
+          statusY += 20;
+        }
+        if (hasHelmet && !isInvincible) {
+          ctx.fillStyle = "#ff9900";
+          ctx.fillText("🪖 Каска активна (от бомб)!", 15, statusY);
+          statusY += 20;
+        }
+        if (isSlowed) {
+          ctx.fillStyle = "#99ffff";
+          ctx.fillText("❄️ Замедление! (3 сек)", 15, statusY);
+        }
+
+        ctx.font = "40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("🥚", player.x, player.y + 15);
+
+        if (isInvincible) {
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, player.radius + 18, 0, Math.PI * 2);
+          ctx.strokeStyle = "#ffcc00";
+          ctx.lineWidth = 5;
+          ctx.stroke();
+        }
+        if (hasShield) {
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, player.radius + 12, 0, Math.PI * 2);
+          ctx.strokeStyle = "#00d2ff";
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        }
+        if (hasHelmet) {
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, player.radius + 15, 0, Math.PI * 2);
+          ctx.strokeStyle = "#ff9900";
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        }
+
+        // ЛАЗЕРЫ
+        if (bossState === "active") {
+          let secInBoss = bossTimePassed / 1000;
+          let isLaserPhase =
+            (secInBoss >= 0 && secInBoss < 10) ||
+            (secInBoss >= 30 && secInBoss < 40);
+
+          if (isLaserPhase && Math.random() < 0.02) {
+            let laserX = Math.random() * (canvas.width - 80) + 40;
+            activeLasers.push({
+              x: laserX,
+              width: 40,
+              warningTime: now + 1200,
+              activeUntil: now + 2500,
+            });
+          }
+
+          for (let l = activeLasers.length - 1; l >= 0; l--) {
+            let laser = activeLasers[l];
+            if (now < laser.warningTime) {
+              ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+              ctx.fillRect(
+                laser.x - laser.width / 2,
+                0,
+                laser.width,
+                canvas.height,
+              );
+              ctx.strokeStyle = "#ff0000";
+              ctx.lineWidth = 2;
+              ctx.setLineDash([6, 6]);
+              ctx.strokeRect(
+                laser.x - laser.width / 2,
+                0,
+                laser.width,
+                canvas.height,
+              );
+              ctx.setLineDash([]);
+            } else if (now < laser.activeUntil) {
+              ctx.fillStyle = "rgba(255, 50, 50, 0.85)";
+              ctx.fillRect(
+                laser.x - laser.width / 2,
+                0,
+                laser.width,
+                canvas.height,
+              );
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(laser.x - 5, 0, 10, canvas.height);
+
+              if (
+                Math.abs(player.x - laser.x) <
+                laser.width / 2 + player.radius - 5
+              ) {
+                if (!isInvincible) {
+                  if (hasShield) {
+                    hasShield = false;
+                    activeLasers.splice(l, 1);
+                    continue;
+                  } else {
+                    showGameOver();
+                    return;
+                  }
+                }
+              }
+            } else {
+              activeLasers.splice(l, 1);
+            }
+          }
+        }
+
+        // СПАВН ПРЕДМЕТОВ
+        spawnTimer++;
+        if (spawnTimer % Math.max(9, Math.floor(22 / speedMultiplier)) === 0) {
+          let type = "sword";
+          const rand = Math.random();
+
+          if (bossState === "active") {
+            let secInBoss = (Date.now() - bossTimer) / 1000;
+            if (secInBoss < 10) {
+              type = Math.random() < 0.5 ? "boss_sword_1" : "drop1";
+            } else if (secInBoss >= 10 && secInBoss < 30) {
+              type = "boss_sword_2";
+            } else if (secInBoss >= 30 && secInBoss < 40) {
+              type = Math.random() < 0.6 ? "boss_sword_2" : "drop1";
+            } else {
+              let r3 = Math.random();
+              if (r3 < 0.35) type = "boss_sword_1";
+              else if (r3 < 0.7) type = "boss_sword_2";
+              else type = "boss_sword_3";
+            }
+
+            if (rand < 0.05 && !hasShield) type = "shield";
+            else if (rand >= 0.05 && rand < 0.09 && !hasHelmet) type = "helmet";
+            else if (rand >= 0.09 && rand < 0.14) type = "drop1";
+            else if (rand >= 0.14 && rand < 0.19) type = "snow";
+          } else {
+            if (mlEarned >= 15.0 && rand < 0.008) {
+              type = "egg20";
+            } else if (mlEarned >= 14.0 && rand >= 0.008 && rand < 0.016) {
+              type = "blood";
+            } else if (mlEarned >= 8.0 && rand >= 0.016 && rand < 0.036) {
+              type = "torii";
+            } else if (mlEarned >= 5.0 && rand >= 0.036 && rand < 0.061) {
+              type = "drop1";
+            } else if (mlEarned >= 6.0 && rand >= 0.061 && rand < 0.14) {
+              type = "splash";
+            } else if (
+              mlEarned >= 12.0 &&
+              rand >= 0.14 &&
+              rand < (mlEarned >= 15.0 ? 0.3 : 0.22)
+            ) {
+              type = "snow";
+            } else if (
+              mlEarned >= 2.0 &&
+              !hasHelmet &&
+              rand >= 0.3 &&
+              rand < 0.35
+            ) {
+              type = "helmet";
+            } else if (
+              mlEarned >= 3.0 &&
+              !hasShield &&
+              rand >= 0.35 &&
+              rand < 0.43
+            ) {
+              type = "shield";
+            } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.7) {
+              type = "bomb";
+            }
+          }
+
+          items.push({
+            x: Math.random() * (canvas.width - 60) + 30,
+            y: -30,
+            speed: (4 + Math.random() * 3) * speedMultiplier,
+            type: type,
+          });
+        }
+
+        for (let i = items.length - 1; i >= 0; i--) {
+          const item = items[i];
+          item.y += item.speed;
+
+          ctx.font = "35px Arial";
+          if (item.type === "boss_sword_1") {
+            if (bossImgs[1].complete && bossImgs[1].naturalWidth !== 0) {
+              ctx.drawImage(bossImgs[1], item.x - 20, item.y - 20, 40, 40);
+            } else {
+              ctx.fillText("🗡", item.x, item.y);
+            }
+          } else if (item.type === "boss_sword_2") {
+            if (bossImgs[2].complete && bossImgs[2].naturalWidth !== 0) {
+              ctx.drawImage(bossImgs[2], item.x - 20, item.y - 20, 40, 40);
+            } else {
+              ctx.fillText("⚔️", item.x, item.y);
+            }
+          } else if (item.type === "boss_sword_3") {
+            if (bossImgs[3].complete && bossImgs[3].naturalWidth !== 0) {
+              ctx.drawImage(bossImgs[3], item.x - 20, item.y - 20, 40, 40);
+            } else {
+              ctx.fillText("🔪", item.x, item.y);
+            }
+          } else {
+            if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
+            else if (item.type === "bomb") ctx.fillText("💣", item.x, item.y);
+            else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
+            else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
+            else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
+            else if (item.type === "splash") ctx.fillText("💦", item.x, item.y);
+            else if (item.type === "torii") ctx.fillText("⛩", item.x, item.y);
+            else if (item.type === "blood") ctx.fillText("🩸", item.x, item.y);
+            else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
+            else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
+          }
+
+          const dist = Math.hypot(player.x - item.x, player.y - item.y);
+          if (dist < player.radius + 15) {
+            if (item.type === "shield") {
+              hasShield = true;
+              items.splice(i, 1);
+              continue;
+            } else if (item.type === "helmet") {
+              hasHelmet = true;
+              items.splice(i, 1);
+              continue;
+            } else if (item.type === "drop1") {
+              mlEarned += 1.0;
+              items.splice(i, 1);
+              continue;
+            } else if (item.type === "splash") {
+              mlEarned += 0.1;
+              items.splice(i, 1);
+              continue;
+            } else if (item.type === "torii") {
+              invincibleUntil = Date.now() + 5000;
+              items.splice(i, 1);
+              continue;
+            } else if (item.type === "blood") {
+              mlEarned += 10.0;
+              items.splice(i, 1);
+              continue;
+            } else if (item.type === "egg20") {
+              mlEarned += 20.0;
+              items.splice(i, 1);
+              continue;
+            } else if (item.type === "snow") {
+              slowUntil = Date.now() + 3000;
+              items.splice(i, 1);
+              continue;
+            } else {
+              if (isInvincible) {
+                items.splice(i, 1);
+                continue;
+              }
+              if (item.type === "bomb" && hasHelmet) {
+                hasHelmet = false;
+                items.splice(i, 1);
+                continue;
+              }
+              if (hasShield) {
+                hasShield = false;
+                items.splice(i, 1);
+                continue;
+              }
+
+              showGameOver();
+              return;
+            }
+          }
+
+          if (item.y > canvas.height + 40) {
+            if (item.type === "sword" || item.type.startsWith("boss_sword")) {
+              mlEarned += 0.015;
+            }
+            items.splice(i, 1);
+          }
+        }
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      function showGameOver() {
+        gameOver = true;
+        totalBank += mlEarned;
+        localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+
+        document.getElementById("roundScoreText").innerText =
+          "+" + mlEarned.toFixed(3) + " мл 💦";
+        document.getElementById("totalBankText").innerText =
+          totalBank.toFixed(3);
+        document.getElementById("gameOverScreen").style.display = "flex";
+      }
+
+      function restartGame() {
+        mlEarned = 0.0;
+        items = [];
+        spawnTimer = 0;
+        invincibleUntil = 0;
+        slowUntil = 0;
+        egg20GuaranteedSpawned = false;
+        bossTriggered = false;
+        bossState = "normal";
+        activeLasers = [];
+        gameOver = false;
+        hasShield = false;
+        hasHelmet = false;
+        document.getElementById("gameOverScreen").style.display = "none";
+        requestAnimationFrame(gameLoop);
+      }
+
+      function showWithdrawModal() {
+        document.getElementById("withdrawBalanceText").innerText =
+          Math.floor(totalBank);
+        document.getElementById("withdrawError").style.display = "none";
+        document.getElementById("withdrawAmount").value = "";
+
+        const lastBtn = document.getElementById("lastCodeBtn");
+        if (lastPromoCode) {
+          lastBtn.style.display = "inline-block";
+        } else {
+          lastBtn.style.display = "none";
+        }
+
+        document.getElementById("withdrawModal").style.display = "flex";
+      }
+
+      function closeWithdrawModal() {
+        document.getElementById("withdrawModal").style.display = "none";
+      }
+
+      function generatePromoCode(amount) {
+        const secretSalt = 98723;
+        const randHex = Math.floor(1000 + Math.random() * 9000)
+          .toString(16)
+          .toUpperCase();
+        const saltNum = parseInt(randHex, 16);
+
+        const checksum = ((amount * 31 + saltNum + secretSalt) % 65535)
+          .toString(16)
+          .toUpperCase()
+          .padStart(4, "0");
+        const amountHex = amount.toString(16).toUpperCase().padStart(4, "0");
+
+        return `EGG-${amountHex}-${randHex}-${checksum}`;
+      }
+
+      function processWithdraw() {
+        const amountInput = document.getElementById("withdrawAmount").value;
+        const errorDiv = document.getElementById("withdrawError");
+        const val = parseInt(amountInput, 10);
+
+        if (isNaN(val) || val.toString() !== amountInput.trim()) {
+          errorDiv.innerText = "❌ Введите целое число!";
+          errorDiv.style.display = "block";
+          return;
+        }
+
+        if (val < 1 || val > 500) {
+          errorDiv.innerText = "❌ Сумма должна быть от 1 до 500 мл!";
+          errorDiv.style.display = "block";
+          return;
+        }
+
+        if (val > totalBank) {
+          errorDiv.innerText = `❌ Недостаточно средств! В банке всего ${totalBank.toFixed(3)} мл`;
+          errorDiv.style.display = "block";
+          return;
+        }
+
+        const promo = generatePromoCode(val);
+
+        totalBank -= val;
+        lastPromoCode = promo;
+        localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+        localStorage.setItem("egg_last_promo_code", promo);
+
+        document.getElementById("promoCodeDisplay").innerText = promo;
+        document.getElementById("botCommandText").innerText = `/getb ${promo}`;
+
+        closeWithdrawModal();
+        document.getElementById("promoModal").style.display = "flex";
+      }
+
+      function showLastGeneratedCode() {
+        if (!lastPromoCode) return;
+        document.getElementById("promoCodeDisplay").innerText = lastPromoCode;
+        document.getElementById("botCommandText").innerText =
+          `/getb ${lastPromoCode}`;
+        closeWithdrawModal();
+        document.getElementById("promoModal").style.display = "flex";
+      }
+
+      function closePromoModal() {
+        document.getElementById("promoModal").style.display = "none";
+        document.getElementById("totalBankText").innerText =
+          totalBank.toFixed(3);
+      }
+
+      requestAnimationFrame(gameLoop);
+    </script>
+  </body>
+</html>
