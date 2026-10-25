@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v34_300hp_double_fist";
+        const CURRENT_APP_VERSION = "v35_sequential_fists_smart_aim";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -175,7 +175,7 @@
         let bossX = canvas.width / 2;
         let bossY = 60;
         let bossSpeedX = 2.8;
-        let bossMaxHp = 300; // 300 ХП БОССА
+        let bossMaxHp = 300; 
         let bossHp = 300;
         let fists = []; 
 
@@ -190,28 +190,31 @@
         let items = [];
         let spawnTimer = 0;
 
-        // ВЫСТРЕЛ 2 КУЛАКАМИ
-        function fireDoubleFist(angle) {
+        // ВЫСТРЕЛ 2 КУЛАКАМИ ДРУГ ЗА ДРУГОМ
+        function fireSequentialFists(angle) {
             let speed = 15;
-            let offsetAngle = 0.08; // Небольшой разброс дуплета
 
-            // Первый кулак (чуть влево)
+            // Первый кулак
             fists.push({
-                x: player.x - 10,
+                x: player.x,
                 y: player.y - 20,
-                vx: Math.cos(angle - offsetAngle) * speed,
-                vy: Math.sin(angle - offsetAngle) * speed,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
                 radius: 12
             });
 
-            // Второй кулак (чуть вправо)
-            fists.push({
-                x: player.x + 10,
-                y: player.y - 20,
-                vx: Math.cos(angle + offsetAngle) * speed,
-                vy: Math.sin(angle + offsetAngle) * speed,
-                radius: 12
-            });
+            // Второй кулак (летит следом через 140 мс)
+            setTimeout(() => {
+                if (!gameOver && bossState !== "victory") {
+                    fists.push({
+                        x: player.x,
+                        y: player.y - 20,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        radius: 12
+                    });
+                }
+            }, 140);
         }
 
         // --- УПРАВЛЕНИЕ ТАЧАМИ И МЫШЬЮ ---
@@ -263,7 +266,7 @@
 
                     if (dist > 10) {
                         let angle = Math.atan2(dy, dx);
-                        fireDoubleFist(angle);
+                        fireSequentialFists(angle);
                     }
                     attackStick.active = false;
                     attackStick.touchId = null;
@@ -304,7 +307,7 @@
 
                 if (dist > 10) {
                     let angle = Math.atan2(dy, dx);
-                    fireDoubleFist(angle);
+                    fireSequentialFists(angle);
                 }
                 attackStick.active = false;
                 isMouseDown = false;
@@ -556,11 +559,13 @@
             ctx.fillText("✊", attackCenter.x, attackCenter.y);
             ctx.restore();
 
-            // ДЖОЙСТИК АТАКИ + УЛЬТРАДЛИННАЯ ЛИНИЯ ПРИЦЕЛА
+            // ДЖОЙСТИК АТАКИ + УМНАЯ ЛИНИЯ ПРИЦЕЛА
             if (attackStick.active) {
                 let dx = attackStick.currentX - attackStick.startX;
                 let dy = attackStick.currentY - attackStick.startY;
                 let angle = Math.atan2(dy, dx);
+                let dragDist = Math.hypot(dx, dy);
+                let power = Math.min(1.0, dragDist / 50);
 
                 // Внешний прозрачный круг джойстика
                 ctx.save();
@@ -568,7 +573,7 @@
                 ctx.arc(attackStick.startX, attackStick.startY, 50, 0, Math.PI * 2);
                 ctx.fillStyle = "rgba(255, 0, 0, 0.18)";
                 ctx.fill();
-                ctx.strokeStyle = "rgba(255, 50, 50, 0.6)";
+                ctx.strokeStyle = "rgba(255, 0, 0, 0.6)";
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
@@ -582,8 +587,8 @@
                 ctx.stroke();
                 ctx.restore();
 
-                // ОЧЕНЬ ДЛИННАЯ ЛИНИЯ ПРИЦЕЛА С УЧЕТОМ РИКОШЕТА
-                if (Math.hypot(dx, dy) > 10) {
+                // УМНАЯ ЛИНИЯ ПРИЦЕЛА (прямая достает чуть меньше чем до босса, трикшот — чуть больше для обхода)
+                if (dragDist > 10) {
                     ctx.save();
                     ctx.beginPath();
                     
@@ -592,7 +597,10 @@
                     ctx.moveTo(currX, currY);
 
                     let simAngle = angle;
-                    let remainingLength = 800; // Очень длинный луч (больше чем пол-экрана)
+                    let maxStraightRange = (canvas.height - 160) * power;
+                    let maxTrickshotRange = (canvas.height + 60) * power;
+                    let remainingLength = maxStraightRange;
+                    let bounced = false;
 
                     while (remainingLength > 0) {
                         let nextX = currX + Math.cos(simAngle) * remainingLength;
@@ -605,6 +613,11 @@
                             ctx.lineTo(currX, currY);
                             simAngle = Math.PI - simAngle; 
                             remainingLength -= distToWall;
+
+                            if (!bounced) {
+                                bounced = true;
+                                remainingLength += (maxTrickshotRange - maxStraightRange);
+                            }
                         } else if (nextX > canvas.width) {
                             let distToWall = (canvas.width - currX) / Math.cos(simAngle);
                             currX = canvas.width;
@@ -612,6 +625,11 @@
                             ctx.lineTo(currX, currY);
                             simAngle = Math.PI - simAngle; 
                             remainingLength -= distToWall;
+
+                            if (!bounced) {
+                                bounced = true;
+                                remainingLength += (maxTrickshotRange - maxStraightRange);
+                            }
                         } else {
                             currX = nextX;
                             currY = nextY;
@@ -962,7 +980,7 @@
             localStorage.setItem("egg_last_promo_code", promo);
 
             document.getElementById("promoCodeDisplay").innerText = promo;
-            document.getElementById("botCommandText").innerText = `/getb ${promo}`;
+            document.getElementById("botCommandTest").innerText = `/getb ${promo}`;
 
             closeWithdrawModal();
             document.getElementById("promoModal").style.display = "flex";
