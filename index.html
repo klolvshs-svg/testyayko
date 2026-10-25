@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v22_perfect_intro_lock";
+        const CURRENT_APP_VERSION = "v23_subtle_bg_invincible_intro";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -194,9 +194,9 @@
             }
             player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
 
-            // Очень мягкий, едва заметный жёлтоватый фон во время интро и босса
+            // Едва-едва заметный оттенок желтоватого/тёплого фона
             if (bossState === "active" || bossState === "intro") {
-                ctx.fillStyle = "#22221b"; 
+                ctx.fillStyle = "#14181f"; 
             } else {
                 ctx.fillStyle = "#0f1721";
             }
@@ -207,7 +207,7 @@
                 bossTriggered = true;
                 bossState = "intro";
                 introTimer = now;
-                items = []; 
+                // Старые ножи продолжают лететь как есть, ничего не сбрасываем
             }
 
             // --- БОСС СВЕРХУ ПОЯВЛЯЕТСЯ ТОЛЬКО ПОСЛЕ ИНТРО ---
@@ -221,14 +221,14 @@
                 }
             }
 
-            // --- ИНТРО (4.5 секунды общая длительность) ---
+            // --- ИНТРО (4.5 секунды) ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
-                let introDuration = 4500; // 1.5с задержка текста + 3с показ текста
+                let introDuration = 4500; // 1.5с задержка до текста + 3с показ текста
 
-                // Спавн обычных предметов во время интро
+                // Спавн обычных предметов во время интро продолжается
                 spawnTimer++;
-                if (spawnTimer % 12 === 0) {
+                if (spawnTimer % 15 === 0) {
                     items.push({
                         x: Math.random() * (canvas.width - 60) + 30,
                         y: -30,
@@ -237,9 +237,9 @@
                     });
                 }
 
-                // Текст появляется через 1.5 секунды (1500мс) и висит 3 секунды до 4500мс
+                // Текст появляется через 1.5 секунды (1500мс) и висит до 4500мс
                 if (introPassed >= 1500 && introPassed < 4500) {
-                    let textElapsed = introPassed - 1500; // от 0 до 3000 мс
+                    let textElapsed = introPassed - 1500;
                     let scale = 1.0;
                     let opacity = 1.0;
 
@@ -493,7 +493,7 @@
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
-                    // ЕСЛИ ИДЕТ ИНТРО: Мечи не убивают, а просто исчезают при касании!
+                    // ЕСЛИ ИДЕТ ИНТРО: абсолютная неуязвимость, мечи просто исчезают при касании
                     if (bossState === "intro") {
                         items.splice(i, 1);
                         continue;
