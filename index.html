@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v31_smooth_victory_anim";
+        const CURRENT_APP_VERSION = "v32_bs_attack_joystick";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -144,6 +144,24 @@
         let invincibleUntil = 0; 
         let slowUntil = 0;       
         let targetX = canvas.width / 2;
+
+        // --- ДЖОЙСТИК АТАКИ В СТИЛЕ BS ---
+        let attackStick = {
+            active: false,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            touchId: null,
+            radius: 50
+        };
+
+        // Координаты кнопки атаки справа снизу
+        const attackBtnCenter = {
+            x: canvas.width - 90,
+            y: canvas.height - 110,
+            radius: 48
+        };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
@@ -174,27 +192,125 @@
         let items = [];
         let spawnTimer = 0;
 
-        function handleMove(e) {
-            if (gameOver || bossState === "intro") return; 
-            targetX = e.touches ? e.touches[0].clientX : e.clientX;
-        }
+        // --- УПРАВЛЕНИЕ МЫШЬЮ И ТАСЧАМИ ---
+        function handleTouchStart(e) {
+            if (gameOver || bossState === "intro") return;
+            
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                let touch = e.changedTouches[i];
+                let tx = touch.clientX;
+                let ty = touch.clientY;
 
-        function handleClickOrTap(e) {
-            if (gameOver) return;
-            if (bossState === "active") {
-                fists.push({
-                    x: player.x,
-                    y: player.y - 20,
-                    speed: 15,
-                    radius: 12
-                });
+                // Проверяем, нажали ли на правую зону (джойстик атаки)
+                let distToBtn = Math.hypot(tx - attackBtnCenter.x, ty - attackBtnCenter.y);
+                if (distToBtn < 90 || tx > canvas.width / 2) {
+                    if (!attackStick.active) {
+                        attackStick.active = true;
+                        attackStick.touchId = touch.identifier;
+                        attackStick.startX = tx;
+                        attackStick.startY = ty;
+                        attackStick.currentX = tx;
+                        attackStick.currentY = ty;
+                    }
+                } else {
+                    // Левая часть экрана — движение яйца
+                    targetX = tx;
+                }
             }
         }
 
-        window.addEventListener("mousemove", handleMove);
-        window.addEventListener("touchmove", handleMove);
-        window.addEventListener("click", handleClickOrTap);
-        window.addEventListener("touchstart", handleClickOrTap);
+        function handleTouchMove(e) {
+            if (gameOver || bossState === "intro") return;
+
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                let touch = e.changedTouches[i];
+                if (attackStick.active && touch.identifier === attackStick.touchId) {
+                    attackStick.currentX = touch.clientX;
+                    attackStick.currentY = touch.clientY;
+                } else {
+                    targetX = touch.clientX;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                let touch = e.changedTouches[i];
+                if (attackStick.active && touch.identifier === attackStick.touchId) {
+                    // Выстрел кулаком при отпускании джойстика
+                    let dx = attackStick.currentX - attackStick.startX;
+                    let dy = attackStick.currentY - attackStick.startY;
+                    let dist = Math.hypot(dx, dy);
+
+                    if (dist > 10) {
+                        // Нормализуем вектор направления
+                        let angle = Math.atan2(dy, dx);
+                        let speed = 14;
+                        fists.push({
+                            x: player.x,
+                            y: player.y - 20,
+                            vx: Math.cos(angle) * speed,
+                            vy: Math.sin(angle) * speed,
+                            radius: 12
+                        });
+                    }
+                    attackStick.active = false;
+                    attackStick.touchId = null;
+                }
+            }
+        }
+
+        // Поддержка мыши для ПК
+        let isMouseDown = false;
+        window.addEventListener("mousedown", (e) => {
+            if (gameOver || bossState === "intro") return;
+            if (e.clientX > canvas.width / 2) {
+                attackStick.active = true;
+                attackStick.startX = e.clientX;
+                attackStick.startY = e.clientY;
+                attackStick.currentX = e.clientX;
+                attackStick.currentY = e.clientY;
+                isMouseDown = true;
+            } else {
+                targetX = e.clientX;
+            }
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (gameOver || bossState === "intro") return;
+            if (attackStick.active && isMouseDown) {
+                attackStick.currentX = e.clientX;
+                attackStick.currentY = e.clientY;
+            } else if (e.clientX < canvas.width / 2 || !attackStick.active) {
+                targetX = e.clientX;
+            }
+        });
+
+        window.addEventListener("mouseup", (e) => {
+            if (attackStick.active && isMouseDown) {
+                let dx = attackStick.currentX - attackStick.startX;
+                let dy = attackStick.currentY - attackStick.startY;
+                let dist = Math.hypot(dx, dy);
+
+                if (dist > 10) {
+                    let angle = Math.atan2(dy, dx);
+                    let speed = 14;
+                    fists.push({
+                        x: player.x,
+                        y: player.y - 20,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        radius: 12
+                    });
+                }
+                attackStick.active = false;
+                isMouseDown = false;
+            }
+        });
+
+        window.addEventListener("touchstart", handleTouchStart, { passive: false });
+        window.addEventListener("touchmove", handleTouchMove, { passive: false });
+        window.addEventListener("touchend", handleTouchEnd, { passive: false });
 
         function gameLoop() {
             if (gameOver) return;
@@ -312,16 +428,14 @@
                 }
             }
 
-            // --- ФАЗА ПОБЕДЫ (Анимация улетающих ножей + текст + разблокировка) ---
+            // --- ФАЗА ПОБЕДЫ ---
             if (bossState === "victory") {
                 let victoryPassed = now - victoryTimer;
-                let victoryDuration = 3500; // 3.5 секунды анимации
+                let victoryDuration = 3500; 
 
-                // Все оставшиеся ножи резко ускоряются вниз и улетают
                 items.forEach(item => { item.speed = 20; });
-                activeLasers = []; // Лазеры сразу выключаются
+                activeLasers = []; 
 
-                // Плавное появление и затухание текста награды
                 let scale = 1.0;
                 let opacity = 1.0;
 
@@ -349,7 +463,7 @@
                 ctx.restore();
 
                 if (victoryPassed >= victoryDuration) {
-                    bossState = "normal"; // Возврат к обычной игре, движение разблокировано, ножи падают в обычном темпе
+                    bossState = "normal"; 
                 }
             }
 
@@ -362,8 +476,7 @@
                     mlEarned += 5.0; 
                     totalBank += 5.0;
                     localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
-                    
-                    fists = []; // Убираем кулачки
+                    fists = []; 
                 }
             }
 
@@ -424,15 +537,85 @@
                 ctx.stroke();
             }
 
-            // --- ЛЕТЯЩИЕ КУЛАЧКИ ---
+            // --- ОТРИСОВКА И ОТСЛЕЖИВАНИЕ ДЖОЙСТИКА АТАКИ В СТИЛЕ BS ---
+            let currentAttackCenter = { x: canvas.width - 90, y: canvas.height - 110 };
+            
+            // Рисуем кнопку джойстика атаки справа внизу
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(currentAttackCenter.x, currentAttackCenter.y, 42, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255, 50, 50, 0.25)";
+            ctx.fill();
+            ctx.strokeStyle = "rgba(255, 100, 100, 0.6)";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.font = "20px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("✊", currentAttackCenter.x, currentAttackCenter.y);
+            ctx.restore();
+
+            // Если джойстик активен — рисуем прицел и белую линию траектории
+            if (attackStick.active) {
+                let dx = attackStick.currentX - attackStick.startX;
+                let dy = attackStick.currentY - attackStick.startY;
+                let angle = Math.atan2(dy, dx);
+
+                // Полупрозрачный круг прицеливания (как в BS)
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(attackStick.startX, attackStick.startY, 55, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
+                ctx.fill();
+                ctx.strokeStyle = "rgba(255, 50, 50, 0.7)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Ручка джойстика
+                ctx.beginPath();
+                ctx.arc(attackStick.currentX, attackStick.currentY, 22, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+
+                // БЕЛАЯ ЛИНИЯ ТРАЕКТОРИИ ОТ ЯЙЦА
+                if (Math.hypot(dx, dy) > 10) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(player.x, player.y);
+                    let lineLength = 180;
+                    let targetLineX = player.x + Math.cos(angle) * lineLength;
+                    let targetLineY = player.y + Math.sin(angle) * lineLength;
+                    ctx.lineTo(targetLineX, targetLineY);
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([6, 6]);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            // --- ЛЕТЯЩИЕ КУЛАЧКИ И РИКОШЕТ ОТ СТЕН ---
             for (let f = fists.length - 1; f >= 0; f--) {
                 let fist = fists[f];
-                fist.y -= fist.speed;
+                fist.x += fist.vx;
+                fist.y += fist.vy;
+
+                // Рикошет от левой и правой стен
+                if (fist.x - fist.radius < 0) {
+                    fist.x = fist.radius;
+                    fist.vx *= -1;
+                } else if (fist.x + fist.radius > canvas.width) {
+                    fist.x = canvas.width - fist.radius;
+                    fist.vx *= -1;
+                }
 
                 ctx.font = "24px Arial";
                 ctx.textAlign = "center";
                 ctx.fillText("✊", fist.x, fist.y);
 
+                // Урон боссу
                 if (bossState === "active") {
                     let distToBoss = Math.hypot(fist.x - bossX, fist.y - bossY);
                     if (distToBoss < 35) {
@@ -442,6 +625,7 @@
                     }
                 }
 
+                // Уничтожение падающих предметов кулачком
                 for (let i = items.length - 1; i >= 0; i--) {
                     let item = items[i];
                     let distToItem = Math.hypot(fist.x - item.x, fist.y - item.y);
@@ -452,7 +636,8 @@
                     }
                 }
 
-                if (fist.y < 0) {
+                // Удаление кулачка, если улетел вверх или вниз за экран
+                if (fist.y < -30 || fist.y > canvas.height + 30) {
                     fists.splice(f, 1);
                 }
             }
@@ -505,7 +690,7 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ (не спавнятся во время интро или победной анимации)
+            // СПАВН ПРЕДМЕТОВ
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let currentSpawnInterval = hasActiveLaserNow ? 40 : Math.max(9, Math.floor(22 / speedMultiplier));
@@ -577,7 +762,6 @@
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
-                    // Во время интро или победы предметы не наносят урон
                     if (bossState === "intro" || bossState === "victory") {
                         items.splice(i, 1);
                         continue;
