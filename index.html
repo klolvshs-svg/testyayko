@@ -7,7 +7,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Спаси Яйцо - Босс-Файт</title>
+    <title>Спаси Яйцо - Битва с Боссом</title>
     <style>
         body {
             margin: 0;
@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v28_cube_webp_image";
+        const CURRENT_APP_VERSION = "v29_boss_fist_battle";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -149,11 +149,19 @@
         let bossTriggered = false;
         let bossState = "none"; 
         let bossTimer = 0;      
-        let bossDuration = 60000; // 1 минута боя
+        let bossDuration = 60000; 
         let introTimer = 0;
         let victoryTimer = 0;
         let activeLasers = [];  
         let lastCubeMilestone = 0; 
+
+        // Параметры босса и кулачка
+        let bossX = canvas.width / 2;
+        let bossY = 60;
+        let bossSpeedX = 2.5;
+        let bossMaxHp = 40;
+        let bossHp = 40;
+        let fists = []; // Массив летящих кулачков
 
         // Загрузка картинок
         const bossImg = new Image();
@@ -171,8 +179,23 @@
             targetX = e.touches ? e.touches[0].clientX : e.clientX;
         }
 
+        // Клик/тап по экрану выпускает кулачок во время битвы с боссом
+        function handleClickOrTap(e) {
+            if (gameOver) return;
+            if (bossState === "active") {
+                fists.push({
+                    x: player.x,
+                    y: player.y - 20,
+                    speed: 14,
+                    radius: 12
+                });
+            }
+        }
+
         window.addEventListener("mousemove", handleMove);
         window.addEventListener("touchmove", handleMove);
+        window.addEventListener("click", handleClickOrTap);
+        window.addEventListener("touchstart", handleClickOrTap);
 
         function gameLoop() {
             if (gameOver) return;
@@ -202,6 +225,7 @@
                 bossTriggered = true;
                 bossState = "intro";
                 introTimer = now;
+                bossHp = bossMaxHp; // Сброс ХП босса
             }
 
             // --- ТЕСТОВЫЙ КУБИК КАЖДЫЙ 1 МЛ ---
@@ -216,18 +240,47 @@
                 });
             }
 
-            // --- БОСС СВЕРХУ ПОЯВЛЯЕТСЯ ТОЛЬКО ПОСЛЕ ОКОНЧАНИЯ ИНТРО ---
+            // --- БОСС ДВИГАЕТСЯ И СТРЕЛЯЕТ ХП (после интро) ---
             if (bossState === "active") {
-                if (bossImg.complete && bossImg.naturalWidth !== 0) {
-                    ctx.drawImage(bossImg, canvas.width / 2 - 45, 10, 90, 90);
-                } else {
-                    ctx.font = "60px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText("👑", canvas.width / 2, 70);
+                // Движение босса туда-сюда
+                bossX += bossSpeedX;
+                if (bossX < 50 || bossX > canvas.width - 50) {
+                    bossSpeedX *= -1;
                 }
+
+                // Отрисовка босса (размером чуть больше яйца, примерно 55х55)
+                if (bossImg.complete && bossImg.naturalWidth !== 0) {
+                    ctx.drawImage(bossImg, bossX - 28, bossY - 28, 56, 56);
+                } else {
+                    ctx.font = "40px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("👑", bossX, bossY + 10);
+                }
+
+                // Шкала ХП босса вверху
+                let barWidth = 200;
+                let barHeight = 12;
+                let barX = canvas.width / 2 - barWidth / 2;
+                let barY = 20;
+
+                ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
+                ctx.fillStyle = "#ff3333";
+                ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
+
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 12px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, canvas.width / 2, barY - 5);
             }
 
-            // --- ИНТРО (4.5 секунды: 1.5с задержка + 3с надпись) ---
+            // --- ИНТРО (4.5 секунды) ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
@@ -284,13 +337,15 @@
             let bossTimePassed = 0;
             if (bossState === "active") {
                 bossTimePassed = now - bossTimer;
-                if (bossTimePassed >= bossDuration) {
+                // Победа также засчитывается, если ХП упало до 0
+                if (bossHp <= 0 || bossTimePassed >= bossDuration) {
                     bossState = "victory";
                     victoryTimer = now;
                     mlEarned += 5.0; 
                     totalBank += 5.0;
                     localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
                     activeLasers = [];
+                    fists = [];
                 }
             }
 
@@ -302,14 +357,6 @@
             ctx.textAlign = "left";
             ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
             ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
-
-            if (bossState === "active") {
-                let timeLeft = Math.max(0, Math.ceil((bossDuration - bossTimePassed) / 1000));
-                ctx.fillStyle = "#ffcc00";
-                ctx.font = "bold 16px Arial";
-                ctx.textAlign = "right";
-                ctx.fillText("⏱ ОСТАЛОСЬ: " + timeLeft + "с", canvas.width - 12, 28);
-            }
 
             let statusY = 75;
             if (isInvincible) {
@@ -357,6 +404,43 @@
                 ctx.strokeStyle = "#ff9900";
                 ctx.lineWidth = 4;
                 ctx.stroke();
+            }
+
+            // --- ЛЕТЯЩИЕ КУЛАЧКИ (Атака по боссу и мечам) ---
+            for (let f = fists.length - 1; f >= 0; f--) {
+                let fist = fists[f];
+                fist.y -= fist.speed;
+
+                // Отрисовка кулачка
+                ctx.font = "24px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("✊", fist.x, fist.y);
+
+                // Столкновение кулачка с боссом (нанесение урона)
+                if (bossState === "active") {
+                    let distToBoss = Math.hypot(fist.x - bossX, fist.y - bossY);
+                    if (distToBoss < 35) {
+                        bossHp--;
+                        fists.splice(f, 1);
+                        continue;
+                    }
+                }
+
+                // Столкновение кулачка с падающими мечами (сбивает их)
+                for (let i = items.length - 1; i >= 0; i--) {
+                    let item = items[i];
+                    let distToItem = Math.hypot(fist.x - item.x, fist.y - item.y);
+                    if (distToItem < 30) {
+                        items.splice(i, 1); // Уничтожаем меч
+                        fists.splice(f, 1);  // Уничтожаем кулачок
+                        break;
+                    }
+                }
+
+                // Удаление кулачка, если улетел за экран
+                if (fist.y < 0) {
+                    fists.splice(f, 1);
+                }
             }
 
             // ЛАЗЕРЫ
@@ -476,7 +560,7 @@
                     if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
                         ctx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
                     } else {
-                        ctx.fillText("🎁", item.x, item.y); // Запасной вариант
+                        ctx.fillText("🎁", item.x, item.y);
                     }
                 }
 
@@ -487,7 +571,6 @@
                         continue;
                     }
 
-                    // Подбор кубика из items/cubik.webp
                     if (item.type === "random_cube") {
                         const randEffect = Math.random();
                         if (randEffect < 0.33) {
@@ -578,6 +661,7 @@
         function restartGame() {
             mlEarned = 0.0;
             items = [];
+            fists = [];
             spawnTimer = 0;
             invincibleUntil = 0;
             slowUntil = 0;
@@ -585,6 +669,7 @@
             bossState = "none";
             activeLasers = [];
             lastCubeMilestone = 0;
+            bossHp = bossMaxHp;
             gameOver = false;
             hasShield = false;
             hasHelmet = false;
