@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v33_bs_ricochet_aim";
+        const CURRENT_APP_VERSION = "v34_300hp_double_fist";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -155,7 +155,6 @@
             touchId: null
         };
 
-        // Кнопка атаки сдвинута еще правее и ниже
         const attackBtnCenter = {
             x: canvas.width - 70,
             y: canvas.height - 85,
@@ -176,8 +175,8 @@
         let bossX = canvas.width / 2;
         let bossY = 60;
         let bossSpeedX = 2.8;
-        let bossMaxHp = 40;
-        let bossHp = 40;
+        let bossMaxHp = 300; // 300 ХП БОССА
+        let bossHp = 300;
         let fists = []; 
 
         // Загрузка картинок
@@ -191,7 +190,31 @@
         let items = [];
         let spawnTimer = 0;
 
-        // --- УПРАВЛЕНИЕ МЫШЬЮ И ТАСЧАМИ ---
+        // ВЫСТРЕЛ 2 КУЛАКАМИ
+        function fireDoubleFist(angle) {
+            let speed = 15;
+            let offsetAngle = 0.08; // Небольшой разброс дуплета
+
+            // Первый кулак (чуть влево)
+            fists.push({
+                x: player.x - 10,
+                y: player.y - 20,
+                vx: Math.cos(angle - offsetAngle) * speed,
+                vy: Math.sin(angle - offsetAngle) * speed,
+                radius: 12
+            });
+
+            // Второй кулак (чуть вправо)
+            fists.push({
+                x: player.x + 10,
+                y: player.y - 20,
+                vx: Math.cos(angle + offsetAngle) * speed,
+                vy: Math.sin(angle + offsetAngle) * speed,
+                radius: 12
+            });
+        }
+
+        // --- УПРАВЛЕНИЕ ТАЧАМИ И МЫШЬЮ ---
         function handleTouchStart(e) {
             if (gameOver || bossState === "intro") return;
             
@@ -240,14 +263,7 @@
 
                     if (dist > 10) {
                         let angle = Math.atan2(dy, dx);
-                        let speed = 14;
-                        fists.push({
-                            x: player.x,
-                            y: player.y - 20,
-                            vx: Math.cos(angle) * speed,
-                            vy: Math.sin(angle) * speed,
-                            radius: 12
-                        });
+                        fireDoubleFist(angle);
                     }
                     attackStick.active = false;
                     attackStick.touchId = null;
@@ -288,14 +304,7 @@
 
                 if (dist > 10) {
                     let angle = Math.atan2(dy, dx);
-                    let speed = 14;
-                    fists.push({
-                        x: player.x,
-                        y: player.y - 20,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
-                        radius: 12
-                    });
+                    fireDoubleFist(angle);
                 }
                 attackStick.active = false;
                 isMouseDown = false;
@@ -349,7 +358,7 @@
                 });
             }
 
-            // --- БОСС ДВИГАЕТСЯ И СТРЕЛЯЕТ ХП (после интро) ---
+            // --- БОСС ДВИГАЕТСЯ И СТРЕЛЯЕТ ХП ---
             if (bossState === "active") {
                 bossX += bossSpeedX;
                 if (bossX < 50 || bossX > canvas.width - 50) {
@@ -364,7 +373,7 @@
                     ctx.fillText("👑", bossX, bossY + 10);
                 }
 
-                let barWidth = 200;
+                let barWidth = 220;
                 let barHeight = 12;
                 let barX = canvas.width / 2 - barWidth / 2;
                 let barY = 20;
@@ -386,7 +395,7 @@
                 ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, canvas.width / 2, barY - 5);
             }
 
-            // --- ИНТРО (4.5 секунды) ---
+            // --- ИНТРО ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
@@ -531,7 +540,7 @@
                 ctx.stroke();
             }
 
-            // --- КНОПКА АТАКИ СПРАВА ВНИЗУ ---
+            // --- КНОПКА АТАКИ СНИЗУ СТРАНИЦЫ ---
             let attackCenter = { x: canvas.width - 70, y: canvas.height - 85 };
             ctx.save();
             ctx.beginPath();
@@ -547,13 +556,13 @@
             ctx.fillText("✊", attackCenter.x, attackCenter.y);
             ctx.restore();
 
-            // Если джойстик активен — рисуем прицел и траекторию с рикошетами
+            // ДЖОЙСТИК АТАКИ + УЛЬТРАДЛИННАЯ ЛИНИЯ ПРИЦЕЛА
             if (attackStick.active) {
                 let dx = attackStick.currentX - attackStick.startX;
                 let dy = attackStick.currentY - attackStick.startY;
                 let angle = Math.atan2(dy, dx);
 
-                // Большой прозрачный внешний круг
+                // Внешний прозрачный круг джойстика
                 ctx.save();
                 ctx.beginPath();
                 ctx.arc(attackStick.startX, attackStick.startY, 50, 0, Math.PI * 2);
@@ -563,17 +572,17 @@
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // ВНУТРЕННИЙ МАЛЕНЬКИЙ КРАСНЫЙ КРУЖОК
+                // МАЛЕНЬКАЯ КРАСНАЯ РУЧКА ПРИЦЕЛА (radius: 10)
                 ctx.beginPath();
-                ctx.arc(attackStick.currentX, attackStick.currentY, 16, 0, Math.PI * 2);
-                ctx.fillStyle = "rgba(255, 0, 0, 0.75)";
+                ctx.arc(attackStick.currentX, attackStick.currentY, 10, 0, Math.PI * 2);
+                ctx.fillStyle = "#ff3333";
                 ctx.fill();
                 ctx.strokeStyle = "#ffffff";
                 ctx.lineWidth = 2;
                 ctx.stroke();
                 ctx.restore();
 
-                // ДЛИННАЯ ЛИНИЯ ПРИЦЕЛА С УЧЕТОМ РИКОШЕТОВ ОТ СТЕН
+                // ОЧЕНЬ ДЛИННАЯ ЛИНИЯ ПРИЦЕЛА С УЧЕТОМ РИКОШЕТА
                 if (Math.hypot(dx, dy) > 10) {
                     ctx.save();
                     ctx.beginPath();
@@ -583,26 +592,25 @@
                     ctx.moveTo(currX, currY);
 
                     let simAngle = angle;
-                    let remainingLength = 350; // Большая общая длина траектории прицела
+                    let remainingLength = 800; // Очень длинный луч (больше чем пол-экрана)
 
                     while (remainingLength > 0) {
                         let nextX = currX + Math.cos(simAngle) * remainingLength;
                         let nextY = currY + Math.sin(simAngle) * remainingLength;
 
-                        // Проверяем столкновение с левой или правой стеной экрана
                         if (nextX < 0) {
                             let distToWall = (0 - currX) / Math.cos(simAngle);
                             currX = 0;
                             currY += Math.sin(simAngle) * distToWall;
                             ctx.lineTo(currX, currY);
-                            simAngle = Math.PI - simAngle; // Отражаем угол (рикошет)
+                            simAngle = Math.PI - simAngle; 
                             remainingLength -= distToWall;
                         } else if (nextX > canvas.width) {
                             let distToWall = (canvas.width - currX) / Math.cos(simAngle);
                             currX = canvas.width;
                             currY += Math.sin(simAngle) * distToWall;
                             ctx.lineTo(currX, currY);
-                            simAngle = Math.PI - simAngle; // Отражаем угол (рикошет)
+                            simAngle = Math.PI - simAngle; 
                             remainingLength -= distToWall;
                         } else {
                             currX = nextX;
@@ -620,13 +628,12 @@
                 }
             }
 
-            // --- ЛЕТЯЩИЕ КУЛАЧКИ И РИКОШЕТ ОТ СТЕН ---
+            // --- ЛЕТЯЩИЕ КУЛАЧКИ И РИКОШЕТ ---
             for (let f = fists.length - 1; f >= 0; f--) {
                 let fist = fists[f];
                 fist.x += fist.vx;
                 fist.y += fist.vy;
 
-                // Рикошет кулачка от левой и правой стен
                 if (fist.x - fist.radius < 0) {
                     fist.x = fist.radius;
                     fist.vx *= -1;
@@ -663,7 +670,7 @@
                 }
             }
 
-            // ЛАЗЕРЫ (активны только во время активного боя с боссом)
+            // ЛАЗЕРЫ
             let hasActiveLaserNow = false;
             if (bossState === "active") {
                 if (activeLasers.length < 2 && Math.random() < 0.016) {
