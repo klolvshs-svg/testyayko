@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v32_bs_attack_joystick";
+        const CURRENT_APP_VERSION = "v33_bs_ricochet_aim";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -152,15 +152,14 @@
             startY: 0,
             currentX: 0,
             currentY: 0,
-            touchId: null,
-            radius: 50
+            touchId: null
         };
 
-        // Координаты кнопки атаки справа снизу
+        // Кнопка атаки сдвинута еще правее и ниже
         const attackBtnCenter = {
-            x: canvas.width - 90,
-            y: canvas.height - 110,
-            radius: 48
+            x: canvas.width - 70,
+            y: canvas.height - 85,
+            radius: 50
         };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
@@ -201,7 +200,6 @@
                 let tx = touch.clientX;
                 let ty = touch.clientY;
 
-                // Проверяем, нажали ли на правую зону (джойстик атаки)
                 let distToBtn = Math.hypot(tx - attackBtnCenter.x, ty - attackBtnCenter.y);
                 if (distToBtn < 90 || tx > canvas.width / 2) {
                     if (!attackStick.active) {
@@ -213,7 +211,6 @@
                         attackStick.currentY = ty;
                     }
                 } else {
-                    // Левая часть экрана — движение яйца
                     targetX = tx;
                 }
             }
@@ -237,13 +234,11 @@
             for (let i = 0; i < e.changedTouches.length; i++) {
                 let touch = e.changedTouches[i];
                 if (attackStick.active && touch.identifier === attackStick.touchId) {
-                    // Выстрел кулаком при отпускании джойстика
                     let dx = attackStick.currentX - attackStick.startX;
                     let dy = attackStick.currentY - attackStick.startY;
                     let dist = Math.hypot(dx, dy);
 
                     if (dist > 10) {
-                        // Нормализуем вектор направления
                         let angle = Math.atan2(dy, dx);
                         let speed = 14;
                         fists.push({
@@ -260,7 +255,6 @@
             }
         }
 
-        // Поддержка мыши для ПК
         let isMouseDown = false;
         window.addEventListener("mousedown", (e) => {
             if (gameOver || bossState === "intro") return;
@@ -537,13 +531,11 @@
                 ctx.stroke();
             }
 
-            // --- ОТРИСОВКА И ОТСЛЕЖИВАНИЕ ДЖОЙСТИКА АТАКИ В СТИЛЕ BS ---
-            let currentAttackCenter = { x: canvas.width - 90, y: canvas.height - 110 };
-            
-            // Рисуем кнопку джойстика атаки справа внизу
+            // --- КНОПКА АТАКИ СПРАВА ВНИЗУ ---
+            let attackCenter = { x: canvas.width - 70, y: canvas.height - 85 };
             ctx.save();
             ctx.beginPath();
-            ctx.arc(currentAttackCenter.x, currentAttackCenter.y, 42, 0, Math.PI * 2);
+            ctx.arc(attackCenter.x, attackCenter.y, 42, 0, Math.PI * 2);
             ctx.fillStyle = "rgba(255, 50, 50, 0.25)";
             ctx.fill();
             ctx.strokeStyle = "rgba(255, 100, 100, 0.6)";
@@ -552,42 +544,74 @@
             ctx.font = "20px Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText("✊", currentAttackCenter.x, currentAttackCenter.y);
+            ctx.fillText("✊", attackCenter.x, attackCenter.y);
             ctx.restore();
 
-            // Если джойстик активен — рисуем прицел и белую линию траектории
+            // Если джойстик активен — рисуем прицел и траекторию с рикошетами
             if (attackStick.active) {
                 let dx = attackStick.currentX - attackStick.startX;
                 let dy = attackStick.currentY - attackStick.startY;
                 let angle = Math.atan2(dy, dx);
 
-                // Полупрозрачный круг прицеливания (как в BS)
+                // Большой прозрачный внешний круг
                 ctx.save();
                 ctx.beginPath();
-                ctx.arc(attackStick.startX, attackStick.startY, 55, 0, Math.PI * 2);
-                ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
+                ctx.arc(attackStick.startX, attackStick.startY, 50, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 0, 0, 0.18)";
                 ctx.fill();
-                ctx.strokeStyle = "rgba(255, 50, 50, 0.7)";
+                ctx.strokeStyle = "rgba(255, 50, 50, 0.6)";
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Ручка джойстика
+                // ВНУТРЕННИЙ МАЛЕНЬКИЙ КРАСНЫЙ КРУЖОК
                 ctx.beginPath();
-                ctx.arc(attackStick.currentX, attackStick.currentY, 22, 0, Math.PI * 2);
-                ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                ctx.arc(attackStick.currentX, attackStick.currentY, 16, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 0, 0, 0.75)";
                 ctx.fill();
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2;
                 ctx.stroke();
                 ctx.restore();
 
-                // БЕЛАЯ ЛИНИЯ ТРАЕКТОРИИ ОТ ЯЙЦА
+                // ДЛИННАЯ ЛИНИЯ ПРИЦЕЛА С УЧЕТОМ РИКОШЕТОВ ОТ СТЕН
                 if (Math.hypot(dx, dy) > 10) {
                     ctx.save();
                     ctx.beginPath();
-                    ctx.moveTo(player.x, player.y);
-                    let lineLength = 180;
-                    let targetLineX = player.x + Math.cos(angle) * lineLength;
-                    let targetLineY = player.y + Math.sin(angle) * lineLength;
-                    ctx.lineTo(targetLineX, targetLineY);
+                    
+                    let currX = player.x;
+                    let currY = player.y;
+                    ctx.moveTo(currX, currY);
+
+                    let simAngle = angle;
+                    let remainingLength = 350; // Большая общая длина траектории прицела
+
+                    while (remainingLength > 0) {
+                        let nextX = currX + Math.cos(simAngle) * remainingLength;
+                        let nextY = currY + Math.sin(simAngle) * remainingLength;
+
+                        // Проверяем столкновение с левой или правой стеной экрана
+                        if (nextX < 0) {
+                            let distToWall = (0 - currX) / Math.cos(simAngle);
+                            currX = 0;
+                            currY += Math.sin(simAngle) * distToWall;
+                            ctx.lineTo(currX, currY);
+                            simAngle = Math.PI - simAngle; // Отражаем угол (рикошет)
+                            remainingLength -= distToWall;
+                        } else if (nextX > canvas.width) {
+                            let distToWall = (canvas.width - currX) / Math.cos(simAngle);
+                            currX = canvas.width;
+                            currY += Math.sin(simAngle) * distToWall;
+                            ctx.lineTo(currX, currY);
+                            simAngle = Math.PI - simAngle; // Отражаем угол (рикошет)
+                            remainingLength -= distToWall;
+                        } else {
+                            currX = nextX;
+                            currY = nextY;
+                            ctx.lineTo(currX, currY);
+                            break;
+                        }
+                    }
+
                     ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
                     ctx.lineWidth = 3;
                     ctx.setLineDash([6, 6]);
@@ -602,7 +626,7 @@
                 fist.x += fist.vx;
                 fist.y += fist.vy;
 
-                // Рикошет от левой и правой стен
+                // Рикошет кулачка от левой и правой стен
                 if (fist.x - fist.radius < 0) {
                     fist.x = fist.radius;
                     fist.vx *= -1;
@@ -615,7 +639,6 @@
                 ctx.textAlign = "center";
                 ctx.fillText("✊", fist.x, fist.y);
 
-                // Урон боссу
                 if (bossState === "active") {
                     let distToBoss = Math.hypot(fist.x - bossX, fist.y - bossY);
                     if (distToBoss < 35) {
@@ -625,7 +648,6 @@
                     }
                 }
 
-                // Уничтожение падающих предметов кулачком
                 for (let i = items.length - 1; i >= 0; i--) {
                     let item = items[i];
                     let distToItem = Math.hypot(fist.x - item.x, fist.y - item.y);
@@ -636,7 +658,6 @@
                     }
                 }
 
-                // Удаление кулачка, если улетел вверх или вниз за экран
                 if (fist.y < -30 || fist.y > canvas.height + 30) {
                     fists.splice(f, 1);
                 }
