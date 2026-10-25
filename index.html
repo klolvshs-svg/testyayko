@@ -123,7 +123,7 @@
 
     <script>
         // Версия для авто-сброса кэша
-        const CURRENT_APP_VERSION = "v17_rita_boss_path_fixed";
+        const CURRENT_APP_VERSION = "v18_rita_boss_1ml";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -201,7 +201,7 @@
             }
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // АКТИВАЦИЯ БОССА НА 10 МЛ
+            // АКТИВАЦИЯ БОССА НА 1 МЛ
             if (mlEarned >= 1.0 && !bossTriggered) {
                 bossTriggered = true;
                 bossState = "intro";
@@ -657,7 +657,7 @@
             localStorage.setItem("egg_last_promo_code", promo);
 
             document.getElementById("promoCodeDisplay").innerText = promo;
-            document.getElementById("botCommandTest", `/getb ${promo}`);
+            document.getElementById("botCommandText").innerText = `/getb ${promo}`;
 
             closeWithdrawModal();
             document.getElementById("promoModal").style.display = "flex";
