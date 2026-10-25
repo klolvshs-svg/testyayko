@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v24_keep_old_knives_intro";
+        const CURRENT_APP_VERSION = "v25_yellow_thin_lasers";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -158,19 +158,12 @@
         const bossImg = new Image();
         bossImg.src = "bosses/ritaboss.webp";
 
-        const bossImgs = {
-            2: new Image(),
-            3: new Image()
-        };
-        bossImgs[2].src = "swords/swordbossfight2.webp";
-        bossImgs[3].src = "swords/swordbossfight3.webp";
-
         const player = { x: canvas.width / 2, y: canvas.height - 70, radius: 25 };
         let items = [];
         let spawnTimer = 0;
 
         function handleMove(e) {
-            if (gameOver || bossState === "intro") return; // Во время интро движение яйца заблокировано
+            if (gameOver || bossState === "intro") return; // Во время интро движение заблокировано
             targetX = e.touches ? e.touches[0].clientX : e.clientX;
         }
 
@@ -194,7 +187,7 @@
             }
             player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
 
-            // Фон: едва-едва ощутимый тёплый оттенок при боссе
+            // Очень легкий фоновый оттенок
             if (bossState === "active" || bossState === "intro") {
                 ctx.fillStyle = "#151922"; 
             } else {
@@ -207,7 +200,6 @@
                 bossTriggered = true;
                 bossState = "intro";
                 introTimer = now;
-                // МАССИВ ITEMS НЕ ОЧИЩАЕМ: текущие ножи продолжают спокойно лететь дальше!
             }
 
             // --- БОСС СВЕРХУ ПОЯВЛЯЕТСЯ ТОЛЬКО ПОСЛЕ ОКОНЧАНИЯ ИНТРО ---
@@ -225,8 +217,6 @@
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
-
-                // ВО ВРЕМЯ ИНТРО НОВЫЕ ПРЕДМЕТЫ НЕ СПАВНЯТСЯ (ЛЕТЯТ ТОЛЬКО СТАРЫЕ)
 
                 // Текст появляется ровно через 1.5 секунды
                 if (introPassed >= 1500 && introPassed < 4500) {
@@ -356,36 +346,38 @@
                 ctx.stroke();
             }
 
-            // ЛАЗЕРЫ (только во время активной фазы)
+            // ЖЕЛТЫЕ И ТОНКИЕ ЛАЗЕРЫ (редкие, не спамят на телефоне)
             if (bossState === "active") {
                 let secInBoss = bossTimePassed / 1000;
                 let isLaserPhase = (secInBoss >= 0 && secInBoss < 10) || (secInBoss >= 30 && secInBoss < 40);
 
-                if (isLaserPhase && Math.random() < 0.02) {
-                    let laserX = Math.random() * (canvas.width - 80) + 40;
+                if (isLaserPhase && Math.random() < 0.01) { // Уменьшена частота появления
+                    let laserX = Math.random() * (canvas.width - 60) + 30;
                     activeLasers.push({
                         x: laserX,
-                        width: 40,
+                        width: 20, // Сделали лазер тоньше
                         warningTime: now + 1200, 
-                        activeUntil: now + 2500  
+                        activeUntil: now + 2200  
                     });
                 }
 
                 for (let l = activeLasers.length - 1; l >= 0; l--) {
                     let laser = activeLasers[l];
                     if (now < laser.warningTime) {
-                        ctx.fillStyle = "rgba(255, 200, 0, 0.25)";
+                        // Желтое предупреждение
+                        ctx.fillStyle = "rgba(255, 204, 0, 0.2)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.strokeStyle = "#ffcc00";
-                        ctx.lineWidth = 2;
-                        ctx.setLineDash([6, 6]);
+                        ctx.lineWidth = 1.5;
+                        ctx.setLineDash([4, 4]);
                         ctx.strokeRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.setLineDash([]);
                     } else if (now < laser.activeUntil) {
-                        ctx.fillStyle = "rgba(255, 50, 50, 0.85)";
+                        // Активный желтый лазер
+                        ctx.fillStyle = "rgba(255, 204, 0, 0.8)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.fillStyle = "#ffffff";
-                        ctx.fillRect(laser.x - 5, 0, 10, canvas.height); 
+                        ctx.fillRect(laser.x - 3, 0, 6, canvas.height); 
 
                         if (Math.abs(player.x - laser.x) < laser.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
@@ -405,49 +397,47 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ (не спавнится во время интро)
-            if (bossState !== "intro") {
-                spawnTimer++;
-                if (spawnTimer % Math.max(9, Math.floor(22 / speedMultiplier)) === 0) {
-                    let type = "sword";
-                    const rand = Math.random();
+            // СПАВН ПРЕДМЕТОВ (обычные стандартные предметы игры)
+            spawnTimer++;
+            if (spawnTimer % Math.max(9, Math.floor(22 / speedMultiplier)) === 0) {
+                let type = "sword";
+                const rand = Math.random();
 
-                    if (bossState === "active") {
-                        type = (Math.random() < 0.5) ? "boss_sword_2" : "boss_sword_3";
-
-                        if (rand < 0.05 && !hasShield) type = "shield";
-                        else if (rand >= 0.05 && rand < 0.09 && !hasHelmet) type = "helmet";
-                        else if (rand >= 0.09 && rand < 0.14) type = "drop1";
-                        else if (rand >= 0.14 && rand < 0.19) type = "snow";
-                    } else {
-                        if (mlEarned >= 15.0 && rand < 0.008) {
-                            type = "egg20"; 
-                        } else if (mlEarned >= 14.0 && rand >= 0.008 && rand < 0.016) {
-                            type = "blood"; 
-                        } else if (mlEarned >= 8.0 && rand >= 0.016 && rand < 0.036) {
-                            type = "torii"; 
-                        } else if (mlEarned >= 5.0 && rand >= 0.036 && rand < 0.061) {
-                            type = "drop1"; 
-                        } else if (mlEarned >= 6.0 && rand >= 0.061 && rand < 0.14) {
-                            type = "splash"; 
-                        } else if (mlEarned >= 12.0 && rand >= 0.14 && rand < (mlEarned >= 15.0 ? 0.30 : 0.22)) {
-                            type = "snow"; 
-                        } else if (mlEarned >= 2.0 && !hasHelmet && rand >= 0.30 && rand < 0.35) {
-                            type = "helmet";
-                        } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
-                            type = "shield";
-                        } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.70) {
-                            type = "bomb"; 
-                        }
+                if (bossState === "active") {
+                    // Во время босса падают стандартные ножи/предметы игры
+                    if (rand < 0.05 && !hasShield) type = "shield";
+                    else if (rand >= 0.05 && rand < 0.09 && !hasHelmet) type = "helmet";
+                    else if (rand >= 0.09 && rand < 0.14) type = "drop1";
+                    else if (rand >= 0.14 && rand < 0.19) type = "snow";
+                    else type = "sword";
+                } else {
+                    if (mlEarned >= 15.0 && rand < 0.008) {
+                        type = "egg20"; 
+                    } else if (mlEarned >= 14.0 && rand >= 0.008 && rand < 0.016) {
+                        type = "blood"; 
+                    } else if (mlEarned >= 8.0 && rand >= 0.016 && rand < 0.036) {
+                        type = "torii"; 
+                    } else if (mlEarned >= 5.0 && rand >= 0.036 && rand < 0.061) {
+                        type = "drop1"; 
+                    } else if (mlEarned >= 6.0 && rand >= 0.061 && rand < 0.14) {
+                        type = "splash"; 
+                    } else if (mlEarned >= 12.0 && rand >= 0.14 && rand < (mlEarned >= 15.0 ? 0.30 : 0.22)) {
+                        type = "snow"; 
+                    } else if (mlEarned >= 2.0 && !hasHelmet && rand >= 0.30 && rand < 0.35) {
+                        type = "helmet";
+                    } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
+                        type = "shield";
+                    } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.70) {
+                        type = "bomb"; 
                     }
-
-                    items.push({
-                        x: Math.random() * (canvas.width - 60) + 30,
-                        y: -30,
-                        speed: (4 + Math.random() * 3) * speedMultiplier,
-                        type: type
-                    });
                 }
+
+                items.push({
+                    x: Math.random() * (canvas.width - 60) + 30,
+                    y: -30,
+                    speed: (4 + Math.random() * 3) * speedMultiplier,
+                    type: type
+                });
             }
 
             // ДВИЖЕНИЕ И ОТРИСОВКА ПРЕДМЕТОВ
@@ -456,34 +446,20 @@
                 item.y += item.speed;
 
                 ctx.font = "35px Arial";
-                if (item.type === "boss_sword_2") {
-                    if (bossImgs[2].complete && bossImgs[2].naturalWidth !== 0) {
-                        ctx.drawImage(bossImgs[2], item.x - 20, item.y - 20, 40, 40);
-                    } else {
-                        ctx.fillText("⚔️", item.x, item.y);
-                    }
-                } else if (item.type === "boss_sword_3") {
-                    if (bossImgs[3].complete && bossImgs[3].naturalWidth !== 0) {
-                        ctx.drawImage(bossImgs[3], item.x - 20, item.y - 20, 40, 40);
-                    } else {
-                        ctx.fillText("🔪", item.x, item.y);
-                    }
-                } else {
-                    if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
-                    else if (item.type === "bomb") ctx.fillText("💣", item.x, item.y);
-                    else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
-                    else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
-                    else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
-                    else if (item.type === "splash") ctx.fillText("💦", item.x, item.y);
-                    else if (item.type === "torii") ctx.fillText("⛩", item.x, item.y);
-                    else if (item.type === "blood") ctx.fillText("🩸", item.x, item.y);
-                    else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
-                    else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
-                }
+                if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
+                else if (item.type === "bomb") ctx.fillText("💣", item.x, item.y);
+                else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
+                else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
+                else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
+                else if (item.type === "splash") ctx.fillText("💦", item.x, item.y);
+                else if (item.type === "torii") ctx.fillText("⛩", item.x, item.y);
+                else if (item.type === "blood") ctx.fillText("🩸", item.x, item.y);
+                else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
+                else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
-                    // ВО ВРЕМЯ ИНТРО: абсолютная безопасность! Предметы просто пропадают при касании.
+                    // ВО ВРЕМЯ ИНТРО: абсолютная безопасность, предметы просто исчезают при касании
                     if (bossState === "intro") {
                         items.splice(i, 1);
                         continue;
@@ -543,7 +519,7 @@
                 }
 
                 if (item.y > canvas.height + 40) {
-                    if (item.type === "sword" || item.type.startsWith("boss_sword")) {
+                    if (item.type === "sword") {
                         mlEarned += 0.015; 
                     }
                     items.splice(i, 1);
