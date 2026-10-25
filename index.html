@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v26_balanced_boss";
+        const CURRENT_APP_VERSION = "v28_cube_webp_image";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -153,17 +153,21 @@
         let introTimer = 0;
         let victoryTimer = 0;
         let activeLasers = [];  
+        let lastCubeMilestone = 0; 
 
         // Загрузка картинок
         const bossImg = new Image();
         bossImg.src = "bosses/ritaboss.webp";
+
+        const cubeImg = new Image();
+        cubeImg.src = "items/cubik.webp";
 
         const player = { x: canvas.width / 2, y: canvas.height - 70, radius: 25 };
         let items = [];
         let spawnTimer = 0;
 
         function handleMove(e) {
-            if (gameOver || bossState === "intro") return; // Во время интро движение заблокировано
+            if (gameOver || bossState === "intro") return; 
             targetX = e.touches ? e.touches[0].clientX : e.clientX;
         }
 
@@ -177,7 +181,6 @@
             const isInvincible = now < invincibleUntil;
             const isSlowed = now < slowUntil;
 
-            // Движение яйца (заблокировано в фазах intro и victory)
             if (bossState !== "intro" && bossState !== "victory") {
                 if (isSlowed) {
                     player.x += (targetX - player.x) * 0.09;
@@ -187,7 +190,6 @@
             }
             player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
 
-            // Очень легкий фоновый оттенок
             if (bossState === "active" || bossState === "intro") {
                 ctx.fillStyle = "#151922"; 
             } else {
@@ -200,6 +202,18 @@
                 bossTriggered = true;
                 bossState = "intro";
                 introTimer = now;
+            }
+
+            // --- ТЕСТОВЫЙ КУБИК КАЖДЫЙ 1 МЛ ---
+            let currentWholeMl = Math.floor(mlEarned);
+            if (currentWholeMl > lastCubeMilestone && bossState !== "intro") {
+                lastCubeMilestone = currentWholeMl;
+                items.push({
+                    x: Math.random() * (canvas.width - 60) + 30,
+                    y: -30,
+                    speed: 4,
+                    type: "random_cube"
+                });
             }
 
             // --- БОСС СВЕРХУ ПОЯВЛЯЕТСЯ ТОЛЬКО ПОСЛЕ ОКОНЧАНИЯ ИНТРО ---
@@ -218,7 +232,6 @@
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
 
-                // Текст появляется ровно через 1.5 секунды
                 if (introPassed >= 1500 && introPassed < 4500) {
                     let textElapsed = introPassed - 1500;
                     let scale = 1.0;
@@ -346,26 +359,26 @@
                 ctx.stroke();
             }
 
-            // ЛАЗЕРЫ (Максимум 2 штуки, редкие, тонкие и желтые)
+            // ЛАЗЕРЫ
             let hasActiveLaserNow = false;
             if (bossState === "active") {
                 let secInBoss = bossTimePassed / 1000;
-                let isLaserPhase = (secInBoss >= 0 && secInBoss < 12) || (secInBoss >= 28 && secInBoss < 40) || (secInBoss >= 50 && secInBoss < 58);
+                let isLaserPhase = (secInBoss >= 0 && secInBoss < 14) || (secInBoss >= 26 && secInBoss < 42) || (secInBoss >= 48 && secInBoss < 58);
 
-                if (isLaserPhase && activeLasers.length < 2 && Math.random() < 0.008) {
+                if (isLaserPhase && activeLasers.length < 2 && Math.random() < 0.012) {
                     let laserX = Math.random() * (canvas.width - 60) + 30;
                     activeLasers.push({
                         x: laserX,
-                        width: 18, // Тонкий лазер
-                        warningTime: now + 1400, 
-                        activeUntil: now + 2400  
+                        width: 18, 
+                        warningTime: now + 1200, 
+                        activeUntil: now + 2200  
                     });
                 }
 
                 for (let l = activeLasers.length - 1; l >= 0; l--) {
                     let laser = activeLasers[l];
                     if (now < laser.warningTime) {
-                        ctx.fillStyle = "rgba(255, 204, 0, 0.15)";
+                        ctx.fillStyle = "rgba(255, 204, 0, 0.18)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.strokeStyle = "#ffcc00";
                         ctx.lineWidth = 1;
@@ -374,7 +387,7 @@
                         ctx.setLineDash([]);
                     } else if (now < laser.activeUntil) {
                         hasActiveLaserNow = true;
-                        ctx.fillStyle = "rgba(255, 204, 0, 0.75)";
+                        ctx.fillStyle = "rgba(255, 204, 0, 0.8)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.fillStyle = "#ffffff";
                         ctx.fillRect(laser.x - 2, 0, 4, canvas.height); 
@@ -397,10 +410,9 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ (Если активны лазеры — ножей падает меньше, если нет лазеров — темп обычный)
+            // СПАВН ПРЕДМЕТОВ
             if (bossState !== "intro") {
                 spawnTimer++;
-                // Когда есть лазер — интервал спавна ножей увеличивается в 2.5 раза (ножей падает меньше)
                 let currentSpawnInterval = hasActiveLaserNow ? 45 : Math.max(9, Math.floor(22 / speedMultiplier));
 
                 if (spawnTimer % currentSpawnInterval === 0) {
@@ -408,10 +420,10 @@
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        if (rand < 0.05 && !hasShield) type = "shield";
-                        else if (rand >= 0.05 && rand < 0.09 && !hasHelmet) type = "helmet";
-                        else if (rand >= 0.09 && rand < 0.14) type = "drop1";
-                        else if (rand >= 0.14 && rand < 0.19) type = "snow";
+                        if (rand < 0.08 && !hasShield) type = "shield";
+                        else if (rand >= 0.08 && rand < 0.12 && !hasHelmet) type = "helmet";
+                        else if (rand >= 0.12 && rand < 0.18) type = "drop1";
+                        else if (rand >= 0.18 && rand < 0.23) type = "snow";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -460,11 +472,31 @@
                 else if (item.type === "blood") ctx.fillText("🩸", item.x, item.y);
                 else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
                 else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
+                else if (item.type === "random_cube") {
+                    if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
+                        ctx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
+                    } else {
+                        ctx.fillText("🎁", item.x, item.y); // Запасной вариант
+                    }
+                }
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
-                    // ВО ВРЕМЯ ИНТРО: абсолютная безопасность
                     if (bossState === "intro") {
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    // Подбор кубика из items/cubik.webp
+                    if (item.type === "random_cube") {
+                        const randEffect = Math.random();
+                        if (randEffect < 0.33) {
+                            mlEarned += 1.0; 
+                        } else if (randEffect < 0.66) {
+                            hasShield = true; 
+                        } else {
+                            slowUntil = Date.now() + 3000; 
+                        }
                         items.splice(i, 1);
                         continue;
                     }
@@ -552,6 +584,7 @@
             bossTriggered = false;
             bossState = "none";
             activeLasers = [];
+            lastCubeMilestone = 0;
             gameOver = false;
             hasShield = false;
             hasHelmet = false;
