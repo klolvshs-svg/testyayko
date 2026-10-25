@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v25_yellow_thin_lasers";
+        const CURRENT_APP_VERSION = "v26_balanced_boss";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -346,38 +346,38 @@
                 ctx.stroke();
             }
 
-            // ЖЕЛТЫЕ И ТОНКИЕ ЛАЗЕРЫ (редкие, не спамят на телефоне)
+            // ЛАЗЕРЫ (Максимум 2 штуки, редкие, тонкие и желтые)
+            let hasActiveLaserNow = false;
             if (bossState === "active") {
                 let secInBoss = bossTimePassed / 1000;
-                let isLaserPhase = (secInBoss >= 0 && secInBoss < 10) || (secInBoss >= 30 && secInBoss < 40);
+                let isLaserPhase = (secInBoss >= 0 && secInBoss < 12) || (secInBoss >= 28 && secInBoss < 40) || (secInBoss >= 50 && secInBoss < 58);
 
-                if (isLaserPhase && Math.random() < 0.01) { // Уменьшена частота появления
+                if (isLaserPhase && activeLasers.length < 2 && Math.random() < 0.008) {
                     let laserX = Math.random() * (canvas.width - 60) + 30;
                     activeLasers.push({
                         x: laserX,
-                        width: 20, // Сделали лазер тоньше
-                        warningTime: now + 1200, 
-                        activeUntil: now + 2200  
+                        width: 18, // Тонкий лазер
+                        warningTime: now + 1400, 
+                        activeUntil: now + 2400  
                     });
                 }
 
                 for (let l = activeLasers.length - 1; l >= 0; l--) {
                     let laser = activeLasers[l];
                     if (now < laser.warningTime) {
-                        // Желтое предупреждение
-                        ctx.fillStyle = "rgba(255, 204, 0, 0.2)";
+                        ctx.fillStyle = "rgba(255, 204, 0, 0.15)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.strokeStyle = "#ffcc00";
-                        ctx.lineWidth = 1.5;
+                        ctx.lineWidth = 1;
                         ctx.setLineDash([4, 4]);
                         ctx.strokeRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.setLineDash([]);
                     } else if (now < laser.activeUntil) {
-                        // Активный желтый лазер
-                        ctx.fillStyle = "rgba(255, 204, 0, 0.8)";
+                        hasActiveLaserNow = true;
+                        ctx.fillStyle = "rgba(255, 204, 0, 0.75)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.fillStyle = "#ffffff";
-                        ctx.fillRect(laser.x - 3, 0, 6, canvas.height); 
+                        ctx.fillRect(laser.x - 2, 0, 4, canvas.height); 
 
                         if (Math.abs(player.x - laser.x) < laser.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
@@ -397,47 +397,51 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ (обычные стандартные предметы игры)
-            spawnTimer++;
-            if (spawnTimer % Math.max(9, Math.floor(22 / speedMultiplier)) === 0) {
-                let type = "sword";
-                const rand = Math.random();
+            // СПАВН ПРЕДМЕТОВ (Если активны лазеры — ножей падает меньше, если нет лазеров — темп обычный)
+            if (bossState !== "intro") {
+                spawnTimer++;
+                // Когда есть лазер — интервал спавна ножей увеличивается в 2.5 раза (ножей падает меньше)
+                let currentSpawnInterval = hasActiveLaserNow ? 45 : Math.max(9, Math.floor(22 / speedMultiplier));
 
-                if (bossState === "active") {
-                    // Во время босса падают стандартные ножи/предметы игры
-                    if (rand < 0.05 && !hasShield) type = "shield";
-                    else if (rand >= 0.05 && rand < 0.09 && !hasHelmet) type = "helmet";
-                    else if (rand >= 0.09 && rand < 0.14) type = "drop1";
-                    else if (rand >= 0.14 && rand < 0.19) type = "snow";
-                    else type = "sword";
-                } else {
-                    if (mlEarned >= 15.0 && rand < 0.008) {
-                        type = "egg20"; 
-                    } else if (mlEarned >= 14.0 && rand >= 0.008 && rand < 0.016) {
-                        type = "blood"; 
-                    } else if (mlEarned >= 8.0 && rand >= 0.016 && rand < 0.036) {
-                        type = "torii"; 
-                    } else if (mlEarned >= 5.0 && rand >= 0.036 && rand < 0.061) {
-                        type = "drop1"; 
-                    } else if (mlEarned >= 6.0 && rand >= 0.061 && rand < 0.14) {
-                        type = "splash"; 
-                    } else if (mlEarned >= 12.0 && rand >= 0.14 && rand < (mlEarned >= 15.0 ? 0.30 : 0.22)) {
-                        type = "snow"; 
-                    } else if (mlEarned >= 2.0 && !hasHelmet && rand >= 0.30 && rand < 0.35) {
-                        type = "helmet";
-                    } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
-                        type = "shield";
-                    } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.70) {
-                        type = "bomb"; 
+                if (spawnTimer % currentSpawnInterval === 0) {
+                    let type = "sword";
+                    const rand = Math.random();
+
+                    if (bossState === "active") {
+                        if (rand < 0.05 && !hasShield) type = "shield";
+                        else if (rand >= 0.05 && rand < 0.09 && !hasHelmet) type = "helmet";
+                        else if (rand >= 0.09 && rand < 0.14) type = "drop1";
+                        else if (rand >= 0.14 && rand < 0.19) type = "snow";
+                        else type = "sword";
+                    } else {
+                        if (mlEarned >= 15.0 && rand < 0.008) {
+                            type = "egg20"; 
+                        } else if (mlEarned >= 14.0 && rand >= 0.008 && rand < 0.016) {
+                            type = "blood"; 
+                        } else if (mlEarned >= 8.0 && rand >= 0.016 && rand < 0.036) {
+                            type = "torii"; 
+                        } else if (mlEarned >= 5.0 && rand >= 0.036 && rand < 0.061) {
+                            type = "drop1"; 
+                        } else if (mlEarned >= 6.0 && rand >= 0.061 && rand < 0.14) {
+                            type = "splash"; 
+                        } else if (mlEarned >= 12.0 && rand >= 0.14 && rand < (mlEarned >= 15.0 ? 0.30 : 0.22)) {
+                            type = "snow"; 
+                        } else if (mlEarned >= 2.0 && !hasHelmet && rand >= 0.30 && rand < 0.35) {
+                            type = "helmet";
+                        } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
+                            type = "shield";
+                        } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.70) {
+                            type = "bomb"; 
+                        }
                     }
-                }
 
-                items.push({
-                    x: Math.random() * (canvas.width - 60) + 30,
-                    y: -30,
-                    speed: (4 + Math.random() * 3) * speedMultiplier,
-                    type: type
-                });
+                    items.push({
+                        x: Math.random() * (canvas.width - 60) + 30,
+                        y: -30,
+                        speed: (4 + Math.random() * 3) * speedMultiplier,
+                        type: type
+                    });
+                }
             }
 
             // ДВИЖЕНИЕ И ОТРИСОВКА ПРЕДМЕТОВ
@@ -459,7 +463,7 @@
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
-                    // ВО ВРЕМЯ ИНТРО: абсолютная безопасность, предметы просто исчезают при касании
+                    // ВО ВРЕМЯ ИНТРО: абсолютная безопасность
                     if (bossState === "intro") {
                         items.splice(i, 1);
                         continue;
