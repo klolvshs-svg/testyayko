@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v30_clean_victory";
+        const CURRENT_APP_VERSION = "v31_smooth_victory_anim";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -312,21 +312,44 @@
                 }
             }
 
-            // --- ФАЗА ПОБЕДЫ (Очищаем все ножи и лазеры на экране) ---
+            // --- ФАЗА ПОБЕДЫ (Анимация улетающих ножей + текст + разблокировка) ---
             if (bossState === "victory") {
-                ctx.fillStyle = "rgba(0, 255, 100, 0.25)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                let victoryPassed = now - victoryTimer;
+                let victoryDuration = 3500; // 3.5 секунды анимации
 
+                // Все оставшиеся ножи резко ускоряются вниз и улетают
+                items.forEach(item => { item.speed = 20; });
+                activeLasers = []; // Лазеры сразу выключаются
+
+                // Плавное появление и затухание текста награды
+                let scale = 1.0;
+                let opacity = 1.0;
+
+                if (victoryPassed < 800) {
+                    scale = 0.4 + (victoryPassed / 800) * 0.6;
+                } else if (victoryPassed > 2700) {
+                    let outP = (victoryPassed - 2700) / 800;
+                    scale = 1.0 - outP * 0.3;
+                    opacity = 1.0 - outP;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, opacity);
                 ctx.fillStyle = "#00ff88";
-                ctx.font = "bold 36px Arial";
+                ctx.strokeStyle = "#003311";
+                ctx.lineWidth = 4;
+                ctx.font = `bold ${Math.floor(38 * scale)}px Arial`;
                 ctx.textAlign = "center";
-                ctx.fillText("🎉 ПОБЕДА НАД БОССОМ! 🎉", canvas.width / 2, canvas.height / 2 - 20);
-                ctx.font = "bold 22px Arial";
+                ctx.strokeText("+5.000 мл ПОБЕДА!", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.fillText("+5.000 мл ПОБЕДА!", canvas.width / 2, canvas.height / 2 - 20);
+                
+                ctx.font = `bold 22px Arial`;
                 ctx.fillStyle = "#ffffff";
-                ctx.fillText("+5.0 мл получено в награду!", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText("Босс Рита повержена!", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.restore();
 
-                if (now - victoryTimer > 3000) {
-                    bossState = "normal"; 
+                if (victoryPassed >= victoryDuration) {
+                    bossState = "normal"; // Возврат к обычной игре, движение разблокировано, ножи падают в обычном темпе
                 }
             }
 
@@ -340,10 +363,7 @@
                     totalBank += 5.0;
                     localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
                     
-                    // ПОЛНАЯ ОЧИСТКА ЭКРАНА ОТ ВСЕХ УГРОЗ ПРИ ПОБЕДЕ
-                    activeLasers = [];
-                    items = [];
-                    fists = [];
+                    fists = []; // Убираем кулачки
                 }
             }
 
@@ -437,7 +457,7 @@
                 }
             }
 
-            // ЛАЗЕРЫ (активны всю игру во время босса, максимум 2 штуки)
+            // ЛАЗЕРЫ (активны только во время активного боя с боссом)
             let hasActiveLaserNow = false;
             if (bossState === "active") {
                 if (activeLasers.length < 2 && Math.random() < 0.016) {
@@ -485,7 +505,7 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ (не спавнятся во время победы или интро)
+            // СПАВН ПРЕДМЕТОВ (не спавнятся во время интро или победной анимации)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let currentSpawnInterval = hasActiveLaserNow ? 40 : Math.max(9, Math.floor(22 / speedMultiplier));
@@ -557,6 +577,7 @@
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
+                    // Во время интро или победы предметы не наносят урон
                     if (bossState === "intro" || bossState === "victory") {
                         items.splice(i, 1);
                         continue;
@@ -629,7 +650,7 @@
                 }
 
                 if (item.y > canvas.height + 40) {
-                    if (item.type === "sword") {
+                    if (item.type === "sword" && bossState !== "victory") {
                         mlEarned += 0.015; 
                     }
                     items.splice(i, 1);
