@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v57_egg_img_and_fist_damage";
+        const CURRENT_APP_VERSION = "v58_fix_egg_aspect_ratio";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -236,7 +236,6 @@
 
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ (АКТИВНАЯ ФАЗА) ---
             if (bossState === "active") {
-                // Строгий таймер капель при HP < 100: сначала 2 капли, через 2 секунды 1 капля, через 2 секунды 2 капли и т.д.
                 if (bossHp < 100) {
                     if (!bossDropsStarted) {
                         bossDropsStarted = true;
@@ -335,7 +334,7 @@
                 ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, canvas.width / 2, barY - 5);
             }
 
-            // --- ОБНОВЛЕНИЕ И ОТРИСОВКА ЛЕТЯЩИХ КУЛАКОВ (Урон увеличен до 10) ---
+            // --- ОБНОВЛЕНИЕ И ОТРИСОВКА ЛЕТЯЩИХ КУЛАКОВ ---
             for (let f = flyingFists.length - 1; f >= 0; f--) {
                 let ff = flyingFists[f];
                 let angle = Math.atan2(bossY - ff.y, bossX - ff.x);
@@ -489,9 +488,12 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // ИГРОК (ЯЙЦО) - Рендер текстуры из ball/mainball.png
+            // ИГРОК (ЯЙЦО) - Рендер с сохранением пропорций (944x1133)
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
-                ctx.drawImage(eggImg, player.x - 25, player.y - 25, 50, 50);
+                let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; // ~0.833
+                let drawH = 55;
+                let drawW = drawH * imgAspect; 
+                ctx.drawImage(eggImg, player.x - drawW / 2, player.y - drawH / 2 + 5, drawW, drawH);
             } else {
                 ctx.font = "40px Arial";
                 ctx.textAlign = "center";
