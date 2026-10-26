@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v67_boss_bombs_texture";
+        const CURRENT_APP_VERSION = "v68_larger_boss_bombs";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -189,7 +189,7 @@
         eggImg.src = "ball/mainball.png";
 
         const bombImg = new Image();
-        bombImg.src = "item/batyabomb.png";
+        bombImg.src = "item/batyabomb.webp"; // Если у вас .png, поменяйте здесь на .png
 
         let items = [];
         let spawnTimer = 0;
@@ -615,7 +615,6 @@
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        // Уменьшили мечи, добавили бомбы (в умеренном количестве ~10%)
                         if (rand < 0.38) type = "boss_fist"; 
                         else if (rand >= 0.38 && rand < 0.45 && !hasShield) type = "shield";
                         else if (rand >= 0.45 && rand < 0.52) type = "drop1";
@@ -666,7 +665,7 @@
                 else if (item.type === "bomb") {
                     if (bombImg.complete && bombImg.naturalWidth !== 0) {
                         let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                        let drawH = 40;
+                        let drawH = 54; // Увеличенный размер бомбы
                         let drawW = drawH * imgAspect;
                         ctx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
                     } else {
