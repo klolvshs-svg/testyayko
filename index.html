@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v49_centered_boss_spinning_orbs";
+        const CURRENT_APP_VERSION = "v50_alternating_boss_drops";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -155,6 +155,7 @@
         let activeWaterStreams = [];  
         let flyingFists = []; 
         let lastCubeMilestone = 0; 
+        let bossDropCycle = 0; // Счётчик для чередования капель (2 -> 1 -> 2 -> 1)
 
         // Параметры босса (200 HP)
         let bossX = canvas.width / 2;
@@ -212,7 +213,7 @@
                 bossState = "intro";
                 introTimer = now;
                 bossHp = bossMaxHp; 
-                bossX = canvas.width / 2; // Фиксируем спавн строго посередине
+                bossX = canvas.width / 2; 
             }
 
             // --- ТЕСТОВЫЙ КУБИК КАЖДЫЙ 1 МЛ ---
@@ -230,18 +231,33 @@
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ (АКТИВНАЯ ФАЗА) ---
             if (bossState === "active") {
                 if (bossHp < 100 && Math.random() < 0.025) {
-                    // Веер из 2 желтых капель воды (с углом вращения)
-                    [-2.2, 2.2].forEach(vx => {
+                    // Чередование: 2 капли, затем 1 капля по кругу
+                    let countToSpawn = (bossDropCycle % 2 === 0) ? 2 : 1;
+                    bossDropCycle++;
+
+                    if (countToSpawn === 2) {
+                        [-2.2, 2.2].forEach(vx => {
+                            items.push({
+                                x: bossX,
+                                y: bossY + 20,
+                                vx: vx,
+                                speed: 5.0,
+                                rotation: 0,
+                                rotationSpeed: (vx > 0 ? 0.06 : -0.06),
+                                type: "yellow_orb"
+                            });
+                        });
+                    } else {
                         items.push({
                             x: bossX,
                             y: bossY + 20,
-                            vx: vx,
+                            vx: 0,
                             speed: 5.0,
                             rotation: 0,
-                            rotationSpeed: (vx > 0 ? 0.06 : -0.06), // Плавное вращение как пропеллер
+                            rotationSpeed: 0.06,
                             type: "yellow_orb"
                         });
-                    });
+                    }
                 }
 
                 bossX += bossSpeedX;
@@ -323,7 +339,6 @@
                 let currentIntroY = -50 + (bossY - (-50)) * easeProgress;
                 let scaleAnim = 0.3 + 0.7 * easeProgress;
 
-                // Гарантируем, что во время интро босс всегда строго в центре по Х
                 let introX = canvas.width / 2;
 
                 ctx.save();
@@ -368,7 +383,7 @@
 
                 if (introPassed >= introDuration) {
                     bossState = "active";
-                    bossX = canvas.width / 2; // Переход к движению ровно из центра
+                    bossX = canvas.width / 2; 
                 }
             }
 
@@ -606,7 +621,6 @@
                 else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
                 else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
                 else if (item.type === "yellow_orb") {
-                    // ЖЕЛТАЯ КАПЛЯ ВОДЫ С ЭФФЕКТОМ ВРАЩЕНИЯ (ПРОПЕЛЛЕР)
                     ctx.save();
                     ctx.translate(item.x, item.y);
                     if (item.rotationSpeed) {
@@ -752,6 +766,7 @@
             activeWaterStreams = [];
             flyingFists = [];
             lastCubeMilestone = 0;
+            bossDropCycle = 0;
             bossHp = bossMaxHp;
             gameOver = false;
             hasShield = false;
