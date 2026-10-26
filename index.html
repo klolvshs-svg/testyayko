@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v56_more_fists";
+        const CURRENT_APP_VERSION = "v57_egg_img_and_fist_damage";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -173,6 +173,9 @@
 
         const cubeImg = new Image();
         cubeImg.src = "items/cubik.webp";
+
+        const eggImg = new Image();
+        eggImg.src = "ball/mainball.png";
 
         let items = [];
         let spawnTimer = 0;
@@ -332,7 +335,7 @@
                 ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, canvas.width / 2, barY - 5);
             }
 
-            // --- ОБНОВЛЕНИЕ И ОТРИСОВКА ЛЕТЯЩИХ КУЛАКОВ ---
+            // --- ОБНОВЛЕНИЕ И ОТРИСОВКА ЛЕТЯЩИХ КУЛАКОВ (Урон увеличен до 10) ---
             for (let f = flyingFists.length - 1; f >= 0; f--) {
                 let ff = flyingFists[f];
                 let angle = Math.atan2(bossY - ff.y, bossX - ff.x);
@@ -344,7 +347,7 @@
                 ctx.fillText("✊", ff.x, ff.y);
 
                 if (Math.hypot(bossX - ff.x, bossY - ff.y) < 25) {
-                    bossHp -= 5;
+                    bossHp -= 10;
                     flyingFists.splice(f, 1);
                 }
             }
@@ -486,10 +489,14 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // ЯЙЦО
-            ctx.font = "40px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("🥚", player.x, player.y + 15);
+            // ИГРОК (ЯЙЦО) - Рендер текстуры из ball/mainball.png
+            if (eggImg.complete && eggImg.naturalWidth !== 0) {
+                ctx.drawImage(eggImg, player.x - 25, player.y - 25, 50, 50);
+            } else {
+                ctx.font = "40px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🥚", player.x, player.y + 15);
+            }
 
             if (isInvincible) {
                 ctx.beginPath();
@@ -585,7 +592,6 @@
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        // Увеличенный на 30% шанс кулаков (0.39 вместо 0.30)
                         if (rand < 0.39) type = "boss_fist"; 
                         else if (rand >= 0.39 && rand < 0.47 && !hasShield) type = "shield";
                         else if (rand >= 0.47 && rand < 0.55) type = "drop1";
