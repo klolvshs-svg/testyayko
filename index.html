@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v74_restore_original_hitbox_25";
+        const CURRENT_APP_VERSION = "v75_perfect_centered_hitbox";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,7 +156,7 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Возвращен оригинальный радиус хитбокса (25)
+        // Возвращен оригинальный надежный радиус хитбокса (25)
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
@@ -507,7 +507,7 @@
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
-            // ИГРОК (ЯЙЦО) - Сбалансированный размер (50px высота) с Retina-сглаживанием
+            // ИГРОК (ЯЙЦО) - Сбалансированный размер (50px высота) с идеальным центрированием по хитбоксу
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 50; 
