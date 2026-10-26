@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v78_fixed_item_alignment";
+        const CURRENT_APP_VERSION = "v79_perfect_visual_collision_offset";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,7 +156,7 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Надежный оригинальный радиус хитбокса (25)
+        // Радиус хитбокса
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
@@ -503,11 +503,14 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // --- КООРДИНАТЫ ИГРОКА ---
+            // --- ТОЧНОЕ СИНХРОНИЗИРОВАНИЕ КООРДИНАТ ---
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
-            // ИГРОК (ЯЙЦО)
+            // Идеальный физический центр столкновений сдвинут влево на 6px под смещение текстуры яйца в файле mainball.png
+            const collisionX = renderPlayerX - 6;
+
+            // ИГРОК (ЯЙЦО) - Визуальный рендер
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 50; 
@@ -587,7 +590,7 @@
                             ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
                         }
 
-                        if (Math.abs(renderPlayerX - stream.x) < stream.width / 2 + player.radius - 5) {
+                        if (Math.abs(collisionX - stream.x) < stream.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
                                 if (hasShield) {
                                     hasShield = false;
@@ -661,7 +664,6 @@
                     item.x += item.vx;
                 }
 
-                // ИСПРАВЛЕНИЕ: Установка центра для всех эмодзи-предметов, чтобы x был истинным центром
                 ctx.font = "35px Arial";
                 ctx.textAlign = "center";
 
@@ -716,8 +718,8 @@
                     }
                 }
 
-                // ПРОВЕРКА КОЛЛИЗИИ ЦЕНТР-К-ЦЕНТРУ
-                const dist = Math.hypot(renderPlayerX - item.x, renderPlayerY - item.y);
+                // ПРОВЕРКА КОЛЛИЗИИ СТРОГО ПО ИДЕАЛЬНО СМЕЩЕННОМУ ЦЕНТРУ ХИТБОКСА (collisionX)
+                const dist = Math.hypot(collisionX - item.x, renderPlayerY - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
                         items.splice(i, 1);
@@ -726,7 +728,7 @@
 
                     if (item.type === "boss_fist") {
                         flyingFists.push({
-                            x: renderPlayerX,
+                            x: collisionX,
                             y: renderPlayerY,
                             speed: 13
                         });
