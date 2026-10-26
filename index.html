@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v68_larger_boss_bombs";
+        const CURRENT_APP_VERSION = "v69_fix_bomb_png_and_size";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -189,7 +189,7 @@
         eggImg.src = "ball/mainball.png";
 
         const bombImg = new Image();
-        bombImg.src = "item/batyabomb.webp"; // Если у вас .png, поменяйте здесь на .png
+        bombImg.src = "item/batyabomb.png"; // Исправлено на .png
 
         let items = [];
         let spawnTimer = 0;
@@ -665,7 +665,7 @@
                 else if (item.type === "bomb") {
                     if (bombImg.complete && bombImg.naturalWidth !== 0) {
                         let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                        let drawH = 54; // Увеличенный размер бомбы
+                        let drawH = 38; // Размер возвращен к стандарту 1-й версии (вровень с эмодзи)
                         let drawW = drawH * imgAspect;
                         ctx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
                     } else {
