@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v41_fan_of_2_yellow_orbs";
+        const CURRENT_APP_VERSION = "v42_yellow_water_stream";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -152,7 +152,7 @@
         let bossState = "none"; 
         let introTimer = 0;
         let victoryTimer = 0;
-        let activeLasers = [];  
+        let activeWaterStreams = [];  
         let lastCubeMilestone = 0; 
 
         // Параметры босса (200 HP)
@@ -201,7 +201,7 @@
             }
             player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
 
-            // Обычный цвет фона без затемнения
+            // Обычный цвет фона
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -228,7 +228,7 @@
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ ---
             if (bossState === "active") {
                 if (bossHp < 100 && Math.random() < 0.025) {
-                    // Веер ровно из 2 желтых шаров
+                    // Веер из 2 желтых шаров
                     [-2.2, 2.2].forEach(vx => {
                         items.push({
                             x: bossX,
@@ -316,7 +316,7 @@
                 let victoryDuration = 3500; 
 
                 items.forEach(item => { item.speed = 20; });
-                activeLasers = []; 
+                activeWaterStreams = []; 
 
                 let scale = 1.0;
                 let opacity = 1.0;
@@ -414,37 +414,43 @@
                 ctx.stroke();
             }
 
-            // ЖЕЛТЫЕ ЛАЗЕРЫ ИЗ БОССА
+            // ЖЕЛТАЯ СТРУЯ ВОДЫ ИЗ БОССА С ЗОНОЙ ПРЕДУПРЕЖДЕНИЯ
             if (bossState === "active") {
-                if (activeLasers.length === 0 && Math.random() < 0.018) {
-                    activeLasers.push({
+                if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
+                    activeWaterStreams.push({
                         x: bossX, 
-                        width: 18, 
-                        warningTime: now + 1000, 
-                        activeUntil: now + 2000  
+                        width: 22, 
+                        warningTime: now + 1000, // 1 секунда на подготовку (мета)
+                        activeUntil: now + 2000  // 1 секунда самой струи
                     });
                 }
 
-                for (let l = activeLasers.length - 1; l >= 0; l--) {
-                    let laser = activeLasers[l];
-                    if (now < laser.warningTime) {
-                        laser.x = bossX;
-                        ctx.strokeStyle = "#ffcc00";
-                        ctx.lineWidth = 2;
-                        ctx.setLineDash([6, 6]);
-                        ctx.strokeRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
+                for (let s = activeWaterStreams.length - 1; s >= 0; s--) {
+                    let stream = activeWaterStreams[s];
+                    if (now < stream.warningTime) {
+                        stream.x = bossX; // следует за боссом во время подготовки
+                        // Пульсирующая рамка-предупреждение («мета», где будет струя)
+                        ctx.strokeStyle = "#ffdd00";
+                        ctx.lineWidth = 3;
+                        ctx.setLineDash([8, 6]);
+                        ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, canvas.height);
                         ctx.setLineDash([]);
-                    } else if (now < laser.activeUntil) {
-                        ctx.fillStyle = "rgba(255, 204, 0, 0.75)";
-                        ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
-                        ctx.fillStyle = "#ffffff";
-                        ctx.fillRect(laser.x - 2, 0, 4, canvas.height); 
+                    } else if (now < stream.activeUntil) {
+                        // Поток желтой воды
+                        ctx.fillStyle = "rgba(255, 215, 0, 0.75)";
+                        ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, canvas.height);
+                        
+                        // Анимация капель/волн внутри струи воды
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+                        for (let wy = 10; wy < canvas.height; wy += 35) {
+                            ctx.fillRect(stream.x - 3, (wy + (Date.now() / 4) % 35), 6, 12);
+                        }
 
-                        if (Math.abs(player.x - laser.x) < laser.width / 2 + player.radius - 5) {
+                        if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
                                 if (hasShield) {
                                     hasShield = false;
-                                    activeLasers.splice(l, 1);
+                                    activeWaterStreams.splice(s, 1);
                                     continue;
                                 } else {
                                     showGameOver();
@@ -453,7 +459,7 @@
                             }
                         }
                     } else {
-                        activeLasers.splice(l, 1);
+                        activeWaterStreams.splice(s, 1);
                     }
                 }
             }
@@ -651,7 +657,7 @@
             slowUntil = 0;
             bossTriggered = false;
             bossState = "none";
-            activeLasers = [];
+            activeWaterStreams = [];
             lastCubeMilestone = 0;
             bossHp = bossMaxHp;
             gameOver = false;
