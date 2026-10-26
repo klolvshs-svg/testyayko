@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v55_strict_boss_drops_cycle";
+        const CURRENT_APP_VERSION = "v56_more_fists";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -157,7 +157,7 @@
         let lastCubeMilestone = 0; 
         
         let bossDropsStarted = false;
-        let bossDropStep = 0; // 0 -> 2 капли, 1 -> 1 капля
+        let bossDropStep = 0; 
         let lastBossDropTime = 0;
 
         // Параметры босса (200 HP)
@@ -238,7 +238,7 @@
                     if (!bossDropsStarted) {
                         bossDropsStarted = true;
                         lastBossDropTime = now;
-                        bossDropStep = 0; // Сразу 2 капли при переходе порога
+                        bossDropStep = 0; 
                         [-2.2, 2.2].forEach(vx => {
                             items.push({
                                 x: bossX,
@@ -255,7 +255,6 @@
                         bossDropStep = (bossDropStep + 1) % 2;
 
                         if (bossDropStep === 1) {
-                            // 1 капля
                             items.push({
                                 x: bossX,
                                 y: bossY + 20,
@@ -266,7 +265,6 @@
                                 type: "yellow_orb"
                             });
                         } else {
-                            // 2 капли
                             [-2.2, 2.2].forEach(vx => {
                                 items.push({
                                     x: bossX,
@@ -406,7 +404,7 @@
                 if (introPassed >= introDuration) {
                     bossState = "active";
                     bossX = canvas.width / 2; 
-                    bossDropsStarted = false; // Сбрасываем перед стартом активной фазы
+                    bossDropsStarted = false; 
                 }
             }
 
@@ -587,9 +585,10 @@
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        if (rand < 0.30) type = "boss_fist"; 
-                        else if (rand >= 0.30 && rand < 0.38 && !hasShield) type = "shield";
-                        else if (rand >= 0.38 && rand < 0.46) type = "drop1";
+                        // Увеличенный на 30% шанс кулаков (0.39 вместо 0.30)
+                        if (rand < 0.39) type = "boss_fist"; 
+                        else if (rand >= 0.39 && rand < 0.47 && !hasShield) type = "shield";
+                        else if (rand >= 0.47 && rand < 0.55) type = "drop1";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
