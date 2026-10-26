@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v80_balanced_symmetrical_hitbox";
+        const CURRENT_APP_VERSION = "v81_original_reliable_hitbox";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,8 +156,8 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Сбалансированный радиус хитбокса (22 вместо 25), чтобы края текстуры не цепляли воздух слева и справа
-        const player = { x: W / 2, y: H - 70, radius: 22 };
+        // Возвращен тот самый оригинальный радиус хитбокса из рабочего старого кода
+        const player = { x: W / 2, y: H - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
@@ -503,11 +503,11 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // --- СТРОГО СИММЕТРИЧНЫЕ КООРДИНАТЫ ---
+            // --- ЕДИНЫЕ ОРИГИНАЛЬНЫЕ КООРДИНАТЫ ---
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
-            // ИГРОК (ЯЙЦО) - Визуальный рендер
+            // ИГРОК (ЯЙЦО) - Оригинальный рендер из стабильной версии
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 50; 
@@ -587,7 +587,7 @@
                             ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
                         }
 
-                        if (Math.abs(renderPlayerX - stream.x) < stream.width / 2 + player.radius - 5) {
+                        if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
                                 if (hasShield) {
                                     hasShield = false;
@@ -662,13 +662,11 @@
                 }
 
                 ctx.font = "35px Arial";
-                ctx.textAlign = "center";
-
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
                 else if (item.type === "bomb") {
                     if (bombImg.complete && bombImg.naturalWidth !== 0) {
                         let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                        let drawH = 50; 
+                        let drawH = 40;
                         let drawW = drawH * imgAspect;
                         ctx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
                     } else {
@@ -715,8 +713,8 @@
                     }
                 }
 
-                // ПРОВЕРКА КОЛЛИЗИИ СТРОГО ПО ИДЕАЛЬНОМУ ЦЕНТРУ
-                const dist = Math.hypot(renderPlayerX - item.x, renderPlayerY - item.y);
+                // ОРИГИНАЛЬНАЯПРОВЕРКА КОЛЛИЗИИ ИЗ СТАРОГО КОДА
+                const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
                         items.splice(i, 1);
@@ -725,8 +723,8 @@
 
                     if (item.type === "boss_fist") {
                         flyingFists.push({
-                            x: renderPlayerX,
-                            y: renderPlayerY,
+                            x: player.x,
+                            y: player.y,
                             speed: 13
                         });
                         items.splice(i, 1);
