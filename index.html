@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v42_yellow_water_stream";
+        const CURRENT_APP_VERSION = "v43_realistic_dripping_water";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -414,14 +414,14 @@
                 ctx.stroke();
             }
 
-            // ЖЕЛТАЯ СТРУЯ ВОДЫ ИЗ БОССА С ЗОНОЙ ПРЕДУПРЕЖДЕНИЯ
+            // РЕАЛИСТИЧНАЯ СТРУЯ КАПАЮЩЕЙ ВОДЫ ИЗ БОССА С ЗОНОЙ ПОДГОТОВКИ
             if (bossState === "active") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
                     activeWaterStreams.push({
                         x: bossX, 
-                        width: 22, 
+                        width: 24, 
                         warningTime: now + 1000, // 1 секунда на подготовку (мета)
-                        activeUntil: now + 2000  // 1 секунда самой струи
+                        activeUntil: now + 2000  // 1 секунда струи
                     });
                 }
 
@@ -429,21 +429,37 @@
                     let stream = activeWaterStreams[s];
                     if (now < stream.warningTime) {
                         stream.x = bossX; // следует за боссом во время подготовки
-                        // Пульсирующая рамка-предупреждение («мета», где будет струя)
+                        // Пульсирующая рамка-предупреждение («мета»)
                         ctx.strokeStyle = "#ffdd00";
                         ctx.lineWidth = 3;
                         ctx.setLineDash([8, 6]);
                         ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, canvas.height);
                         ctx.setLineDash([]);
                     } else if (now < stream.activeUntil) {
-                        // Поток желтой воды
-                        ctx.fillStyle = "rgba(255, 215, 0, 0.75)";
+                        // Полупрозрачное основание водяного потока
+                        ctx.fillStyle = "rgba(255, 220, 50, 0.35)";
                         ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, canvas.height);
-                        
-                        // Анимация капель/волн внутри струи воды
-                        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-                        for (let wy = 10; wy < canvas.height; wy += 35) {
-                            ctx.fillRect(stream.x - 3, (wy + (Date.now() / 4) % 35), 6, 12);
+
+                        // Реалистичные падающие капли воды и брызги внутри потока
+                        ctx.fillStyle = "rgba(255, 240, 100, 0.9)";
+                        let timeOffset = Date.now() / 2.5;
+                        for (let wy = 0; wy < canvas.height; wy += 18) {
+                            // Смещение каждой капли для создания эффекта падения струи
+                            let dropY = (wy + timeOffset) % canvas.height;
+                            let dropX = stream.x + Math.sin(dropY * 0.05) * 4;
+                            let dropSize = 4 + (wy % 4);
+                            
+                            ctx.beginPath();
+                            ctx.arc(dropX, dropY, dropSize, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        // Брызги по краям струи
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                        for (let sp = 10; sp < canvas.height; sp += 30) {
+                            let spY = (sp + timeOffset * 1.2) % canvas.height;
+                            ctx.fillRect(stream.x - stream.width / 2 - 2, spY, 3, 3);
+                            ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
                         }
 
                         if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
