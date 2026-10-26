@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v63_retina_crisp_display";
+        const CURRENT_APP_VERSION = "v64_restore_original_egg_size";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -503,10 +503,10 @@
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
-            // ИГРОК (ЯЙЦО) - Рендер по центру с идеальным сглаживанием Retina
+            // ИГРОК (ЯЙЦО) - Исходный крупный размер (55px высота) с Retina-сглаживанием
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
-                let drawH = 44; 
+                let drawH = 55; // Исходный размер, соответствующий размеру коллизий и старому смайлику
                 let drawW = drawH * imgAspect; 
                 let renderX = Math.round(renderPlayerX - drawW / 2);
                 let renderY = Math.round(renderPlayerY - drawH / 2);
