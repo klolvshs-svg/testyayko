@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v37_falling_fists_yellow_lasers_orbs";
+        const CURRENT_APP_VERSION = "v38_more_fists_5hp_no_darkness";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -201,11 +201,8 @@
             }
             player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
 
-            if (bossState === "active" || bossState === "intro" || bossState === "victory") {
-                ctx.fillStyle = "#151922"; 
-            } else {
-                ctx.fillStyle = "#0f1721";
-            }
+            // Обычный цвет фона без затемнения
+            ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // АКТИВАЦИЯ БОССА НА 1.0 МЛ
@@ -230,7 +227,6 @@
 
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ ---
             if (bossState === "active") {
-                // Если HP < 100, босс пуляется желтыми кругами 🟡
                 if (bossHp < 100 && Math.random() < 0.025) {
                     items.push({
                         x: bossX,
@@ -350,7 +346,6 @@
                 }
             }
 
-            // Проверка победы (0 HP у босса)
             if (bossState === "active" && bossHp <= 0) {
                 bossState = "victory";
                 victoryTimer = now;
@@ -416,7 +411,7 @@
                 ctx.stroke();
             }
 
-            // ЖЕЛТЫЕ ЛАЗЕРЫ ИЗ БОССА
+            // ЖЕЛТЫЕ ЛАЗЕРЫ ИЗ БОССА (Без темного экрана)
             if (bossState === "active") {
                 if (activeLasers.length === 0 && Math.random() < 0.018) {
                     activeLasers.push({
@@ -431,16 +426,15 @@
                     let laser = activeLasers[l];
                     if (now < laser.warningTime) {
                         laser.x = bossX;
-                        ctx.fillStyle = "rgba(255, 204, 0, 0.18)";
-                        ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
+                        // Только рамка предупреждения, без заливки экрана
                         ctx.strokeStyle = "#ffcc00";
-                        ctx.lineWidth = 1;
-                        ctx.setLineDash([4, 4]);
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([6, 6]);
                         ctx.strokeRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.setLineDash([]);
                     } else if (now < laser.activeUntil) {
-                        // ЖЕЛТЫЙ ЛАЗЕР
-                        ctx.fillStyle = "rgba(255, 204, 0, 0.85)";
+                        // Желтый луч без затемнения
+                        ctx.fillStyle = "rgba(255, 204, 0, 0.75)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.fillStyle = "#ffffff";
                         ctx.fillRect(laser.x - 2, 0, 4, canvas.height); 
@@ -463,7 +457,7 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ (Во время босса падают кулаки ✊ для урона боссу)
+            // СПАВН ПРЕДМЕТОВ (Много падающих кулаков ✊)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let currentSpawnInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -473,10 +467,10 @@
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        if (rand < 0.12) type = "boss_fist"; // Падающий кулак для атаки босса
-                        else if (rand >= 0.12 && rand < 0.20 && !hasShield) type = "shield";
-                        else if (rand >= 0.20 && rand < 0.25 && !hasHelmet) type = "helmet";
-                        else if (rand >= 0.25 && rand < 0.32) type = "drop1";
+                        if (rand < 0.28) type = "boss_fist"; // Увеличенный шанс падения кулаков
+                        else if (rand >= 0.28 && rand < 0.36 && !hasShield) type = "shield";
+                        else if (rand >= 0.36 && rand < 0.42 && !hasHelmet) type = "helmet";
+                        else if (rand >= 0.42 && rand < 0.50) type = "drop1";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -555,9 +549,9 @@
                         continue;
                     }
 
-                    // ЕСЛИ ПОЙМАЛ КУЛАК — СНИМАЕМ ХП БОССУ!
+                    // ЕСЛИ ПОЙМАЛ КУЛАК — СНИМАЕМ БОССУ 5 ХП
                     if (item.type === "boss_fist") {
-                        bossHp -= 15;
+                        bossHp -= 5;
                         items.splice(i, 1);
                         continue;
                     }
