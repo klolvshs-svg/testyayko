@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v79_perfect_visual_collision_offset";
+        const CURRENT_APP_VERSION = "v80_balanced_symmetrical_hitbox";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,8 +156,8 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Радиус хитбокса
-        const player = { x: W / 2, y: H - 70, radius: 25 };
+        // Сбалансированный радиус хитбокса (22 вместо 25), чтобы края текстуры не цепляли воздух слева и справа
+        const player = { x: W / 2, y: H - 70, radius: 22 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
@@ -503,12 +503,9 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // --- ТОЧНОЕ СИНХРОНИЗИРОВАНИЕ КООРДИНАТ ---
+            // --- СТРОГО СИММЕТРИЧНЫЕ КООРДИНАТЫ ---
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
-
-            // Идеальный физический центр столкновений сдвинут влево на 6px под смещение текстуры яйца в файле mainball.png
-            const collisionX = renderPlayerX - 6;
 
             // ИГРОК (ЯЙЦО) - Визуальный рендер
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
@@ -590,7 +587,7 @@
                             ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
                         }
 
-                        if (Math.abs(collisionX - stream.x) < stream.width / 2 + player.radius - 5) {
+                        if (Math.abs(renderPlayerX - stream.x) < stream.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
                                 if (hasShield) {
                                     hasShield = false;
@@ -718,8 +715,8 @@
                     }
                 }
 
-                // ПРОВЕРКА КОЛЛИЗИИ СТРОГО ПО ИДЕАЛЬНО СМЕЩЕННОМУ ЦЕНТРУ ХИТБОКСА (collisionX)
-                const dist = Math.hypot(collisionX - item.x, renderPlayerY - item.y);
+                // ПРОВЕРКА КОЛЛИЗИИ СТРОГО ПО ИДЕАЛЬНОМУ ЦЕНТРУ
+                const dist = Math.hypot(renderPlayerX - item.x, renderPlayerY - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
                         items.splice(i, 1);
@@ -728,7 +725,7 @@
 
                     if (item.type === "boss_fist") {
                         flyingFists.push({
-                            x: collisionX,
+                            x: renderPlayerX,
                             y: renderPlayerY,
                             speed: 13
                         });
