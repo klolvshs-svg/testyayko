@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v72_precise_egg_hitbox";
+        const CURRENT_APP_VERSION = "v73_balanced_egg_hitbox";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,8 +156,8 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Хитбокс уменьшен до 13, чтобы строго соответствовать реальному размеру яйца пиксель-в-пиксель
-        const player = { x: W / 2, y: H - 70, radius: 14 };
+        // Сбалансированный хитбокс (radius: 15) для идеального покрытия с обеих сторон
+        const player = { x: W / 2, y: H - 70, radius: 15 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
