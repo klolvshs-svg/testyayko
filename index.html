@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v44_flying_fists_bruises";
+        const CURRENT_APP_VERSION = "v45_yellow_water_droplets";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -153,7 +153,7 @@
         let introTimer = 0;
         let victoryTimer = 0;
         let activeWaterStreams = [];  
-        let flyingFists = []; // Летящие кулаки в босса
+        let flyingFists = []; 
         let lastCubeMilestone = 0; 
 
         // Параметры босса (200 HP)
@@ -229,7 +229,7 @@
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ ---
             if (bossState === "active") {
                 if (bossHp < 100 && Math.random() < 0.025) {
-                    // Веер из 2 желтых шаров
+                    // Веер из 2 желтых капель воды
                     [-2.2, 2.2].forEach(vx => {
                         items.push({
                             x: bossX,
@@ -250,15 +250,14 @@
                 if (bossImg.complete && bossImg.naturalWidth !== 0) {
                     ctx.drawImage(bossImg, bossX - 28, bossY - 28, 56, 56);
                     
-                    // Если у босса меньше 100 HP, рисуем синяки на лице
+                    // Синяки на лице при HP < 100
                     if (bossHp < 100) {
                         ctx.fillStyle = "rgba(100, 50, 160, 0.8)";
                         ctx.beginPath();
-                        ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2); // левый синяк
-                        ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2); // правый синяк
+                        ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2);
+                        ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2);
                         ctx.fill();
 
-                        // Темные точки / ссадины
                         ctx.fillStyle = "rgba(40, 10, 80, 0.85)";
                         ctx.beginPath();
                         ctx.arc(bossX - 7, bossY - 3, 3, 0, Math.PI * 2);
@@ -305,7 +304,6 @@
                 ctx.textAlign = "center";
                 ctx.fillText("✊", ff.x, ff.y);
 
-                // Если кулак долетел до босса
                 if (Math.hypot(bossX - ff.x, bossY - ff.y) < 25) {
                     bossHp -= 5;
                     flyingFists.splice(f, 1);
@@ -452,33 +450,30 @@
                 ctx.stroke();
             }
 
-            // РЕАЛИСТИЧНАЯ СТРУЯ КАПАЮЩЕЙ ВОДЫ ИЗ БОССА С ЗОНОЙ ПОДГОТОВКИ
+            // СТРУЯ ВОДЫ ИЗ БОССА
             if (bossState === "active") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
                     activeWaterStreams.push({
                         x: bossX, 
                         width: 24, 
-                        warningTime: now + 1000, // 1 секунда на подготовку (мета)
-                        activeUntil: now + 2000  // 1 секунда струи
+                        warningTime: now + 1000, 
+                        activeUntil: now + 2000  
                     });
                 }
 
                 for (let s = activeWaterStreams.length - 1; s >= 0; s--) {
                     let stream = activeWaterStreams[s];
                     if (now < stream.warningTime) {
-                        stream.x = bossX; // следует за боссом во время подготовки
-                        // Пульсирующая рамка-предупреждение («мета»)
+                        stream.x = bossX;
                         ctx.strokeStyle = "#ffdd00";
                         ctx.lineWidth = 3;
                         ctx.setLineDash([8, 6]);
                         ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, canvas.height);
                         ctx.setLineDash([]);
                     } else if (now < stream.activeUntil) {
-                        // Полупрозрачное основание водяного потока
                         ctx.fillStyle = "rgba(255, 220, 50, 0.35)";
                         ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, canvas.height);
 
-                        // Реалистичные падающие капли воды и брызги внутри потока
                         ctx.fillStyle = "rgba(255, 240, 100, 0.9)";
                         let timeOffset = Date.now() / 2.5;
                         for (let wy = 0; wy < canvas.height; wy += 18) {
@@ -491,7 +486,6 @@
                             ctx.fill();
                         }
 
-                        // Брызги по краям струи
                         ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
                         for (let sp = 10; sp < canvas.height; sp += 30) {
                             let spY = (sp + timeOffset * 1.2) % canvas.height;
@@ -585,14 +579,24 @@
                 else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
                 else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
                 else if (item.type === "yellow_orb") {
+                    // РЕАЛИСТИЧНАЯ ЖЕЛТАЯ КАПЛЯ ВОДЫ ВМЕСТО ШАРА
                     ctx.save();
                     ctx.beginPath();
-                    ctx.arc(item.x, item.y, 14, 0, Math.PI * 2);
+                    // Форма капли (заужена сверху, расширена книзу)
+                    ctx.moveTo(item.x, item.y - 14);
+                    ctx.bezierCurveTo(item.x + 12, item.y - 2, item.x + 12, item.y + 12, item.x, item.y + 14);
+                    ctx.bezierCurveTo(item.x - 12, item.y + 12, item.x - 12, item.y - 2, item.x, item.y - 14);
                     ctx.fillStyle = "#ffcc00";
                     ctx.fill();
                     ctx.strokeStyle = "#ffffff";
-                    ctx.lineWidth = 2;
+                    ctx.lineWidth = 1.5;
                     ctx.stroke();
+
+                    // Блик на капле
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+                    ctx.beginPath();
+                    ctx.arc(item.x - 3, item.y - 3, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
                     ctx.restore();
                 } else if (item.type === "random_cube") {
                     if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
@@ -609,7 +613,6 @@
                         continue;
                     }
 
-                    // ПОЙМАЛ КУЛАК — ЗАПУСКАЕМ ЕГО ЛЕТЕТЬ В БОССА!
                     if (item.type === "boss_fist") {
                         flyingFists.push({
                             x: player.x,
