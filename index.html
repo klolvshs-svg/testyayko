@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v46_intro_no_text";
+        const CURRENT_APP_VERSION = "v47_boss_intro_animation";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -226,7 +226,7 @@
                 });
             }
 
-            // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ ---
+            // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ (АКТИВНАЯ ФАЗА) ---
             if (bossState === "active") {
                 if (bossHp < 100 && Math.random() < 0.025) {
                     // Веер из 2 желтых капель воды
@@ -310,10 +310,58 @@
                 }
             }
 
-            // --- ИНТРО (длительность 4.5с сохранена, текст убран) ---
+            // --- ИНТРО (ЭПИЧНОЕ ПОЯВЛЕНИЕ БОССА БЕЗ ТЕКСТА) ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
-                let introDuration = 4500; 
+                let introDuration = 4500; // 4.5 секунды продолжительность
+
+                // Анимация вылета/появления босса в первые 1.5 секунды
+                let progress = Math.min(1, introPassed / 1500);
+                let easeProgress = progress * (2 - progress); // плавное замедление
+                let currentIntroY = -50 + (bossY - (-50)) * easeProgress;
+                let scaleAnim = 0.3 + 0.7 * easeProgress;
+
+                ctx.save();
+                ctx.globalAlpha = Math.min(1, introPassed / 400);
+
+                // Рисуем вылетающего босса
+                if (bossImg.complete && bossImg.naturalWidth !== 0) {
+                    ctx.drawImage(bossImg, bossX - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
+                } else {
+                    ctx.font = `${Math.floor(40 * scaleAnim)}px Arial`;
+                    ctx.textAlign = "center";
+                    ctx.fillText("👑", bossX, currentIntroY + 10);
+                }
+
+                // Плавное появление шкалы здоровья во второй половине интро (от 1.5с до 4.5с)
+                if (introPassed >= 1500) {
+                    let barProgress = Math.min(1, (introPassed - 1500) / 1000);
+                    let barWidth = 220;
+                    let barHeight = 12;
+                    let barX = canvas.width / 2 - barWidth / 2;
+                    let barY = 20;
+
+                    ctx.save();
+                    ctx.globalAlpha = barProgress;
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                    let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
+                    ctx.fillStyle = "#ff3333";
+                    ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
+
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                    ctx.fillStyle = "#ffffff";
+                    ctx.font = "bold 12px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, canvas.width / 2, barY - 5);
+                    ctx.restore();
+                }
+
+                ctx.restore();
 
                 if (introPassed >= introDuration) {
                     bossState = "active";
