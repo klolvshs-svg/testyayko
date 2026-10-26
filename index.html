@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v59_high_quality_egg";
+        const CURRENT_APP_VERSION = "v60_crisp_egg_rendering";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -131,7 +131,7 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Включаем высокое качество сглаживания графики
+        // Включаем максимальное качество сглаживания графики
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
@@ -492,12 +492,14 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // ИГРОК (ЯЙЦО) - Рендер в высоком качестве с сохранением пропорций
+            // ИГРОК (ЯЙЦО) - Рендер с выравниванием по физическим пикселям (убирает пикселизацию)
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 55;
                 let drawW = drawH * imgAspect; 
-                ctx.drawImage(eggImg, player.x - drawW / 2, player.y - drawH / 2 + 5, drawW, drawH);
+                let renderX = Math.round(player.x - drawW / 2);
+                let renderY = Math.round(player.y - drawH / 2 + 5);
+                ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
             } else {
                 ctx.font = "40px Arial";
                 ctx.textAlign = "center";
