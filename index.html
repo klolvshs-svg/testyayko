@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v50_alternating_boss_drops";
+        const CURRENT_APP_VERSION = "v54_timed_boss_drops";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -155,7 +155,8 @@
         let activeWaterStreams = [];  
         let flyingFists = []; 
         let lastCubeMilestone = 0; 
-        let bossDropCycle = 0; // Счётчик для чередования капель (2 -> 1 -> 2 -> 1)
+        let bossDropCycle = 0;
+        let lastBossDropTime = 0;
 
         // Параметры босса (200 HP)
         let bossX = canvas.width / 2;
@@ -230,8 +231,9 @@
 
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ (АКТИВНАЯ ФАЗА) ---
             if (bossState === "active") {
-                if (bossHp < 100 && Math.random() < 0.025) {
-                    // Чередование: 2 капли, затем 1 капля по кругу
+                // Строго каждые 1.5 секунды при HP < 100 выпускаем волну: 2 капли -> 1 капля -> 2 капли -> 1 капля
+                if (bossHp < 100 && now - lastBossDropTime >= 1500) {
+                    lastBossDropTime = now;
                     let countToSpawn = (bossDropCycle % 2 === 0) ? 2 : 1;
                     bossDropCycle++;
 
@@ -329,7 +331,7 @@
                 }
             }
 
-            // --- ИНТРО (ЭПИЧНОЕ ПОЯВЛЕНИЕ СТРОГО ПО ЦЕНТРУ) ---
+            // --- ИНТРО ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
@@ -384,6 +386,7 @@
                 if (introPassed >= introDuration) {
                     bossState = "active";
                     bossX = canvas.width / 2; 
+                    lastBossDropTime = now; // Сбрасываем таймер при начале активной фазы
                 }
             }
 
@@ -767,6 +770,7 @@
             flyingFists = [];
             lastCubeMilestone = 0;
             bossDropCycle = 0;
+            lastBossDropTime = 0;
             bossHp = bossMaxHp;
             gameOver = false;
             hasShield = false;
