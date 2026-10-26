@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v47_boss_intro_animation";
+        const CURRENT_APP_VERSION = "v48_boss_position_adjusted";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -158,7 +158,7 @@
 
         // Параметры босса (200 HP)
         let bossX = canvas.width / 2;
-        let bossY = 60;
+        let bossY = 75; // Чуть ниже, чтобы красиво сочетаться со шкалой HP сверху
         let bossSpeedX = 2.8;
         let bossMaxHp = 200; 
         let bossHp = 200;
@@ -315,16 +315,14 @@
                 let introPassed = now - introTimer;
                 let introDuration = 4500; // 4.5 секунды продолжительность
 
-                // Анимация вылета/появления босса в первые 1.5 секунды
                 let progress = Math.min(1, introPassed / 1500);
-                let easeProgress = progress * (2 - progress); // плавное замедление
+                let easeProgress = progress * (2 - progress); 
                 let currentIntroY = -50 + (bossY - (-50)) * easeProgress;
                 let scaleAnim = 0.3 + 0.7 * easeProgress;
 
                 ctx.save();
                 ctx.globalAlpha = Math.min(1, introPassed / 400);
 
-                // Рисуем вылетающего босса
                 if (bossImg.complete && bossImg.naturalWidth !== 0) {
                     ctx.drawImage(bossImg, bossX - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
                 } else {
@@ -333,7 +331,6 @@
                     ctx.fillText("👑", bossX, currentIntroY + 10);
                 }
 
-                // Плавное появление шкалы здоровья во второй половине интро (от 1.5с до 4.5с)
                 if (introPassed >= 1500) {
                     let barProgress = Math.min(1, (introPassed - 1500) / 1000);
                     let barWidth = 220;
