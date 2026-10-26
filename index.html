@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v77_perfect_pixel_sync";
+        const CURRENT_APP_VERSION = "v78_fixed_item_alignment";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,7 +156,7 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Оригинальный радиус хитбокса (25)
+        // Надежный оригинальный радиус хитбокса (25)
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
@@ -503,9 +503,8 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // --- ЕДИНЫЕ СИНХРОНИЗИРОВАННЫЕ КООРДИНАТЫ (ХИТБОКС И ВИЗУАЛ СМЕЩЕНЫ ВЛЕВО НА 6px ДЛЯ ИДЕАЛЬНОГО СОВПАДЕНИЯ) ---
-            const playerOffsetX = -6; 
-            const renderPlayerX = Math.round(player.x + playerOffsetX);
+            // --- КООРДИНАТЫ ИГРОКА ---
+            const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
             // ИГРОК (ЯЙЦО)
@@ -522,7 +521,7 @@
                 ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
             }
 
-            // ЗАЩИТНЫЕ КОЛЬЦА (Привязаны к тем же точным координатам хитбокса)
+            // ЗАЩИТНЫЕ КОЛЬЦА
             if (isInvincible) {
                 ctx.beginPath();
                 ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
@@ -662,7 +661,10 @@
                     item.x += item.vx;
                 }
 
+                // ИСПРАВЛЕНИЕ: Установка центра для всех эмодзи-предметов, чтобы x был истинным центром
                 ctx.font = "35px Arial";
+                ctx.textAlign = "center";
+
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
                 else if (item.type === "bomb") {
                     if (bombImg.complete && bombImg.naturalWidth !== 0) {
@@ -714,7 +716,7 @@
                     }
                 }
 
-                // ПРОВЕРКА КОЛЛИЗИИ СТРОГО ПО ТОЧНОМУ ЦЕНТРУ РИСУНКА (renderPlayerX, renderPlayerY)
+                // ПРОВЕРКА КОЛЛИЗИИ ЦЕНТР-К-ЦЕНТРУ
                 const dist = Math.hypot(renderPlayerX - item.x, renderPlayerY - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
