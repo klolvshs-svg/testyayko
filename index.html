@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v75_perfect_centered_hitbox";
+        const CURRENT_APP_VERSION = "v76_symmetrical_hitbox";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,7 +156,7 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Возвращен оригинальный надежный радиус хитбокса (25)
+        // Оригинальный радиус хитбокса (25) с идеальным симметричным смещением
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
@@ -507,12 +507,13 @@
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
-            // ИГРОК (ЯЙЦО) - Сбалансированный размер (50px высота) с идеальным центрированием по хитбоксу
+            // ИГРОК (ЯЙЦО) - Сбалансированный размер с точным симметричным центрированием
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 50; 
                 let drawW = drawH * imgAspect; 
-                let renderX = Math.round(renderPlayerX - drawW / 2);
+                // Небольшая компенсация смещения внутри текстуры для идеальной симметрии слева и справа
+                let renderX = Math.round(renderPlayerX - drawW / 2 + 2);
                 let renderY = Math.round(renderPlayerY - drawH / 2);
                 ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
             } else {
@@ -521,7 +522,7 @@
                 ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
             }
 
-            // ЗАЩИТНЫЕ КОЛЬЦА (Привязаны к тем же целым координатам для идеальной центровки и гладкости)
+            // ЗАЩИТНЫЕ КОЛЬЦА
             if (isInvincible) {
                 ctx.beginPath();
                 ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
