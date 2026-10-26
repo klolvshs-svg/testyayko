@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v48_boss_position_adjusted";
+        const CURRENT_APP_VERSION = "v49_centered_boss_spinning_orbs";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -158,7 +158,7 @@
 
         // Параметры босса (200 HP)
         let bossX = canvas.width / 2;
-        let bossY = 75; // Чуть ниже, чтобы красиво сочетаться со шкалой HP сверху
+        let bossY = 75;
         let bossSpeedX = 2.8;
         let bossMaxHp = 200; 
         let bossHp = 200;
@@ -206,12 +206,13 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // АКТИВАЦИЯ БОССА НА 1.0 МЛ
+            // АКТИВАЦИЯ БОССА НА 1.0 МЛ (Спавн строго по центру)
             if (mlEarned >= 1.0 && !bossTriggered) {
                 bossTriggered = true;
                 bossState = "intro";
                 introTimer = now;
                 bossHp = bossMaxHp; 
+                bossX = canvas.width / 2; // Фиксируем спавн строго посередине
             }
 
             // --- ТЕСТОВЫЙ КУБИК КАЖДЫЙ 1 МЛ ---
@@ -229,13 +230,15 @@
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ (АКТИВНАЯ ФАЗА) ---
             if (bossState === "active") {
                 if (bossHp < 100 && Math.random() < 0.025) {
-                    // Веер из 2 желтых капель воды
+                    // Веер из 2 желтых капель воды (с углом вращения)
                     [-2.2, 2.2].forEach(vx => {
                         items.push({
                             x: bossX,
                             y: bossY + 20,
                             vx: vx,
                             speed: 5.0,
+                            rotation: 0,
+                            rotationSpeed: (vx > 0 ? 0.06 : -0.06), // Плавное вращение как пропеллер
                             type: "yellow_orb"
                         });
                     });
@@ -310,25 +313,28 @@
                 }
             }
 
-            // --- ИНТРО (ЭПИЧНОЕ ПОЯВЛЕНИЕ БОССА БЕЗ ТЕКСТА) ---
+            // --- ИНТРО (ЭПИЧНОЕ ПОЯВЛЕНИЕ СТРОГО ПО ЦЕНТРУ) ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
-                let introDuration = 4500; // 4.5 секунды продолжительность
+                let introDuration = 4500; 
 
                 let progress = Math.min(1, introPassed / 1500);
                 let easeProgress = progress * (2 - progress); 
                 let currentIntroY = -50 + (bossY - (-50)) * easeProgress;
                 let scaleAnim = 0.3 + 0.7 * easeProgress;
 
+                // Гарантируем, что во время интро босс всегда строго в центре по Х
+                let introX = canvas.width / 2;
+
                 ctx.save();
                 ctx.globalAlpha = Math.min(1, introPassed / 400);
 
                 if (bossImg.complete && bossImg.naturalWidth !== 0) {
-                    ctx.drawImage(bossImg, bossX - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
+                    ctx.drawImage(bossImg, introX - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
                 } else {
                     ctx.font = `${Math.floor(40 * scaleAnim)}px Arial`;
                     ctx.textAlign = "center";
-                    ctx.fillText("👑", bossX, currentIntroY + 10);
+                    ctx.fillText("👑", introX, currentIntroY + 10);
                 }
 
                 if (introPassed >= 1500) {
@@ -362,6 +368,7 @@
 
                 if (introPassed >= introDuration) {
                     bossState = "active";
+                    bossX = canvas.width / 2; // Переход к движению ровно из центра
                 }
             }
 
@@ -599,11 +606,18 @@
                 else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
                 else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
                 else if (item.type === "yellow_orb") {
+                    // ЖЕЛТАЯ КАПЛЯ ВОДЫ С ЭФФЕКТОМ ВРАЩЕНИЯ (ПРОПЕЛЛЕР)
                     ctx.save();
+                    ctx.translate(item.x, item.y);
+                    if (item.rotationSpeed) {
+                        item.rotation += item.rotationSpeed;
+                        ctx.rotate(item.rotation);
+                    }
+
                     ctx.beginPath();
-                    ctx.moveTo(item.x, item.y - 14);
-                    ctx.bezierCurveTo(item.x + 12, item.y - 2, item.x + 12, item.y + 12, item.x, item.y + 14);
-                    ctx.bezierCurveTo(item.x - 12, item.y + 12, item.x - 12, item.y - 2, item.x, item.y - 14);
+                    ctx.moveTo(0, -14);
+                    ctx.bezierCurveTo(12, -2, 12, 12, 0, 14);
+                    ctx.bezierCurveTo(-12, 12, -12, -2, 0, -14);
                     ctx.fillStyle = "#ffcc00";
                     ctx.fill();
                     ctx.strokeStyle = "#ffffff";
@@ -612,7 +626,7 @@
 
                     ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
                     ctx.beginPath();
-                    ctx.arc(item.x - 3, item.y - 3, 2.5, 0, Math.PI * 2);
+                    ctx.arc(-3, -3, 2.5, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.restore();
                 } else if (item.type === "random_cube") {
