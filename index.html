@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v38_more_fists_5hp_no_darkness";
+        const CURRENT_APP_VERSION = "v39_fewer_swords_no_helmets_boss";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -411,7 +411,7 @@
                 ctx.stroke();
             }
 
-            // ЖЕЛТЫЕ ЛАЗЕРЫ ИЗ БОССА (Без темного экрана)
+            // ЖЕЛТЫЕ ЛАЗЕРЫ ИЗ БОССА
             if (bossState === "active") {
                 if (activeLasers.length === 0 && Math.random() < 0.018) {
                     activeLasers.push({
@@ -426,14 +426,12 @@
                     let laser = activeLasers[l];
                     if (now < laser.warningTime) {
                         laser.x = bossX;
-                        // Только рамка предупреждения, без заливки экрана
                         ctx.strokeStyle = "#ffcc00";
                         ctx.lineWidth = 2;
                         ctx.setLineDash([6, 6]);
                         ctx.strokeRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.setLineDash([]);
                     } else if (now < laser.activeUntil) {
-                        // Желтый луч без затемнения
                         ctx.fillStyle = "rgba(255, 204, 0, 0.75)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.fillStyle = "#ffffff";
@@ -457,20 +455,22 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ (Много падающих кулаков ✊)
+            // СПАВН ПРЕДМЕТОВ (Меньше ножей во время босса, без касок)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
-                let currentSpawnInterval = Math.max(9, Math.floor(22 / speedMultiplier));
+                // Делаем интервал спавна во время босса чуть больше, чтобы падало меньше предметов и ножей
+                let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
+                let currentSpawnInterval = (bossState === "active") ? baseInterval + 14 : baseInterval;
 
                 if (spawnTimer % currentSpawnInterval === 0) {
                     let type = "sword";
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        if (rand < 0.28) type = "boss_fist"; // Увеличенный шанс падения кулаков
-                        else if (rand >= 0.28 && rand < 0.36 && !hasShield) type = "shield";
-                        else if (rand >= 0.36 && rand < 0.42 && !hasHelmet) type = "helmet";
-                        else if (rand >= 0.42 && rand < 0.50) type = "drop1";
+                        // Каски (helmet) во время босс-файта убраны
+                        if (rand < 0.30) type = "boss_fist"; 
+                        else if (rand >= 0.30 && rand < 0.38 && !hasShield) type = "shield";
+                        else if (rand >= 0.38 && rand < 0.46) type = "drop1";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -549,7 +549,6 @@
                         continue;
                     }
 
-                    // ЕСЛИ ПОЙМАЛ КУЛАК — СНИМАЕМ БОССУ 5 ХП
                     if (item.type === "boss_fist") {
                         bossHp -= 5;
                         items.splice(i, 1);
