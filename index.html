@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v45_yellow_water_droplets";
+        const CURRENT_APP_VERSION = "v46_intro_no_text";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -310,35 +310,10 @@
                 }
             }
 
-            // --- ИНТРО ---
+            // --- ИНТРО (длительность 4.5с сохранена, текст убран) ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
-
-                if (introPassed >= 1500 && introPassed < 4500) {
-                    let textElapsed = introPassed - 1500;
-                    let scale = 1.0;
-                    let opacity = 1.0;
-
-                    if (textElapsed < 600) {
-                        scale = 0.3 + (textElapsed / 600) * 0.7;
-                    } else if (textElapsed > 2400) {
-                        let outP = (textElapsed - 2400) / 600;
-                        scale = 1.0 - outP * 0.4;
-                        opacity = 1.0 - outP;
-                    }
-
-                    ctx.save();
-                    ctx.globalAlpha = Math.max(0, opacity);
-                    ctx.fillStyle = "#ffcc00";
-                    ctx.strokeStyle = "#ff3333";
-                    ctx.lineWidth = 4;
-                    ctx.font = `bold ${Math.floor(34 * scale)}px Arial`;
-                    ctx.textAlign = "center";
-                    ctx.strokeText("РИТА БОСС FIGHT", canvas.width / 2, canvas.height / 2);
-                    ctx.fillText("РИТА БОСС FIGHT", canvas.width / 2, canvas.height / 2);
-                    ctx.restore();
-                }
 
                 if (introPassed >= introDuration) {
                     bossState = "active";
@@ -579,10 +554,8 @@
                 else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
                 else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
                 else if (item.type === "yellow_orb") {
-                    // РЕАЛИСТИЧНАЯ ЖЕЛТАЯ КАПЛЯ ВОДЫ ВМЕСТО ШАРА
                     ctx.save();
                     ctx.beginPath();
-                    // Форма капли (заужена сверху, расширена книзу)
                     ctx.moveTo(item.x, item.y - 14);
                     ctx.bezierCurveTo(item.x + 12, item.y - 2, item.x + 12, item.y + 12, item.x, item.y + 14);
                     ctx.bezierCurveTo(item.x - 12, item.y + 12, item.x - 12, item.y - 2, item.x, item.y - 14);
@@ -592,7 +565,6 @@
                     ctx.lineWidth = 1.5;
                     ctx.stroke();
 
-                    // Блик на капле
                     ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
                     ctx.beginPath();
                     ctx.arc(item.x - 3, item.y - 3, 2.5, 0, Math.PI * 2);
