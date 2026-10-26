@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v66_perfect_egg_height";
+        const CURRENT_APP_VERSION = "v67_boss_bombs_texture";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -187,6 +187,9 @@
 
         const eggImg = new Image();
         eggImg.src = "ball/mainball.png";
+
+        const bombImg = new Image();
+        bombImg.src = "item/batyabomb.webp";
 
         let items = [];
         let spawnTimer = 0;
@@ -506,7 +509,7 @@
             // ИГРОК (ЯЙЦО) - Сбалансированный размер (50px высота) с Retina-сглаживанием
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
-                let drawH = 50; // Золотая середина для идеальной пропорции и высоты
+                let drawH = 50; 
                 let drawW = drawH * imgAspect; 
                 let renderX = Math.round(renderPlayerX - drawW / 2);
                 let renderY = Math.round(renderPlayerY - drawH / 2);
@@ -612,9 +615,11 @@
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        if (rand < 0.39) type = "boss_fist"; 
-                        else if (rand >= 0.39 && rand < 0.47 && !hasShield) type = "shield";
-                        else if (rand >= 0.47 && rand < 0.55) type = "drop1";
+                        // Уменьшили мечи, добавили бомбы (в умеренном количестве ~10%)
+                        if (rand < 0.38) type = "boss_fist"; 
+                        else if (rand >= 0.38 && rand < 0.45 && !hasShield) type = "shield";
+                        else if (rand >= 0.45 && rand < 0.52) type = "drop1";
+                        else if (rand >= 0.52 && rand < 0.62) type = "bomb";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -658,7 +663,16 @@
 
                 ctx.font = "35px Arial";
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
-                else if (item.type === "bomb") ctx.fillText("💣", item.x, item.y);
+                else if (item.type === "bomb") {
+                    if (bombImg.complete && bombImg.naturalWidth !== 0) {
+                        let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
+                        let drawH = 40;
+                        let drawW = drawH * imgAspect;
+                        ctx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
+                    } else {
+                        ctx.fillText("💣", item.x, item.y);
+                    }
+                }
                 else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
                 else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
                 else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
