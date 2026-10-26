@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v36_boss_hp_system_phase2";
+        const CURRENT_APP_VERSION = "v37_falling_fists_yellow_lasers_orbs";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -145,24 +145,7 @@
         let slowUntil = 0;       
         let targetX = canvas.width / 2;
 
-        // Игрок со шкалой HP
-        const player = { x: canvas.width / 2, y: canvas.height - 70, radius: 25, hp: 100, maxHp: 100 };
-
-        // --- ДЖОЙСТИК АТАКИ В СТИЛЕ BS ---
-        let attackStick = {
-            active: false,
-            startX: 0,
-            startY: 0,
-            currentX: 0,
-            currentY: 0,
-            touchId: null
-        };
-
-        const attackBtnCenter = {
-            x: canvas.width - 70,
-            y: canvas.height - 85,
-            radius: 50
-        };
+        const player = { x: canvas.width / 2, y: canvas.height - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
@@ -172,13 +155,12 @@
         let activeLasers = [];  
         let lastCubeMilestone = 0; 
 
-        // Параметры босса и кулачка
+        // Параметры босса (200 HP)
         let bossX = canvas.width / 2;
         let bossY = 60;
         let bossSpeedX = 2.8;
-        let bossMaxHp = 300; 
-        let bossHp = 300;
-        let fists = []; 
+        let bossMaxHp = 200; 
+        let bossHp = 200;
 
         // Загрузка картинок
         const bossImg = new Image();
@@ -190,154 +172,18 @@
         let items = [];
         let spawnTimer = 0;
 
-        // Урон игроку с учетом щитов и касок
-        function damagePlayer(amount) {
-            const now = Date.now();
-            if (now < invincibleUntil) return;
-
-            if (hasShield) {
-                hasShield = false;
-                return;
-            }
-            if (hasHelmet) {
-                hasHelmet = false;
-                return;
-            }
-
-            player.hp -= amount;
-            if (player.hp <= 0) {
-                player.hp = 0;
-                showGameOver();
-            }
+        function handleMove(e) {
+            if (gameOver || bossState === "intro") return; 
+            targetX = e.touches ? e.touches[0].clientX : e.clientX;
         }
 
-        // ВЫСТРЕЛ 2 КУЛАКАМИ ДРУГ ЗА ДРУГОМ
-        function fireSequentialFists(angle) {
-            let speed = 15;
-
-            // Первый кулак
-            fists.push({
-                x: player.x,
-                y: player.y - 20,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                radius: 12
-            });
-
-            // Второй кулак (летит следом через 140 мс)
-            setTimeout(() => {
-                if (!gameOver && bossState !== "victory") {
-                    fists.push({
-                        x: player.x,
-                        y: player.y - 20,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
-                        radius: 12
-                    });
-                }
-            }, 140);
-        }
-
-        // --- УПРАВЛЕНИЕ ТАЧАМИ И МЫШЬЮ ---
-        function handleTouchStart(e) {
-            if (gameOver || bossState === "intro") return;
-            
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                let touch = e.changedTouches[i];
-                let tx = touch.clientX;
-                let ty = touch.clientY;
-
-                let distToBtn = Math.hypot(tx - attackBtnCenter.x, ty - attackBtnCenter.y);
-                if (distToBtn < 90 || tx > canvas.width / 2) {
-                    if (!attackStick.active) {
-                        attackStick.active = true;
-                        attackStick.touchId = touch.identifier;
-                        attackStick.startX = tx;
-                        attackStick.startY = ty;
-                        attackStick.currentX = tx;
-                        attackStick.currentY = ty;
-                    }
-                } else {
-                    targetX = tx;
-                }
-            }
-        }
-
-        function handleTouchMove(e) {
-            if (gameOver || bossState === "intro") return;
-
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                let touch = e.changedTouches[i];
-                if (attackStick.active && touch.identifier === attackStick.touchId) {
-                    attackStick.currentX = touch.clientX;
-                    attackStick.currentY = touch.clientY;
-                } else {
-                    targetX = touch.clientX;
-                }
-            }
-        }
-
-        function handleTouchEnd(e) {
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                let touch = e.changedTouches[i];
-                if (attackStick.active && touch.identifier === attackStick.touchId) {
-                    let dx = attackStick.currentX - attackStick.startX;
-                    let dy = attackStick.currentY - attackStick.startY;
-                    let dist = Math.hypot(dx, dy);
-
-                    if (dist > 10) {
-                        let angle = Math.atan2(dy, dx);
-                        fireSequentialFists(angle);
-                    }
-                    attackStick.active = false;
-                    attackStick.touchId = null;
-                }
-            }
-        }
-
-        let isMouseDown = false;
-        window.addEventListener("mousedown", (e) => {
-            if (gameOver || bossState === "intro") return;
-            if (e.clientX > canvas.width / 2) {
-                attackStick.active = true;
-                attackStick.startX = e.clientX;
-                attackStick.startY = e.clientY;
-                attackStick.currentX = e.clientX;
-                attackStick.currentY = e.clientY;
-                isMouseDown = true;
-            } else {
-                targetX = e.clientX;
+        window.addEventListener("mousemove", handleMove);
+        window.addEventListener("touchmove", handleMove);
+        window.addEventListener("touchstart", (e) => {
+            if (!gameOver && bossState !== "intro") {
+                targetX = e.touches[0].clientX;
             }
         });
-
-        window.addEventListener("mousemove", (e) => {
-            if (gameOver || bossState === "intro") return;
-            if (attackStick.active && isMouseDown) {
-                attackStick.currentX = e.clientX;
-                attackStick.currentY = e.clientY;
-            } else if (e.clientX < canvas.width / 2 || !attackStick.active) {
-                targetX = e.clientX;
-            }
-        });
-
-        window.addEventListener("mouseup", (e) => {
-            if (attackStick.active && isMouseDown) {
-                let dx = attackStick.currentX - attackStick.startX;
-                let dy = attackStick.currentY - attackStick.startY;
-                let dist = Math.hypot(dx, dy);
-
-                if (dist > 10) {
-                    let angle = Math.atan2(dy, dx);
-                    fireSequentialFists(angle);
-                }
-                attackStick.active = false;
-                isMouseDown = false;
-            }
-        });
-
-        window.addEventListener("touchstart", handleTouchStart, { passive: false });
-        window.addEventListener("touchmove", handleTouchMove, { passive: false });
-        window.addEventListener("touchend", handleTouchEnd, { passive: false });
 
         function gameLoop() {
             if (gameOver) return;
@@ -382,28 +228,17 @@
                 });
             }
 
-            // --- БОСС ДВИГАЕТСЯ ИАТАКУЕТ ---
+            // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ ---
             if (bossState === "active") {
-                // Если меньше половины HP (150), движение становится непредсказуемым
-                if (bossHp <= 150) {
-                    bossSpeedX += (Math.random() - 0.5) * 0.8;
-                    bossSpeedX = Math.max(-5.5, Math.min(5.5, bossSpeedX));
-                    if (Math.random() < 0.02) {
-                        bossSpeedX *= -1; // резкие рывки в другую сторону
-                    }
-
-                    // Стрельба веером из 3 бомб (каждая снимает 5 HP)
-                    if (Math.random() < 0.022) {
-                        [-0.35, 0, 0.35].forEach(angle => {
-                            items.push({
-                                x: bossX,
-                                y: bossY + 20,
-                                vx: Math.sin(angle) * 3.5,
-                                speed: 5.5,
-                                type: "boss_bomb"
-                            });
-                        });
-                    }
+                // Если HP < 100, босс пуляется желтыми кругами 🟡
+                if (bossHp < 100 && Math.random() < 0.025) {
+                    items.push({
+                        x: bossX,
+                        y: bossY + 20,
+                        vx: (Math.random() - 0.5) * 4,
+                        speed: 5.0,
+                        type: "yellow_orb"
+                    });
                 }
 
                 bossX += bossSpeedX;
@@ -428,7 +263,7 @@
                 ctx.fillRect(barX, barY, barWidth, barHeight);
 
                 let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
-                ctx.fillStyle = bossHp <= 150 ? "#ff9900" : "#ff3333";
+                ctx.fillStyle = bossHp < 100 ? "#ffcc00" : "#ff3333";
                 ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
 
                 ctx.strokeStyle = "#ffffff";
@@ -476,7 +311,7 @@
                 }
             }
 
-            // --- ФАЗА ПОБЕДЫ (Когда у босса 0 HP) ---
+            // --- ФАЗА ПОБЕДЫ ---
             if (bossState === "victory") {
                 let victoryPassed = now - victoryTimer;
                 let victoryDuration = 3500; 
@@ -515,50 +350,25 @@
                 }
             }
 
-            // Проверка условия победы: строго когда bossHp <= 0
+            // Проверка победы (0 HP у босса)
             if (bossState === "active" && bossHp <= 0) {
                 bossState = "victory";
                 victoryTimer = now;
                 mlEarned += 5.0; 
                 totalBank += 5.0;
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
-                fists = []; 
-
-                // СРАЗУ ВЫЛЕТАЕТ 4 КУЛАКА В ПОБЕДНОМ САЛЮТЕ
-                for (let k = 0; k < 4; k++) {
-                    setTimeout(() => {
-                        if (!gameOver) {
-                            fists.push({
-                                x: player.x + (k - 1.5) * 20,
-                                y: player.y - 20,
-                                vx: (k - 1.5) * 1.5,
-                                vy: -16,
-                                radius: 12
-                            });
-                        }
-                    }, k * 120);
-                }
             }
 
             const speedMultiplier = 1 + Math.floor(mlEarned / 8) * 0.12;
 
-            // ИНТЕРФЕЙС И HP ИГРОКА (Синяя подсветка)
+            // ИНТЕРФЕЙС
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 15px Arial";
             ctx.textAlign = "left";
             ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
             ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
 
-            // Синее HP игрока
-            ctx.save();
-            ctx.fillStyle = "#00d2ff";
-            ctx.shadowColor = "#00d2ff";
-            ctx.shadowBlur = 8;
-            ctx.font = "bold 16px Arial";
-            ctx.fillText(`💙 HP: ${player.hp} / ${player.maxHp}`, 12, 75);
-            ctx.restore();
-
-            let statusY = 100;
+            let statusY = 75;
             if (isInvincible) {
                 ctx.fillStyle = "#ffcc00";
                 ctx.fillText("⛩ Непробиваемость!", 12, statusY);
@@ -606,154 +416,12 @@
                 ctx.stroke();
             }
 
-            // --- КНОПКА АТАКИ СНИЗУ СТРАНИЦЫ ---
-            let attackCenter = { x: canvas.width - 70, y: canvas.height - 85 };
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(attackCenter.x, attackCenter.y, 42, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(255, 50, 50, 0.25)";
-            ctx.fill();
-            ctx.strokeStyle = "rgba(255, 100, 100, 0.6)";
-            ctx.lineWidth = 3;
-            ctx.stroke();
-            ctx.font = "20px Arial";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText("✊", attackCenter.x, attackCenter.y);
-            ctx.restore();
-
-            // ДЖОЙСТИК АТАКИ + УМНАЯ ЛИНИЯ ПРИЦЕЛА
-            if (attackStick.active) {
-                let dx = attackStick.currentX - attackStick.startX;
-                let dy = attackStick.currentY - attackStick.startY;
-                let angle = Math.atan2(dy, dx);
-                let dragDist = Math.hypot(dx, dy);
-                let power = Math.min(1.0, dragDist / 50);
-
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(attackStick.startX, attackStick.startY, 50, 0, Math.PI * 2);
-                ctx.fillStyle = "rgba(255, 0, 0, 0.18)";
-                ctx.fill();
-                ctx.strokeStyle = "rgba(255, 0, 0, 0.6)";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.arc(attackStick.currentX, attackStick.currentY, 10, 0, Math.PI * 2);
-                ctx.fillStyle = "#ff3333";
-                ctx.fill();
-                ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.restore();
-
-                if (dragDist > 10) {
-                    ctx.save();
-                    ctx.beginPath();
-                    
-                    let currX = player.x;
-                    let currY = player.y;
-                    ctx.moveTo(currX, currY);
-
-                    let simAngle = angle;
-                    let maxStraightRange = (canvas.height - 160) * power;
-                    let maxTrickshotRange = (canvas.height + 60) * power;
-                    let remainingLength = maxStraightRange;
-                    let bounced = false;
-
-                    while (remainingLength > 0) {
-                        let nextX = currX + Math.cos(simAngle) * remainingLength;
-                        let nextY = currY + Math.sin(simAngle) * remainingLength;
-
-                        if (nextX < 0) {
-                            let distToWall = (0 - currX) / Math.cos(simAngle);
-                            currX = 0;
-                            currY += Math.sin(simAngle) * distToWall;
-                            ctx.lineTo(currX, currY);
-                            simAngle = Math.PI - simAngle; 
-                            remainingLength -= distToWall;
-
-                            if (!bounced) {
-                                bounced = true;
-                                remainingLength += (maxTrickshotRange - maxStraightRange);
-                            }
-                        } else if (nextX > canvas.width) {
-                            let distToWall = (canvas.width - currX) / Math.cos(simAngle);
-                            currX = canvas.width;
-                            currY += Math.sin(simAngle) * distToWall;
-                            ctx.lineTo(currX, currY);
-                            simAngle = Math.PI - simAngle; 
-                            remainingLength -= distToWall;
-
-                            if (!bounced) {
-                                bounced = true;
-                                remainingLength += (maxTrickshotRange - maxStraightRange);
-                            }
-                        } else {
-                            currX = nextX;
-                            currY = nextY;
-                            ctx.lineTo(currX, currY);
-                            break;
-                        }
-                    }
-
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
-                    ctx.lineWidth = 3;
-                    ctx.setLineDash([6, 6]);
-                    ctx.stroke();
-                    ctx.restore();
-                }
-            }
-
-            // --- ЛЕТЯЩИЕ КУЛАЧКИ И РИКОШЕТ ---
-            for (let f = fists.length - 1; f >= 0; f--) {
-                let fist = fists[f];
-                fist.x += fist.vx;
-                fist.y += fist.vy;
-
-                if (fist.x - fist.radius < 0) {
-                    fist.x = fist.radius;
-                    fist.vx *= -1;
-                } else if (fist.x + fist.radius > canvas.width) {
-                    fist.x = canvas.width - fist.radius;
-                    fist.vx *= -1;
-                }
-
-                ctx.font = "24px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText("✊", fist.x, fist.y);
-
-                if (bossState === "active") {
-                    let distToBoss = Math.hypot(fist.x - bossX, fist.y - bossY);
-                    if (distToBoss < 35) {
-                        bossHp--;
-                        fists.splice(f, 1);
-                        continue;
-                    }
-                }
-
-                for (let i = items.length - 1; i >= 0; i--) {
-                    let item = items[i];
-                    let distToItem = Math.hypot(fist.x - item.x, fist.y - item.y);
-                    if (distToItem < 30) {
-                        items.splice(i, 1); 
-                        fists.splice(f, 1);  
-                        break;
-                    }
-                }
-
-                if (fist.y < -30 || fist.y > canvas.height + 30) {
-                    fists.splice(f, 1);
-                }
-            }
-
-            // ЛАЗЕРЫ ИЗ БОССА
+            // ЖЕЛТЫЕ ЛАЗЕРЫ ИЗ БОССА
             if (bossState === "active") {
                 if (activeLasers.length === 0 && Math.random() < 0.018) {
                     activeLasers.push({
-                        x: bossX, // Выходит прямо из босса
-                        width: 20, 
+                        x: bossX, 
+                        width: 18, 
                         warningTime: now + 1000, 
                         activeUntil: now + 2000  
                     });
@@ -761,7 +429,6 @@
 
                 for (let l = activeLasers.length - 1; l >= 0; l--) {
                     let laser = activeLasers[l];
-                    // Лазер следует за боссом пока идет предупреждение
                     if (now < laser.warningTime) {
                         laser.x = bossX;
                         ctx.fillStyle = "rgba(255, 204, 0, 0.18)";
@@ -772,14 +439,23 @@
                         ctx.strokeRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.setLineDash([]);
                     } else if (now < laser.activeUntil) {
-                        ctx.fillStyle = "rgba(255, 50, 50, 0.8)";
+                        // ЖЕЛТЫЙ ЛАЗЕР
+                        ctx.fillStyle = "rgba(255, 204, 0, 0.85)";
                         ctx.fillRect(laser.x - laser.width / 2, 0, laser.width, canvas.height);
                         ctx.fillStyle = "#ffffff";
                         ctx.fillRect(laser.x - 2, 0, 4, canvas.height); 
 
-                        // Урон лазера по игроку
                         if (Math.abs(player.x - laser.x) < laser.width / 2 + player.radius - 5) {
-                            damagePlayer(20);
+                            if (!isInvincible) {
+                                if (hasShield) {
+                                    hasShield = false;
+                                    activeLasers.splice(l, 1);
+                                    continue;
+                                } else {
+                                    showGameOver();
+                                    return;
+                                }
+                            }
                         }
                     } else {
                         activeLasers.splice(l, 1);
@@ -787,7 +463,7 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ
+            // СПАВН ПРЕДМЕТОВ (Во время босса падают кулаки ✊ для урона боссу)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let currentSpawnInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -797,10 +473,10 @@
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        if (rand < 0.08 && !hasShield) type = "shield";
-                        else if (rand >= 0.08 && rand < 0.12 && !hasHelmet) type = "helmet";
-                        else if (rand >= 0.12 && rand < 0.18) type = "drop1";
-                        else if (rand >= 0.18 && rand < 0.23) type = "snow";
+                        if (rand < 0.12) type = "boss_fist"; // Падающий кулак для атаки босса
+                        else if (rand >= 0.12 && rand < 0.20 && !hasShield) type = "shield";
+                        else if (rand >= 0.20 && rand < 0.25 && !hasHelmet) type = "helmet";
+                        else if (rand >= 0.25 && rand < 0.32) type = "drop1";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -844,7 +520,7 @@
 
                 ctx.font = "35px Arial";
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
-                else if (item.type === "bomb" || item.type === "boss_bomb") ctx.fillText("💣", item.x, item.y);
+                else if (item.type === "bomb") ctx.fillText("💣", item.x, item.y);
                 else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
                 else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
                 else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
@@ -853,7 +529,18 @@
                 else if (item.type === "blood") ctx.fillText("🩸", item.x, item.y);
                 else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
                 else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
-                else if (item.type === "random_cube") {
+                else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
+                else if (item.type === "yellow_orb") {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, 14, 0, Math.PI * 2);
+                    ctx.fillStyle = "#ffcc00";
+                    ctx.fill();
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.restore();
+                } else if (item.type === "random_cube") {
                     if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
                         ctx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
                     } else {
@@ -864,6 +551,13 @@
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    // ЕСЛИ ПОЙМАЛ КУЛАК — СНИМАЕМ ХП БОССУ!
+                    if (item.type === "boss_fist") {
+                        bossHp -= 15;
                         items.splice(i, 1);
                         continue;
                     }
@@ -914,12 +608,23 @@
                         items.splice(i, 1);
                         continue;
                     } else {
-                        // Обычные бомбы отнимают 25 HP, босс-бомбы отнимают 5 HP
-                        let dmg = (item.type === "boss_bomb") ? 5 : 25;
-                        damagePlayer(dmg);
-                        items.splice(i, 1);
-                        if (gameOver) return;
-                        continue;
+                        if (isInvincible) {
+                            items.splice(i, 1);
+                            continue;
+                        } 
+                        if ((item.type === "bomb" || item.type === "yellow_orb") && hasHelmet) {
+                            hasHelmet = false;
+                            items.splice(i, 1);
+                            continue;
+                        }
+                        if (hasShield) {
+                            hasShield = false;
+                            items.splice(i, 1);
+                            continue;
+                        } 
+
+                        showGameOver();
+                        return;
                     }
                 }
 
@@ -946,9 +651,7 @@
 
         function restartGame() {
             mlEarned = 0.0;
-            player.hp = player.maxHp;
             items = [];
-            fists = [];
             spawnTimer = 0;
             invincibleUntil = 0;
             slowUntil = 0;
