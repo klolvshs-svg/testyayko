@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v43_realistic_dripping_water";
+        const CURRENT_APP_VERSION = "v44_flying_fists_bruises";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -153,6 +153,7 @@
         let introTimer = 0;
         let victoryTimer = 0;
         let activeWaterStreams = [];  
+        let flyingFists = []; // Летящие кулаки в босса
         let lastCubeMilestone = 0; 
 
         // Параметры босса (200 HP)
@@ -245,14 +246,32 @@
                     bossSpeedX *= -1;
                 }
 
+                // Отрисовка босса
                 if (bossImg.complete && bossImg.naturalWidth !== 0) {
                     ctx.drawImage(bossImg, bossX - 28, bossY - 28, 56, 56);
+                    
+                    // Если у босса меньше 100 HP, рисуем синяки на лице
+                    if (bossHp < 100) {
+                        ctx.fillStyle = "rgba(100, 50, 160, 0.8)";
+                        ctx.beginPath();
+                        ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2); // левый синяк
+                        ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2); // правый синяк
+                        ctx.fill();
+
+                        // Темные точки / ссадины
+                        ctx.fillStyle = "rgba(40, 10, 80, 0.85)";
+                        ctx.beginPath();
+                        ctx.arc(bossX - 7, bossY - 3, 3, 0, Math.PI * 2);
+                        ctx.arc(bossX + 8, bossY + 2, 2.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
                 } else {
                     ctx.font = "40px Arial";
                     ctx.textAlign = "center";
-                    ctx.fillText("👑", bossX, bossY + 10);
+                    ctx.fillText(bossHp < 100 ? "🤕" : "👑", bossX, bossY + 10);
                 }
 
+                // Шкала здоровья босса
                 let barWidth = 220;
                 let barHeight = 12;
                 let barX = canvas.width / 2 - barWidth / 2;
@@ -273,6 +292,24 @@
                 ctx.font = "bold 12px Arial";
                 ctx.textAlign = "center";
                 ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, canvas.width / 2, barY - 5);
+            }
+
+            // --- ОБНОВЛЕНИЕ И ОТРИСОВКА ЛЕТЯЩИХ КУЛАКОВ ---
+            for (let f = flyingFists.length - 1; f >= 0; f--) {
+                let ff = flyingFists[f];
+                let angle = Math.atan2(bossY - ff.y, bossX - ff.x);
+                ff.x += Math.cos(angle) * ff.speed;
+                ff.y += Math.sin(angle) * ff.speed;
+
+                ctx.font = "26px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("✊", ff.x, ff.y);
+
+                // Если кулак долетел до босса
+                if (Math.hypot(bossX - ff.x, bossY - ff.y) < 25) {
+                    bossHp -= 5;
+                    flyingFists.splice(f, 1);
+                }
             }
 
             // --- ИНТРО ---
@@ -317,6 +354,7 @@
 
                 items.forEach(item => { item.speed = 20; });
                 activeWaterStreams = []; 
+                flyingFists = [];
 
                 let scale = 1.0;
                 let opacity = 1.0;
@@ -444,7 +482,6 @@
                         ctx.fillStyle = "rgba(255, 240, 100, 0.9)";
                         let timeOffset = Date.now() / 2.5;
                         for (let wy = 0; wy < canvas.height; wy += 18) {
-                            // Смещение каждой капли для создания эффекта падения струи
                             let dropY = (wy + timeOffset) % canvas.height;
                             let dropX = stream.x + Math.sin(dropY * 0.05) * 4;
                             let dropSize = 4 + (wy % 4);
@@ -572,8 +609,13 @@
                         continue;
                     }
 
+                    // ПОЙМАЛ КУЛАК — ЗАПУСКАЕМ ЕГО ЛЕТЕТЬ В БОССА!
                     if (item.type === "boss_fist") {
-                        bossHp -= 5;
+                        flyingFists.push({
+                            x: player.x,
+                            y: player.y,
+                            speed: 13
+                        });
                         items.splice(i, 1);
                         continue;
                     }
@@ -674,6 +716,7 @@
             bossTriggered = false;
             bossState = "none";
             activeWaterStreams = [];
+            flyingFists = [];
             lastCubeMilestone = 0;
             bossHp = bossMaxHp;
             gameOver = false;
