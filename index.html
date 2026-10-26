@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v54_timed_boss_drops";
+        const CURRENT_APP_VERSION = "v55_strict_boss_drops_cycle";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -155,7 +155,9 @@
         let activeWaterStreams = [];  
         let flyingFists = []; 
         let lastCubeMilestone = 0; 
-        let bossDropCycle = 0;
+        
+        let bossDropsStarted = false;
+        let bossDropStep = 0; // 0 -> 2 капли, 1 -> 1 капля
         let lastBossDropTime = 0;
 
         // Параметры босса (200 HP)
@@ -231,13 +233,12 @@
 
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ (АКТИВНАЯ ФАЗА) ---
             if (bossState === "active") {
-                // Строго каждые 1.5 секунды при HP < 100 выпускаем волну: 2 капли -> 1 капля -> 2 капли -> 1 капля
-                if (bossHp < 100 && now - lastBossDropTime >= 1500) {
-                    lastBossDropTime = now;
-                    let countToSpawn = (bossDropCycle % 2 === 0) ? 2 : 1;
-                    bossDropCycle++;
-
-                    if (countToSpawn === 2) {
+                // Строгий таймер капель при HP < 100: сначала 2 капли, через 2 секунды 1 капля, через 2 секунды 2 капли и т.д.
+                if (bossHp < 100) {
+                    if (!bossDropsStarted) {
+                        bossDropsStarted = true;
+                        lastBossDropTime = now;
+                        bossDropStep = 0; // Сразу 2 капли при переходе порога
                         [-2.2, 2.2].forEach(vx => {
                             items.push({
                                 x: bossX,
@@ -249,16 +250,35 @@
                                 type: "yellow_orb"
                             });
                         });
-                    } else {
-                        items.push({
-                            x: bossX,
-                            y: bossY + 20,
-                            vx: 0,
-                            speed: 5.0,
-                            rotation: 0,
-                            rotationSpeed: 0.06,
-                            type: "yellow_orb"
-                        });
+                    } else if (now - lastBossDropTime >= 2000) {
+                        lastBossDropTime = now;
+                        bossDropStep = (bossDropStep + 1) % 2;
+
+                        if (bossDropStep === 1) {
+                            // 1 капля
+                            items.push({
+                                x: bossX,
+                                y: bossY + 20,
+                                vx: 0,
+                                speed: 5.0,
+                                rotation: 0,
+                                rotationSpeed: 0.06,
+                                type: "yellow_orb"
+                            });
+                        } else {
+                            // 2 капли
+                            [-2.2, 2.2].forEach(vx => {
+                                items.push({
+                                    x: bossX,
+                                    y: bossY + 20,
+                                    vx: vx,
+                                    speed: 5.0,
+                                    rotation: 0,
+                                    rotationSpeed: (vx > 0 ? 0.06 : -0.06),
+                                    type: "yellow_orb"
+                                });
+                            });
+                        }
                     }
                 }
 
@@ -386,7 +406,7 @@
                 if (introPassed >= introDuration) {
                     bossState = "active";
                     bossX = canvas.width / 2; 
-                    lastBossDropTime = now; // Сбрасываем таймер при начале активной фазы
+                    bossDropsStarted = false; // Сбрасываем перед стартом активной фазы
                 }
             }
 
@@ -769,7 +789,8 @@
             activeWaterStreams = [];
             flyingFists = [];
             lastCubeMilestone = 0;
-            bossDropCycle = 0;
+            bossDropsStarted = false;
+            bossDropStep = 0;
             lastBossDropTime = 0;
             bossHp = bossMaxHp;
             gameOver = false;
