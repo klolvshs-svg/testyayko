@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v58_fix_egg_aspect_ratio";
+        const CURRENT_APP_VERSION = "v59_high_quality_egg";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -130,6 +130,10 @@
 
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+
+        // Включаем высокое качество сглаживания графики
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -488,9 +492,9 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // ИГРОК (ЯЙЦО) - Рендер с сохранением пропорций (944x1133)
+            // ИГРОК (ЯЙЦО) - Рендер в высоком качестве с сохранением пропорций
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
-                let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; // ~0.833
+                let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 55;
                 let drawW = drawH * imgAspect; 
                 ctx.drawImage(eggImg, player.x - drawW / 2, player.y - drawH / 2 + 5, drawW, drawH);
