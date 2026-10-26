@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v39_fewer_swords_no_helmets_boss";
+        const CURRENT_APP_VERSION = "v41_fan_of_2_yellow_orbs";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -228,12 +228,15 @@
             // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ ---
             if (bossState === "active") {
                 if (bossHp < 100 && Math.random() < 0.025) {
-                    items.push({
-                        x: bossX,
-                        y: bossY + 20,
-                        vx: (Math.random() - 0.5) * 4,
-                        speed: 5.0,
-                        type: "yellow_orb"
+                    // Веер ровно из 2 желтых шаров
+                    [-2.2, 2.2].forEach(vx => {
+                        items.push({
+                            x: bossX,
+                            y: bossY + 20,
+                            vx: vx,
+                            speed: 5.0,
+                            type: "yellow_orb"
+                        });
                     });
                 }
 
@@ -455,10 +458,9 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ (Меньше ножей во время босса, без касок)
+            // СПАВН ПРЕДМЕТОВ
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
-                // Делаем интервал спавна во время босса чуть больше, чтобы падало меньше предметов и ножей
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
                 let currentSpawnInterval = (bossState === "active") ? baseInterval + 14 : baseInterval;
 
@@ -467,7 +469,6 @@
                     const rand = Math.random();
 
                     if (bossState === "active") {
-                        // Каски (helmet) во время босс-файта убраны
                         if (rand < 0.30) type = "boss_fist"; 
                         else if (rand >= 0.30 && rand < 0.38 && !hasShield) type = "shield";
                         else if (rand >= 0.38 && rand < 0.46) type = "drop1";
