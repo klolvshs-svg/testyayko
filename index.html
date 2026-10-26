@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v70_larger_bomb_texture";
+        const CURRENT_APP_VERSION = "v71_fix_egg_hitbox";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,7 +156,8 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        const player = { x: W / 2, y: H - 70, radius: 25 };
+        // Хитбокс уменьшен до 18, чтобы соответствовать реальному размеру яйца
+        const player = { x: W / 2, y: H - 70, radius: 18 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
@@ -665,7 +666,7 @@
                 else if (item.type === "bomb") {
                     if (bombImg.complete && bombImg.naturalWidth !== 0) {
                         let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                        let drawH = 50; // Увеличенный размер бомбы (было 38)
+                        let drawH = 50; 
                         let drawW = drawH * imgAspect;
                         ctx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
                     } else {
