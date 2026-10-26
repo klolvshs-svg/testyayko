@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v62_smooth_shield_alignment";
+        const CURRENT_APP_VERSION = "v63_retina_crisp_display";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -131,12 +131,19 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Включаем максимальное качество сглаживания графики
+        // Поддержка Retina / High-DPI экранов для идеальной гладкости без пикселей
+        const dpr = window.devicePixelRatio || 1;
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+
+        ctx.scale(dpr, dpr);
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
 
         let totalBank = parseFloat(localStorage.getItem("egg_total_ml_bank") || "0.0");
         let lastPromoCode = localStorage.getItem("egg_last_promo_code") || "";
@@ -147,9 +154,9 @@
 
         let invincibleUntil = 0; 
         let slowUntil = 0;       
-        let targetX = canvas.width / 2;
+        let targetX = W / 2;
 
-        const player = { x: canvas.width / 2, y: canvas.height - 70, radius: 25 };
+        const player = { x: W / 2, y: H - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
@@ -165,7 +172,7 @@
         let lastBossDropTime = 0;
 
         // Параметры босса (200 HP)
-        let bossX = canvas.width / 2;
+        let bossX = W / 2;
         let bossY = 75;
         let bossSpeedX = 2.8;
         let bossMaxHp = 200; 
@@ -211,11 +218,11 @@
                     player.x = targetX;
                 }
             }
-            player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+            player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
 
             // Обычный цвет фона
             ctx.fillStyle = "#0f1721";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, W, H);
 
             // АКТИВАЦИЯ БОССА НА 1.0 МЛ (Спавн строго по центру)
             if (mlEarned >= 1.0 && !bossTriggered) {
@@ -223,7 +230,7 @@
                 bossState = "intro";
                 introTimer = now;
                 bossHp = bossMaxHp; 
-                bossX = canvas.width / 2; 
+                bossX = W / 2; 
             }
 
             // --- ТЕСТОВЫЙ КУБИК КАЖДЫЙ 1 МЛ ---
@@ -231,7 +238,7 @@
             if (currentWholeMl > lastCubeMilestone && bossState !== "intro" && bossState !== "victory") {
                 lastCubeMilestone = currentWholeMl;
                 items.push({
-                    x: Math.random() * (canvas.width - 60) + 30,
+                    x: Math.random() * (W - 60) + 30,
                     y: -30,
                     speed: 4,
                     type: "random_cube"
@@ -287,7 +294,7 @@
                 }
 
                 bossX += bossSpeedX;
-                if (bossX < 50 || bossX > canvas.width - 50) {
+                if (bossX < 50 || bossX > W - 50) {
                     bossSpeedX *= -1;
                 }
 
@@ -318,7 +325,7 @@
                 // Шкала здоровья босса
                 let barWidth = 220;
                 let barHeight = 12;
-                let barX = canvas.width / 2 - barWidth / 2;
+                let barX = W / 2 - barWidth / 2;
                 let barY = 20;
 
                 ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
@@ -335,7 +342,7 @@
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 12px Arial";
                 ctx.textAlign = "center";
-                ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, canvas.width / 2, barY - 5);
+                ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
             // --- ОБНОВЛЕНИЕ И ОТРИСОВКА ЛЕТЯЩИХ КУЛАКОВ ---
@@ -365,7 +372,7 @@
                 let currentIntroY = -50 + (bossY - (-50)) * easeProgress;
                 let scaleAnim = 0.3 + 0.7 * easeProgress;
 
-                let introX = canvas.width / 2;
+                let introX = W / 2;
 
                 ctx.save();
                 ctx.globalAlpha = Math.min(1, introPassed / 400);
@@ -382,7 +389,7 @@
                     let barProgress = Math.min(1, (introPassed - 1500) / 1000);
                     let barWidth = 220;
                     let barHeight = 12;
-                    let barX = canvas.width / 2 - barWidth / 2;
+                    let barX = W / 2 - barWidth / 2;
                     let barY = 20;
 
                     ctx.save();
@@ -401,7 +408,7 @@
                     ctx.fillStyle = "#ffffff";
                     ctx.font = "bold 12px Arial";
                     ctx.textAlign = "center";
-                    ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, canvas.width / 2, barY - 5);
+                    ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
                     ctx.restore();
                 }
 
@@ -409,7 +416,7 @@
 
                 if (introPassed >= introDuration) {
                     bossState = "active";
-                    bossX = canvas.width / 2; 
+                    bossX = W / 2; 
                     bossDropsStarted = false; 
                 }
             }
@@ -441,12 +448,12 @@
                 ctx.lineWidth = 4;
                 ctx.font = `bold ${Math.floor(38 * scale)}px Arial`;
                 ctx.textAlign = "center";
-                ctx.strokeText("+5.000 мл ПОБЕДА!", canvas.width / 2, canvas.height / 2 - 20);
-                ctx.fillText("+5.000 мл ПОБЕДА!", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.strokeText("+5.000 мл ПОБЕДА!", W / 2, H / 2 - 20);
+                ctx.fillText("+5.000 мл ПОБЕДА!", W / 2, H / 2 - 20);
                 
                 ctx.font = `bold 22px Arial`;
                 ctx.fillStyle = "#ffffff";
-                ctx.fillText("Босс Рита повержена!", canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText("Босс Рита повержена!", W / 2, H / 2 + 30);
                 ctx.restore();
 
                 if (victoryPassed >= victoryDuration) {
@@ -496,7 +503,7 @@
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
-            // ИГРОК (ЯЙЦО) - Рендер по центру с идеальным сглаживанием
+            // ИГРОК (ЯЙЦО) - Рендер по центру с идеальным сглаживанием Retina
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 44; 
@@ -510,7 +517,7 @@
                 ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
             }
 
-            // ЗАЩИТНЫЕ КОЛЬЦА (Привязаны к тем же целым координатам renderPlayerX/Y для идеальной центровки и гладкости)
+            // ЗАЩИТНЫЕ КОЛЬЦА (Привязаны к тем же целым координатам для идеальной центровки и гладкости)
             if (isInvincible) {
                 ctx.beginPath();
                 ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
@@ -551,16 +558,16 @@
                         ctx.strokeStyle = "#ffdd00";
                         ctx.lineWidth = 3;
                         ctx.setLineDash([8, 6]);
-                        ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, canvas.height);
+                        ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, H);
                         ctx.setLineDash([]);
                     } else if (now < stream.activeUntil) {
                         ctx.fillStyle = "rgba(255, 220, 50, 0.35)";
-                        ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, canvas.height);
+                        ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, H);
 
                         ctx.fillStyle = "rgba(255, 240, 100, 0.9)";
                         let timeOffset = Date.now() / 2.5;
-                        for (let wy = 0; wy < canvas.height; wy += 18) {
-                            let dropY = (wy + timeOffset) % canvas.height;
+                        for (let wy = 0; wy < H; wy += 18) {
+                            let dropY = (wy + timeOffset) % H;
                             let dropX = stream.x + Math.sin(dropY * 0.05) * 4;
                             let dropSize = 4 + (wy % 4);
                             
@@ -570,8 +577,8 @@
                         }
 
                         ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-                        for (let sp = 10; sp < canvas.height; sp += 30) {
-                            let spY = (sp + timeOffset * 1.2) % canvas.height;
+                        for (let sp = 10; sp < H; sp += 30) {
+                            let spY = (sp + timeOffset * 1.2) % H;
                             ctx.fillRect(stream.x - stream.width / 2 - 2, spY, 3, 3);
                             ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
                         }
@@ -632,7 +639,7 @@
                     }
 
                     items.push({
-                        x: Math.random() * (canvas.width - 60) + 30,
+                        x: Math.random() * (W - 60) + 30,
                         y: -30,
                         vx: 0,
                         speed: (4 + Math.random() * 3) * speedMultiplier,
@@ -775,7 +782,7 @@
                     }
                 }
 
-                if (item.y > canvas.height + 40) {
+                if (item.y > H + 40) {
                     if (item.type === "sword" && bossState !== "victory") {
                         mlEarned += 0.015; 
                     }
