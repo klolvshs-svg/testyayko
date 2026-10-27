@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v82_elliptical_precise_hitbox";
+        const CURRENT_APP_VERSION = "v83_micro_tuned_hitbox";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,12 +156,12 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Размеры игрока и эллиптического хитбокса под форму яйца
+        // Тонко откалиброванный эллиптический хитбокс (уменьшен на пару пикселей)
         const player = { 
             x: W / 2, 
             y: H - 70, 
-            rx: 27, // Горизонтальный радиус хитбокса (шире, чтобы ловить слева/справа по краям текстуры)
-            ry: 24  // Вертикальный радиус хитбокса
+            rx: 25, // Горизонтальный радиус
+            ry: 22  // Вертикальный радиус
         };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
@@ -508,7 +508,7 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // --- ЕДИНЫЕ ОКРУГЛЕННЫЕ КООРДИНАТЫ ---
+            // --- ЕДИНЫЕ КООРДИНАТЫ ---
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
@@ -592,7 +592,6 @@
                             ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
                         }
 
-                        // Проверка струи по эллипсу
                         let dxStream = stream.x - player.x;
                         if (Math.abs(dxStream) < stream.width / 2 + player.rx - 5) {
                             if (!isInvincible) {
@@ -722,11 +721,10 @@
                     }
                 }
 
-                // --- ТОЧНАЯ ЭЛЛИПТИЧЕСКАЯ (ОВАЛЬНАЯ) ПРОВЕРКА КОЛЛИЗИИ ---
-                // Формула уравнения эллипса: ((x - cx)/rx)^2 + ((y - cy)/ry)^2 <= 1 (с учетом запаса на радиус предмета ~14px)
+                // --- ТОЧНАЯ ЭЛЛИПТИЧЕСКАЯ ПРОВЕРКА КОЛЛИЗИИ (С УМЕНЬШЕННЫМ ОТСТУПОМ) ---
                 let dx = item.x - player.x;
                 let dy = item.y - player.y;
-                let normalizedDist = (dx * dx) / ((player.rx + 14) * (player.rx + 14)) + (dy * dy) / ((player.ry + 14) * (player.ry + 14));
+                let normalizedDist = (dx * dx) / ((player.rx + 10) * (player.rx + 10)) + (dy * dy) / ((player.ry + 10) * (player.ry + 10));
 
                 if (normalizedDist <= 1.0) {
                     if (bossState === "intro" || bossState === "victory") {
@@ -830,8 +828,6 @@
             document.getElementById("totalBankText").innerText = totalBank.toFixed(3);
             document.getElementById("gameOverScreen").style.display = "flex";
         }
-
-        function restartGroup() {} // placeholder
 
         function restartGame() {
             mlEarned = 0.0;
