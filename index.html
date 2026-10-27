@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v86_boss_dasha_1ml_rita_10ml";
+        const CURRENT_APP_VERSION = "v87_white_drops_barrels";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -171,6 +171,7 @@
         let activeWaterStreams = [];  
         let flyingFists = []; 
         let flyingWhiteDrops = []; // Летящие белые капли в Дашу
+        let bossWhiteSplats = [];  // Активные белые кляксы на Даше {x, y, radius, expiresAt}
         let lastCubeMilestone = 0; 
         
         let bossDropsStarted = false;
@@ -236,7 +237,6 @@
             ctx.fillRect(0, 0, W, H);
 
             // --- ПРОВЕРКА ПОЯВЛЕНИЯ БОССОВ ---
-            // 1. Босс Даша на 1.0 мл
             if (mlEarned >= 1.0 && !dashaTriggered) {
                 dashaTriggered = true;
                 currentBoss = "dasha";
@@ -247,7 +247,6 @@
                 bossX = W / 2; 
             }
 
-            // 2. Босс Рита на 10.0 мл (после победы над Дашей)
             if (mlEarned >= 10.0 && dashaDefeated && !ritaTriggered) {
                 ritaTriggered = true;
                 currentBoss = "rita";
@@ -279,7 +278,7 @@
 
                 // Специфика Босса Даши
                 if (currentBoss === "dasha") {
-                    // Спавн белых капель и столов
+                    // Спавн белых капель
                     if (Math.random() < 0.025) {
                         items.push({
                             x: Math.random() * (W - 50) + 25,
@@ -288,6 +287,7 @@
                             type: "white_drop"
                         });
                     }
+                    // Спавн столов
                     if (Math.random() < 0.02) {
                         items.push({
                             x: bossX + (Math.random() * 100 - 50),
@@ -296,10 +296,10 @@
                             type: "table"
                         });
                     }
-                    // Баррикады из 3 смайлов по горизонтали
+                    // Баррикады из 3 бочек по горизонтали (🛢️🛢️🛢️)
                     if (Math.random() < 0.005) {
                         let barX = bossX;
-                        [-30, 0, 30].forEach(offset => {
+                        [-35, 0, 35].forEach(offset => {
                             items.push({
                                 x: Math.max(30, Math.min(W - 30, barX + offset)),
                                 y: -30,
@@ -364,21 +364,23 @@
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
                     ctx.drawImage(activeImg, bossX - 28, bossY - 28, 56, 56);
                     
-                    // Повреждения/эффекты на боссе
                     if (currentBoss === "rita" && bossHp < 100) {
                         ctx.fillStyle = "rgba(100, 50, 160, 0.8)";
                         ctx.beginPath();
                         ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2);
                         ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2);
                         ctx.fill();
-                    } else if (currentBoss === "dasha" && bossHp < 400) {
-                        // Белая смесь на Даше
-                        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-                        ctx.beginPath();
-                        ctx.arc(bossX - 6, bossY - 3, 7, 0, Math.PI * 2);
-                        ctx.arc(bossX + 7, bossY + 4, 6, 0, Math.PI * 2);
-                        ctx.arc(bossX, bossY, 8, 0, Math.PI * 2);
-                        ctx.fill();
+                    }
+
+                    // Отрисовка временных белых кляксем на Даше (пропадают через 2 секунды)
+                    if (currentBoss === "dasha") {
+                        bossWhiteSplats = bossWhiteSplats.filter(s => now < s.expiresAt);
+                        bossWhiteSplats.forEach(s => {
+                            ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+                            ctx.beginPath();
+                            ctx.arc(bossX + s.offsetX, bossY + s.offsetY, s.radius, 0, Math.PI * 2);
+                            ctx.fill();
+                        });
                     }
                 } else {
                     ctx.font = "40px Arial";
@@ -439,7 +441,16 @@
                 ctx.fillText("🥛", fd.x, fd.y);
 
                 if (Math.hypot(bossX - fd.x, bossY - fd.y) < 25) {
-                    bossHp = Math.max(0, bossHp - 25); // урон белой смесью
+                    bossHp = Math.max(0, bossHp - 10); // снятие 10 урона
+                    
+                    // Добавляем кляксу на босса, которая пропадет через 2 секунды
+                    bossWhiteSplats.push({
+                        offsetX: Math.random() * 24 - 12,
+                        offsetY: Math.random() * 24 - 12,
+                        radius: 8 + Math.random() * 6,
+                        expiresAt: now + 2000
+                    });
+
                     flyingWhiteDrops.splice(f, 1);
                 }
             }
@@ -514,6 +525,7 @@
                 activeWaterStreams = []; 
                 flyingFists = [];
                 flyingWhiteDrops = [];
+                bossWhiteSplats = [];
 
                 let scale = 1.0;
                 let opacity = 1.0;
@@ -737,8 +749,18 @@
 
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
                 else if (item.type === "table") ctx.fillText("🪑", item.x, item.y);
-                else if (item.type === "barricade") ctx.fillText("📦", item.x, item.y);
-                else if (item.type === "white_drop") ctx.fillText("🥛", item.x, item.y);
+                else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y); // Бочки
+                else if (item.type === "white_drop") {
+                    // Отрисовка белой капли (размером и формой как водяная)
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, 14, 0, Math.PI * 2);
+                    ctx.fillStyle = "#ffffff";
+                    ctx.shadowColor = "#ffffff";
+                    ctx.shadowBlur = 10;
+                    ctx.fill();
+                    ctx.restore();
+                }
                 else if (item.type === "bomb") {
                     if (bombImg.complete && bombImg.naturalWidth !== 0) {
                         let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
@@ -900,6 +922,7 @@
             activeWaterStreams = [];
             flyingFists = [];
             flyingWhiteDrops = [];
+            bossWhiteSplats = [];
             lastCubeMilestone = 0;
             bossDropsStarted = false;
             bossDropStep = 0;
