@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v84_classic_original_circle_hitbox";
+        const CURRENT_APP_VERSION = "v85_boss_10ml_speed_20ml";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,7 +156,7 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Идентичный классический круглый хитбокс из самых первых стабильных версий
+        // Классический стабильный радиус хитбокса
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
@@ -228,8 +228,8 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            // АКТИВАЦИЯ БОССА НА 1.0 МЛ (Спавн строго по центру)
-            if (mlEarned >= 1.0 && !bossTriggered) {
+            // АКТИВАЦИЯ БОССА НА 10.0 МЛ (Спавн строго по центру)
+            if (mlEarned >= 10.0 && !bossTriggered) {
                 bossTriggered = true;
                 bossState = "intro";
                 introTimer = now;
@@ -473,7 +473,8 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
-            const speedMultiplier = 1 + Math.floor(mlEarned / 8) * 0.12;
+            // Ускорение игры теперь каждые 20 мл
+            const speedMultiplier = 1 + Math.floor(mlEarned / 20) * 0.12;
 
             // ИНТЕРФЕЙС
             ctx.fillStyle = "#ffffff";
@@ -715,7 +716,7 @@
                     }
                 }
 
-                // --- ТОЧНАЯ КЛАССИЧЕСКАЯ ПРОВЕРКА КОЛЛИЗИИ (ОРИГИНАЛЬНЫЙ РАДИУС) ---
+                // КЛАССИЧЕСКАЯПРОВЕРКА КОЛЛИЗИИ
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
