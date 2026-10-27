@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v83_micro_tuned_hitbox";
+        const CURRENT_APP_VERSION = "v84_classic_original_circle_hitbox";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -156,13 +156,8 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Тонко откалиброванный эллиптический хитбокс (уменьшен на пару пикселей)
-        const player = { 
-            x: W / 2, 
-            y: H - 70, 
-            rx: 25, // Горизонтальный радиус
-            ry: 22  // Вертикальный радиус
-        };
+        // Идентичный классический круглый хитбокс из самых первых стабильных версий
+        const player = { x: W / 2, y: H - 70, radius: 25 };
 
         // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
         let bossTriggered = false;
@@ -227,7 +222,7 @@
                     player.x = targetX;
                 }
             }
-            player.x = Math.max(player.rx, Math.min(W - player.rx, player.x));
+            player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
 
             // Обычный цвет фона
             ctx.fillStyle = "#0f1721";
@@ -529,21 +524,21 @@
             // ЗАЩИТНЫЕ КОЛЬЦА
             if (isInvincible) {
                 ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, Math.max(player.rx, player.ry) + 18, 0, Math.PI * 2);
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
                 ctx.strokeStyle = "#ffcc00";
                 ctx.lineWidth = 5;
                 ctx.stroke();
             }
             if (hasShield) {
                 ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, Math.max(player.rx, player.ry) + 12, 0, Math.PI * 2);
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 12, 0, Math.PI * 2);
                 ctx.strokeStyle = "#00d2ff";
                 ctx.lineWidth = 4;
                 ctx.stroke();
             }
             if (hasHelmet) {
                 ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, Math.max(player.rx, player.ry) + 15, 0, Math.PI * 2);
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 15, 0, Math.PI * 2);
                 ctx.strokeStyle = "#ff9900";
                 ctx.lineWidth = 4;
                 ctx.stroke();
@@ -592,8 +587,7 @@
                             ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
                         }
 
-                        let dxStream = stream.x - player.x;
-                        if (Math.abs(dxStream) < stream.width / 2 + player.rx - 5) {
+                        if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
                                 if (hasShield) {
                                     hasShield = false;
@@ -721,12 +715,9 @@
                     }
                 }
 
-                // --- ТОЧНАЯ ЭЛЛИПТИЧЕСКАЯ ПРОВЕРКА КОЛЛИЗИИ (С УМЕНЬШЕННЫМ ОТСТУПОМ) ---
-                let dx = item.x - player.x;
-                let dy = item.y - player.y;
-                let normalizedDist = (dx * dx) / ((player.rx + 10) * (player.rx + 10)) + (dy * dy) / ((player.ry + 10) * (player.ry + 10));
-
-                if (normalizedDist <= 1.0) {
+                // --- ТОЧНАЯ КЛАССИЧЕСКАЯ ПРОВЕРКА КОЛЛИЗИИ (ОРИГИНАЛЬНЫЙ РАДИУС) ---
+                const dist = Math.hypot(player.x - item.x, player.y - item.y);
+                if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
                         items.splice(i, 1);
                         continue;
