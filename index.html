@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v93_fixed_table_angles_fair_bounce";
+        const CURRENT_APP_VERSION = "v94_dasha_shields_gifts_added";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -305,7 +305,6 @@
                         } else {
                             let randChoice = Math.random();
                             if (randChoice < 0.55) {
-                                // Пологий вылет к боковой стене (не на яйцо!)
                                 let sideDir = bossX < W / 2 ? 1 : -1; 
                                 items.push({
                                     x: bossX,
@@ -754,9 +753,11 @@
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
                         else type = "sword";
                     } else if (bossState === "active" && currentBoss === "dasha") {
-                        if (rand >= 0.35 && rand < 0.45) type = "barricade";
-                        else if (rand >= 0.45 && rand < 0.65) type = "white_drop";
-                        else if (rand >= 0.65 && rand < 0.75) type = "bomb";
+                        if (rand < 0.08 && !hasShield) type = "shield";       // Добавлен редкий спавн щита у Даши
+                        else if (rand >= 0.08 && rand < 0.16) type = "random_cube"; // Добавлены редкие подарки/кубики у Даши
+                        else if (rand >= 0.16 && rand < 0.28) type = "barricade";
+                        else if (rand >= 0.28 && rand < 0.50) type = "white_drop";
+                        else if (rand >= 0.50 && rand < 0.62) type = "bomb";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
