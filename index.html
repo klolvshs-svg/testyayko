@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v91_balanced_barricades_bombs_rita_stream";
+        const CURRENT_APP_VERSION = "v92_fewer_slower_tables";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -288,17 +288,17 @@
                         });
                     }
 
-                    // Спавн столов (вращаются всегда!)
+                    // Спавн столов (меньше количественно и чуть медленнее)
                     let activeTables = items.filter(it => it.type === "table").length;
-                    if (activeTables < 3 && Math.random() < 0.02) {
+                    if (activeTables < 2 && Math.random() < 0.015) {
                         if (bossHp > 350) {
                             items.push({
                                 x: Math.random() * (W - 60) + 30,
                                 y: -30,
-                                vx: (Math.random() - 0.5) * 1.5,
-                                vy: 4 + Math.random() * 2,
+                                vx: (Math.random() - 0.5) * 1.2,
+                                vy: 3.2 + Math.random() * 1.5,
                                 rotation: 0,
-                                rotationSpeed: 0.06,
+                                rotationSpeed: 0.05,
                                 type: "table",
                                 subType: "drop"
                             });
@@ -309,10 +309,10 @@
                                 items.push({
                                     x: bossX,
                                     y: bossY,
-                                    vx: sideDir * (4.0 + Math.random() * 2),
-                                    vy: 2.0 + Math.random() * 2,
+                                    vx: sideDir * (3.2 + Math.random() * 1.5),
+                                    vy: 1.8 + Math.random() * 1.5,
                                     rotation: 0,
-                                    rotationSpeed: 0.08,
+                                    rotationSpeed: 0.06,
                                     type: "table",
                                     subType: "trickshot"
                                 });
@@ -321,10 +321,10 @@
                                 items.push({
                                     x: fromLeft ? -30 : W + 30,
                                     y: 150 + Math.random() * (H - 300),
-                                    vx: fromLeft ? (4.5 + Math.random() * 2) : -(4.5 + Math.random() * 2),
+                                    vx: fromLeft ? (3.8 + Math.random() * 1.5) : -(3.8 + Math.random() * 1.5),
                                     vy: 0,
                                     rotation: 0,
-                                    rotationSpeed: 0.07,
+                                    rotationSpeed: 0.05,
                                     type: "table",
                                     subType: "horizontal"
                                 });
@@ -332,7 +332,7 @@
                         }
                     }
 
-                    // Баррикады из бочек (делаем чуть реже по просьбе)
+                    // Баррикады из бочек
                     if (Math.random() < 0.003) {
                         let barX = bossX;
                         [-35, 0, 35].forEach(offset => {
@@ -346,7 +346,7 @@
                     }
                 }
 
-                // Специфика Босса Риты (возвращена струя и полный набор)
+                // Специфика Босса Риты (полностью сохранена)
                 if (currentBoss === "rita") {
                     if (bossHp < 100) {
                         if (!bossDropsStarted) {
@@ -694,7 +694,7 @@
                 ctx.stroke();
             }
 
-            // Струя воды (возвращена для Риты)
+            // Струя воды (Риты)
             if (bossState === "active" && currentBoss === "rita") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
                     activeWaterStreams.push({
@@ -736,7 +736,7 @@
                 }
             }
 
-            // Спавн предметов (чуть больше бомбочек по запросу)
+            // Спавн предметов
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -755,7 +755,7 @@
                     } else if (bossState === "active" && currentBoss === "dasha") {
                         if (rand >= 0.35 && rand < 0.45) type = "barricade";
                         else if (rand >= 0.45 && rand < 0.65) type = "white_drop";
-                        else if (rand >= 0.65 && rand < 0.75) type = "bomb"; // Добавили бомбочек Даше
+                        else if (rand >= 0.65 && rand < 0.75) type = "bomb";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -775,7 +775,7 @@
                         } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
                             type = "shield";
                         } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.72) {
-                            type = "bomb"; // Немного увеличили шанс бомбочек
+                            type = "bomb"; 
                         }
                     }
 
@@ -807,11 +807,11 @@
                         if (item.x < 30) {
                             item.x = 30;
                             item.vx *= -1;
-                            item.vy += (Math.random() - 0.5) * 1.5;
+                            item.vy += (Math.random() - 0.5) * 1.2;
                         } else if (item.x > W - 30) {
                             item.x = W - 30;
                             item.vx *= -1;
-                            item.vy += (Math.random() - 0.5) * 1.5;
+                            item.vy += (Math.random() - 0.5) * 1.2;
                         }
                     } else {
                         item.x += (item.vx || 0);
@@ -829,7 +829,7 @@
                 else if (item.type === "table") {
                     ctx.save();
                     ctx.translate(item.x, item.y);
-                    item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.05);
+                    item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
                     ctx.rotate(item.rotation);
                     ctx.font = "35px Arial";
                     ctx.textAlign = "center";
