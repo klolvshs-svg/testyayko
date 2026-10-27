@@ -7,7 +7,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Спаси Яйцо - Битва с Боссом</title>
+    <title>Спаси Яйцо - Битва с Боссами</title>
     <style>
         body {
             margin: 0;
@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v85_boss_10ml_speed_20ml";
+        const CURRENT_APP_VERSION = "v86_boss_dasha_1ml_rita_10ml";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -131,7 +131,7 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Поддержка Retina / High-DPI экранов для идеальной гладкости без пикселей
+        // Поддержка Retina / High-DPI экранов
         const dpr = window.devicePixelRatio || 1;
         const W = window.innerWidth;
         const H = window.innerHeight;
@@ -156,32 +156,39 @@
         let slowUntil = 0;       
         let targetX = W / 2;
 
-        // Классический стабильный радиус хитбокса
+        // Классический стабильный хитбокс яйца
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
-        // --- ПЕРЕМЕННЫЕ БОСС-ФАЙТА ---
-        let bossTriggered = false;
-        let bossState = "none"; 
+        // --- ПЕРЕМЕННЫЕ ДВУХ БОССОВ ---
+        let dashaTriggered = false;
+        let dashaDefeated = false;
+        let ritaTriggered = false;
+
+        let currentBoss = null; // "dasha" | "rita" | null
+        let bossState = "none"; // "none" | "intro" | "active" | "victory"
         let introTimer = 0;
         let victoryTimer = 0;
         let activeWaterStreams = [];  
         let flyingFists = []; 
+        let flyingWhiteDrops = []; // Летящие белые капли в Дашу
         let lastCubeMilestone = 0; 
         
         let bossDropsStarted = false;
         let bossDropStep = 0; 
         let lastBossDropTime = 0;
 
-        // Параметры босса (200 HP)
         let bossX = W / 2;
         let bossY = 75;
         let bossSpeedX = 2.8;
-        let bossMaxHp = 200; 
-        let bossHp = 200;
+        let bossMaxHp = 400; 
+        let bossHp = 400;
 
-        // Загрузка картинок
-        const bossImg = new Image();
-        bossImg.src = "bosses/ritaboss.webp";
+        // Загрузка картинок боссов
+        const dashaImg = new Image();
+        dashaImg.src = "bosses/dashaboss.webp";
+
+        const ritaImg = new Image();
+        ritaImg.src = "bosses/ritaboss.webp";
 
         const cubeImg = new Image();
         cubeImg.src = "items/cubik.webp";
@@ -228,12 +235,26 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            // АКТИВАЦИЯ БОССА НА 10.0 МЛ (Спавн строго по центру)
-            if (mlEarned >= 10.0 && !bossTriggered) {
-                bossTriggered = true;
+            // --- ПРОВЕРКА ПОЯВЛЕНИЯ БОССОВ ---
+            // 1. Босс Даша на 1.0 мл
+            if (mlEarned >= 1.0 && !dashaTriggered) {
+                dashaTriggered = true;
+                currentBoss = "dasha";
                 bossState = "intro";
                 introTimer = now;
-                bossHp = bossMaxHp; 
+                bossMaxHp = 400;
+                bossHp = 400; 
+                bossX = W / 2; 
+            }
+
+            // 2. Босс Рита на 10.0 мл (после победы над Дашей)
+            if (mlEarned >= 10.0 && dashaDefeated && !ritaTriggered) {
+                ritaTriggered = true;
+                currentBoss = "rita";
+                bossState = "intro";
+                introTimer = now;
+                bossMaxHp = 200;
+                bossHp = 200; 
                 bossX = W / 2; 
             }
 
@@ -249,39 +270,53 @@
                 });
             }
 
-            // --- БОСС ДВИГАЕТСЯ И АТАКУЕТ (АКТИВНАЯ ФАЗА) ---
+            // --- АКТИВНАЯ ФАЗА БОССОВ ---
             if (bossState === "active") {
-                if (bossHp < 100) {
-                    if (!bossDropsStarted) {
-                        bossDropsStarted = true;
-                        lastBossDropTime = now;
-                        bossDropStep = 0; 
-                        [-2.2, 2.2].forEach(vx => {
+                bossX += bossSpeedX;
+                if (bossX < 50 || bossX > W - 50) {
+                    bossSpeedX *= -1;
+                }
+
+                // Специфика Босса Даши
+                if (currentBoss === "dasha") {
+                    // Спавн белых капель и столов
+                    if (Math.random() < 0.025) {
+                        items.push({
+                            x: Math.random() * (W - 50) + 25,
+                            y: -30,
+                            speed: 4.5,
+                            type: "white_drop"
+                        });
+                    }
+                    if (Math.random() < 0.02) {
+                        items.push({
+                            x: bossX + (Math.random() * 100 - 50),
+                            y: bossY + 20,
+                            speed: 5.5,
+                            type: "table"
+                        });
+                    }
+                    // Баррикады из 3 смайлов по горизонтали
+                    if (Math.random() < 0.005) {
+                        let barX = bossX;
+                        [-30, 0, 30].forEach(offset => {
                             items.push({
-                                x: bossX,
-                                y: bossY + 20,
-                                vx: vx,
-                                speed: 5.0,
-                                rotation: 0,
-                                rotationSpeed: (vx > 0 ? 0.06 : -0.06),
-                                type: "yellow_orb"
+                                x: Math.max(30, Math.min(W - 30, barX + offset)),
+                                y: -30,
+                                speed: 3.8,
+                                type: "barricade"
                             });
                         });
-                    } else if (now - lastBossDropTime >= 2000) {
-                        lastBossDropTime = now;
-                        bossDropStep = (bossDropStep + 1) % 2;
+                    }
+                }
 
-                        if (bossDropStep === 1) {
-                            items.push({
-                                x: bossX,
-                                y: bossY + 20,
-                                vx: 0,
-                                speed: 5.0,
-                                rotation: 0,
-                                rotationSpeed: 0.06,
-                                type: "yellow_orb"
-                            });
-                        } else {
+                // Специфика Босса Риты (HP < 100)
+                if (currentBoss === "rita") {
+                    if (bossHp < 100) {
+                        if (!bossDropsStarted) {
+                            bossDropsStarted = true;
+                            lastBossDropTime = now;
+                            bossDropStep = 0; 
                             [-2.2, 2.2].forEach(vx => {
                                 items.push({
                                     x: bossX,
@@ -293,37 +328,62 @@
                                     type: "yellow_orb"
                                 });
                             });
+                        } else if (now - lastBossDropTime >= 2000) {
+                            lastBossDropTime = now;
+                            bossDropStep = (bossDropStep + 1) % 2;
+
+                            if (bossDropStep === 1) {
+                                items.push({
+                                    x: bossX,
+                                    y: bossY + 20,
+                                    vx: 0,
+                                    speed: 5.0,
+                                    rotation: 0,
+                                    rotationSpeed: 0.06,
+                                    type: "yellow_orb"
+                                });
+                            } else {
+                                [-2.2, 2.2].forEach(vx => {
+                                    items.push({
+                                        x: bossX,
+                                        y: bossY + 20,
+                                        vx: vx,
+                                        speed: 5.0,
+                                        rotation: 0,
+                                        rotationSpeed: (vx > 0 ? 0.06 : -0.06),
+                                        type: "yellow_orb"
+                                    });
+                                });
+                            }
                         }
                     }
                 }
 
-                bossX += bossSpeedX;
-                if (bossX < 50 || bossX > W - 50) {
-                    bossSpeedX *= -1;
-                }
-
-                // Отрисовка босса
-                if (bossImg.complete && bossImg.naturalWidth !== 0) {
-                    ctx.drawImage(bossImg, bossX - 28, bossY - 28, 56, 56);
+                // Отрисовка активного босса
+                let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
+                if (activeImg.complete && activeImg.naturalWidth !== 0) {
+                    ctx.drawImage(activeImg, bossX - 28, bossY - 28, 56, 56);
                     
-                    // Синяки на лице при HP < 100
-                    if (bossHp < 100) {
+                    // Повреждения/эффекты на боссе
+                    if (currentBoss === "rita" && bossHp < 100) {
                         ctx.fillStyle = "rgba(100, 50, 160, 0.8)";
                         ctx.beginPath();
                         ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2);
                         ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2);
                         ctx.fill();
-
-                        ctx.fillStyle = "rgba(40, 10, 80, 0.85)";
+                    } else if (currentBoss === "dasha" && bossHp < 400) {
+                        // Белая смесь на Даше
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
                         ctx.beginPath();
-                        ctx.arc(bossX - 7, bossY - 3, 3, 0, Math.PI * 2);
-                        ctx.arc(bossX + 8, bossY + 2, 2.5, 0, Math.PI * 2);
+                        ctx.arc(bossX - 6, bossY - 3, 7, 0, Math.PI * 2);
+                        ctx.arc(bossX + 7, bossY + 4, 6, 0, Math.PI * 2);
+                        ctx.arc(bossX, bossY, 8, 0, Math.PI * 2);
                         ctx.fill();
                     }
                 } else {
                     ctx.font = "40px Arial";
                     ctx.textAlign = "center";
-                    ctx.fillText(bossHp < 100 ? "🤕" : "👑", bossX, bossY + 10);
+                    ctx.fillText(currentBoss === "dasha" ? "🧝‍♀️" : "👑", bossX, bossY + 10);
                 }
 
                 // Шкала здоровья босса
@@ -336,7 +396,7 @@
                 ctx.fillRect(barX, barY, barWidth, barHeight);
 
                 let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
-                ctx.fillStyle = bossHp < 100 ? "#ffcc00" : "#ff3333";
+                ctx.fillStyle = (currentBoss === "dasha") ? "#00d2ff" : "#ff3333";
                 ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
 
                 ctx.strokeStyle = "#ffffff";
@@ -346,10 +406,11 @@
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 12px Arial";
                 ctx.textAlign = "center";
-                ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
+                let bossTitleName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
+                ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
-            // --- ОБНОВЛЕНИЕ И ОТРИСОВКА ЛЕТЯЩИХ КУЛАКОВ ---
+            // --- ОБНОВЛЕНИЕ ЛЕТЯЩИХ КУЛАКОВ (РИТА) ---
             for (let f = flyingFists.length - 1; f >= 0; f--) {
                 let ff = flyingFists[f];
                 let angle = Math.atan2(bossY - ff.y, bossX - ff.x);
@@ -366,7 +427,24 @@
                 }
             }
 
-            // --- ИНТРО ---
+            // --- ОБНОВЛЕНИЕ ЛЕТЯЩИХ БЕЛЫХ КАПЕЛЬ (ДАША) ---
+            for (let f = flyingWhiteDrops.length - 1; f >= 0; f--) {
+                let fd = flyingWhiteDrops[f];
+                let angle = Math.atan2(bossY - fd.y, bossX - fd.x);
+                fd.x += Math.cos(angle) * fd.speed;
+                fd.y += Math.sin(angle) * fd.speed;
+
+                ctx.font = "24px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🥛", fd.x, fd.y);
+
+                if (Math.hypot(bossX - fd.x, bossY - fd.y) < 25) {
+                    bossHp = Math.max(0, bossHp - 25); // урон белой смесью
+                    flyingWhiteDrops.splice(f, 1);
+                }
+            }
+
+            // --- ИНТРО АНИМАЦИЯ ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
@@ -377,12 +455,13 @@
                 let scaleAnim = 0.3 + 0.7 * easeProgress;
 
                 let introX = W / 2;
+                let introImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
 
                 ctx.save();
                 ctx.globalAlpha = Math.min(1, introPassed / 400);
 
-                if (bossImg.complete && bossImg.naturalWidth !== 0) {
-                    ctx.drawImage(bossImg, introX - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
+                if (introImg.complete && introImg.naturalWidth !== 0) {
+                    ctx.drawImage(introImg, introX - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
                 } else {
                     ctx.font = `${Math.floor(40 * scaleAnim)}px Arial`;
                     ctx.textAlign = "center";
@@ -402,7 +481,7 @@
                     ctx.fillRect(barX, barY, barWidth, barHeight);
 
                     let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
-                    ctx.fillStyle = "#ff3333";
+                    ctx.fillStyle = (currentBoss === "dasha") ? "#00d2ff" : "#ff3333";
                     ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
 
                     ctx.strokeStyle = "#ffffff";
@@ -412,7 +491,8 @@
                     ctx.fillStyle = "#ffffff";
                     ctx.font = "bold 12px Arial";
                     ctx.textAlign = "center";
-                    ctx.fillText(`БОСС РИТА: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
+                    let bName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
+                    ctx.fillText(`БОСС ${bName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
                     ctx.restore();
                 }
 
@@ -433,6 +513,7 @@
                 items.forEach(item => { item.speed = 20; });
                 activeWaterStreams = []; 
                 flyingFists = [];
+                flyingWhiteDrops = [];
 
                 let scale = 1.0;
                 let opacity = 1.0;
@@ -455,12 +536,16 @@
                 ctx.strokeText("+5.000 мл ПОБЕДА!", W / 2, H / 2 - 20);
                 ctx.fillText("+5.000 мл ПОБЕДА!", W / 2, H / 2 - 20);
                 
+                let defeatedName = (currentBoss === "dasha") ? "Даша" : "Рита";
                 ctx.font = `bold 22px Arial`;
                 ctx.fillStyle = "#ffffff";
-                ctx.fillText("Босс Рита повержена!", W / 2, H / 2 + 30);
+                ctx.fillText(`Босс ${defeatedName} повержена!`, W / 2, H / 2 + 30);
                 ctx.restore();
 
                 if (victoryPassed >= victoryDuration) {
+                    if (currentBoss === "dasha") {
+                        dashaDefeated = true;
+                    }
                     bossState = "normal"; 
                 }
             }
@@ -473,7 +558,7 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
-            // Ускорение игры теперь каждые 20 мл
+            // Ускорение игры каждые 20 мл
             const speedMultiplier = 1 + Math.floor(mlEarned / 20) * 0.12;
 
             // ИНТЕРФЕЙС
@@ -504,11 +589,10 @@
                 ctx.fillText("❄️ Замедление!", 12, statusY);
             }
 
-            // --- ЕДИНЫЕ КООРДИНАТЫ ---
+            // Рендер игрока (яйца)
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
-            // ИГРОК (ЯЙЦО) - Рендер
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 50; 
@@ -522,7 +606,7 @@
                 ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
             }
 
-            // ЗАЩИТНЫЕ КОЛЬЦА
+            // Защитные кольца
             if (isInvincible) {
                 ctx.beginPath();
                 ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
@@ -545,8 +629,8 @@
                 ctx.stroke();
             }
 
-            // СТРУЯ ВОДЫ ИЗ БОССА
-            if (bossState === "active") {
+            // Струя воды (у Риты)
+            if (bossState === "active" && currentBoss === "rita") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
                     activeWaterStreams.push({
                         x: bossX, 
@@ -569,25 +653,6 @@
                         ctx.fillStyle = "rgba(255, 220, 50, 0.35)";
                         ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, H);
 
-                        ctx.fillStyle = "rgba(255, 240, 100, 0.9)";
-                        let timeOffset = Date.now() / 2.5;
-                        for (let wy = 0; wy < H; wy += 18) {
-                            let dropY = (wy + timeOffset) % H;
-                            let dropX = stream.x + Math.sin(dropY * 0.05) * 4;
-                            let dropSize = 4 + (wy % 4);
-                            
-                            ctx.beginPath();
-                            ctx.arc(dropX, dropY, dropSize, 0, Math.PI * 2);
-                            ctx.fill();
-                        }
-
-                        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-                        for (let sp = 10; sp < H; sp += 30) {
-                            let spY = (sp + timeOffset * 1.2) % H;
-                            ctx.fillRect(stream.x - stream.width / 2 - 2, spY, 3, 3);
-                            ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
-                        }
-
                         if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
                                 if (hasShield) {
@@ -606,7 +671,7 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ
+            // Спавн предметов
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -616,11 +681,16 @@
                     let type = "sword";
                     const rand = Math.random();
 
-                    if (bossState === "active") {
+                    if (bossState === "active" && currentBoss === "rita") {
                         if (rand < 0.38) type = "boss_fist"; 
                         else if (rand >= 0.38 && rand < 0.45 && !hasShield) type = "shield";
                         else if (rand >= 0.45 && rand < 0.52) type = "drop1";
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
+                        else type = "sword";
+                    } else if (bossState === "active" && currentBoss === "dasha") {
+                        if (rand < 0.35) type = "table";
+                        else if (rand >= 0.35 && rand < 0.45) type = "barricade";
+                        else if (rand >= 0.45 && rand < 0.65) type = "white_drop";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -654,7 +724,7 @@
                 }
             }
 
-            // ДВИЖЕНИЕ И ОТРИСОВКА ПРЕДМЕТОВ
+            // Движение и отрисовка предметов
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
                 item.y += item.speed;
@@ -666,6 +736,9 @@
                 ctx.textAlign = "center";
 
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
+                else if (item.type === "table") ctx.fillText("🪑", item.x, item.y);
+                else if (item.type === "barricade") ctx.fillText("📦", item.x, item.y);
+                else if (item.type === "white_drop") ctx.fillText("🥛", item.x, item.y);
                 else if (item.type === "bomb") {
                     if (bombImg.complete && bombImg.naturalWidth !== 0) {
                         let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
@@ -692,7 +765,6 @@
                         item.rotation += item.rotationSpeed;
                         ctx.rotate(item.rotation);
                     }
-
                     ctx.beginPath();
                     ctx.moveTo(0, -14);
                     ctx.bezierCurveTo(12, -2, 12, 12, 0, 14);
@@ -702,11 +774,6 @@
                     ctx.strokeStyle = "#ffffff";
                     ctx.lineWidth = 1.5;
                     ctx.stroke();
-
-                    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-                    ctx.beginPath();
-                    ctx.arc(-3, -3, 2.5, 0, Math.PI * 2);
-                    ctx.fill();
                     ctx.restore();
                 } else if (item.type === "random_cube") {
                     if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
@@ -716,7 +783,7 @@
                     }
                 }
 
-                // КЛАССИЧЕСКАЯПРОВЕРКА КОЛЛИЗИИ
+                // Классическая точная проверка коллизии
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
@@ -725,24 +792,22 @@
                     }
 
                     if (item.type === "boss_fist") {
-                        flyingFists.push({
-                            x: player.x,
-                            y: player.y,
-                            speed: 13
-                        });
+                        flyingFists.push({ x: player.x, y: player.y, speed: 13 });
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    if (item.type === "white_drop") {
+                        flyingWhiteDrops.push({ x: player.x, y: player.y, speed: 14 });
                         items.splice(i, 1);
                         continue;
                     }
 
                     if (item.type === "random_cube") {
                         const randEffect = Math.random();
-                        if (randEffect < 0.33) {
-                            mlEarned += 1.0; 
-                        } else if (randEffect < 0.66) {
-                            hasShield = true; 
-                        } else {
-                            slowUntil = Date.now() + 3000; 
-                        }
+                        if (randEffect < 0.33) mlEarned += 1.0; 
+                        else if (randEffect < 0.66) hasShield = true; 
+                        else slowUntil = Date.now() + 3000; 
                         items.splice(i, 1);
                         continue;
                     }
@@ -827,15 +892,20 @@
             spawnTimer = 0;
             invincibleUntil = 0;
             slowUntil = 0;
-            bossTriggered = false;
+            dashaTriggered = false;
+            dashaDefeated = false;
+            ritaTriggered = false;
+            currentBoss = null;
             bossState = "none";
             activeWaterStreams = [];
             flyingFists = [];
+            flyingWhiteDrops = [];
             lastCubeMilestone = 0;
             bossDropsStarted = false;
             bossDropStep = 0;
             lastBossDropTime = 0;
-            bossHp = bossMaxHp;
+            bossHp = 400;
+            bossMaxHp = 400;
             gameOver = false;
             hasShield = false;
             hasHelmet = false;
