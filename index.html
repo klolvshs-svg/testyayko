@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v90_rotating_trickshot_horizontal_tables";
+        const CURRENT_APP_VERSION = "v91_balanced_barricades_bombs_rita_stream";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -292,7 +292,6 @@
                     let activeTables = items.filter(it => it.type === "table").length;
                     if (activeTables < 3 && Math.random() < 0.02) {
                         if (bossHp > 350) {
-                            // Фаза 1: просто падение вниз, вращаются
                             items.push({
                                 x: Math.random() * (W - 60) + 30,
                                 y: -30,
@@ -304,10 +303,8 @@
                                 subType: "drop"
                             });
                         } else {
-                            // Фаза 2 (после потери 150 HP): трикшоты из босса по стенам + горизонтальные столы
                             let randChoice = Math.random();
                             if (randChoice < 0.55) {
-                                // Трикшот по стенам из Даши
                                 let sideDir = Math.random() < 0.5 ? -1 : 1;
                                 items.push({
                                     x: bossX,
@@ -320,7 +317,6 @@
                                     subType: "trickshot"
                                 });
                             } else {
-                                // Двигающийся горизонтально стол
                                 let fromLeft = Math.random() < 0.5;
                                 items.push({
                                     x: fromLeft ? -30 : W + 30,
@@ -336,8 +332,8 @@
                         }
                     }
 
-                    // Баррикады из бочек (🛢️🛢️🛢️)
-                    if (Math.random() < 0.005) {
+                    // Баррикады из бочек (делаем чуть реже по просьбе)
+                    if (Math.random() < 0.003) {
                         let barX = bossX;
                         [-35, 0, 35].forEach(offset => {
                             items.push({
@@ -350,7 +346,7 @@
                     }
                 }
 
-                // Специфика Босса Риты (HP < 100)
+                // Специфика Босса Риты (возвращена струя и полный набор)
                 if (currentBoss === "rita") {
                     if (bossHp < 100) {
                         if (!bossDropsStarted) {
@@ -698,7 +694,7 @@
                 ctx.stroke();
             }
 
-            // Струя воды (у Риты)
+            // Струя воды (возвращена для Риты)
             if (bossState === "active" && currentBoss === "rita") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
                     activeWaterStreams.push({
@@ -740,7 +736,7 @@
                 }
             }
 
-            // Спавн предметов
+            // Спавн предметов (чуть больше бомбочек по запросу)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -759,6 +755,7 @@
                     } else if (bossState === "active" && currentBoss === "dasha") {
                         if (rand >= 0.35 && rand < 0.45) type = "barricade";
                         else if (rand >= 0.45 && rand < 0.65) type = "white_drop";
+                        else if (rand >= 0.65 && rand < 0.75) type = "bomb"; // Добавили бомбочек Даше
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -777,8 +774,8 @@
                             type = "helmet";
                         } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
                             type = "shield";
-                        } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.70) {
-                            type = "bomb"; 
+                        } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.72) {
+                            type = "bomb"; // Немного увеличили шанс бомбочек
                         }
                     }
 
@@ -797,7 +794,6 @@
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
 
-                // Различная логика движения в зависимости от типа
                 if (item.type === "table") {
                     if (item.subType === "horizontal") {
                         item.x += item.vx;
@@ -808,7 +804,6 @@
                     } else if (item.subType === "trickshot") {
                         item.x += item.vx;
                         item.y += item.vy;
-                        // Трикшот от стенок
                         if (item.x < 30) {
                             item.x = 30;
                             item.vx *= -1;
@@ -819,7 +814,6 @@
                             item.vy += (Math.random() - 0.5) * 1.5;
                         }
                     } else {
-                        // Обычное падение стола вниз
                         item.x += (item.vx || 0);
                         item.y += (item.vy || item.speed);
                     }
@@ -833,7 +827,6 @@
 
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
                 else if (item.type === "table") {
-                    // Столы всегда вращаются!
                     ctx.save();
                     ctx.translate(item.x, item.y);
                     item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.05);
@@ -843,7 +836,7 @@
                     ctx.fillText("🪑", 0, 10);
                     ctx.restore();
                 }
-                else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y); // Бочки
+                else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y);
                 else if (item.type === "white_drop") {
                     ctx.save();
                     ctx.translate(item.x, item.y);
