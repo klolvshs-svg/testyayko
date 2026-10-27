@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v87_white_drops_barrels";
+        const CURRENT_APP_VERSION = "v88_real_white_droplets";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -171,7 +171,7 @@
         let activeWaterStreams = [];  
         let flyingFists = []; 
         let flyingWhiteDrops = []; // Летящие белые капли в Дашу
-        let bossWhiteSplats = [];  // Активные белые кляксы на Даше {x, y, radius, expiresAt}
+        let bossWhiteSplats = [];  // Активные белые кляксы на Даше
         let lastCubeMilestone = 0; 
         
         let bossDropsStarted = false;
@@ -278,8 +278,8 @@
 
                 // Специфика Босса Даши
                 if (currentBoss === "dasha") {
-                    // Спавн белых капель
-                    if (Math.random() < 0.025) {
+                    // Редкий спавн белых капель (делаем реже)
+                    if (Math.random() < 0.012) {
                         items.push({
                             x: Math.random() * (W - 50) + 25,
                             y: -30,
@@ -372,7 +372,7 @@
                         ctx.fill();
                     }
 
-                    // Отрисовка временных белых кляксем на Даше (пропадают через 2 секунды)
+                    // Отрисовка белых клякс на Даше (пропадают через 2 секунды)
                     if (currentBoss === "dasha") {
                         bossWhiteSplats = bossWhiteSplats.filter(s => now < s.expiresAt);
                         bossWhiteSplats.forEach(s => {
@@ -436,18 +436,28 @@
                 fd.x += Math.cos(angle) * fd.speed;
                 fd.y += Math.sin(angle) * fd.speed;
 
-                ctx.font = "24px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText("🥛", fd.x, fd.y);
+                // Летящая белая капля
+                ctx.save();
+                ctx.translate(fd.x, fd.y);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.beginPath();
+                ctx.moveTo(0, -10);
+                ctx.bezierCurveTo(7, -2, 7, 8, 0, 10);
+                ctx.bezierCurveTo(-7, 8, -7, -2, 0, -10);
+                ctx.fillStyle = "#ffffff";
+                ctx.shadowColor = "#ffffff";
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.restore();
 
                 if (Math.hypot(bossX - fd.x, bossY - fd.y) < 25) {
                     bossHp = Math.max(0, bossHp - 10); // снятие 10 урона
                     
-                    // Добавляем кляксу на босса, которая пропадет через 2 секунды
+                    // Добавляем кляксу на босса (пропадет через 2 сек)
                     bossWhiteSplats.push({
-                        offsetX: Math.random() * 24 - 12,
-                        offsetY: Math.random() * 24 - 12,
-                        radius: 8 + Math.random() * 6,
+                        offsetX: Math.random() * 28 - 14,
+                        offsetY: Math.random() * 28 - 14,
+                        radius: 7 + Math.random() * 8,
                         expiresAt: now + 2000
                     });
 
@@ -751,10 +761,13 @@
                 else if (item.type === "table") ctx.fillText("🪑", item.x, item.y);
                 else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y); // Бочки
                 else if (item.type === "white_drop") {
-                    // Отрисовка белой капли (размером и формой как водяная)
+                    // Отрисовка настоящей падающей капли белого цвета (как синяя водяная)
                     ctx.save();
+                    ctx.translate(item.x, item.y);
                     ctx.beginPath();
-                    ctx.arc(item.x, item.y, 14, 0, Math.PI * 2);
+                    ctx.moveTo(0, -12);
+                    ctx.bezierCurveTo(9, -3, 9, 10, 0, 13);
+                    ctx.bezierCurveTo(-9, 10, -9, -3, 0, -12);
                     ctx.fillStyle = "#ffffff";
                     ctx.shadowColor = "#ffffff";
                     ctx.shadowBlur = 10;
