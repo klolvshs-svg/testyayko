@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v92_fewer_slower_tables";
+        const CURRENT_APP_VERSION = "v93_fixed_table_angles_fair_bounce";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -288,7 +288,7 @@
                         });
                     }
 
-                    // Спавн столов (меньше количественно и чуть медленнее)
+                    // Спавн столов (безопасные углы вылета!)
                     let activeTables = items.filter(it => it.type === "table").length;
                     if (activeTables < 2 && Math.random() < 0.015) {
                         if (bossHp > 350) {
@@ -296,7 +296,7 @@
                                 x: Math.random() * (W - 60) + 30,
                                 y: -30,
                                 vx: (Math.random() - 0.5) * 1.2,
-                                vy: 3.2 + Math.random() * 1.5,
+                                vy: 3.2 + Math.random() * 1.2,
                                 rotation: 0,
                                 rotationSpeed: 0.05,
                                 type: "table",
@@ -305,12 +305,13 @@
                         } else {
                             let randChoice = Math.random();
                             if (randChoice < 0.55) {
-                                let sideDir = Math.random() < 0.5 ? -1 : 1;
+                                // Пологий вылет к боковой стене (не на яйцо!)
+                                let sideDir = bossX < W / 2 ? 1 : -1; 
                                 items.push({
                                     x: bossX,
                                     y: bossY,
-                                    vx: sideDir * (3.2 + Math.random() * 1.5),
-                                    vy: 1.8 + Math.random() * 1.5,
+                                    vx: sideDir * (3.5 + Math.random() * 1.2),
+                                    vy: 1.2 + Math.random() * 1.0, 
                                     rotation: 0,
                                     rotationSpeed: 0.06,
                                     type: "table",
@@ -320,8 +321,8 @@
                                 let fromLeft = Math.random() < 0.5;
                                 items.push({
                                     x: fromLeft ? -30 : W + 30,
-                                    y: 150 + Math.random() * (H - 300),
-                                    vx: fromLeft ? (3.8 + Math.random() * 1.5) : -(3.8 + Math.random() * 1.5),
+                                    y: 180 + Math.random() * (H - 350),
+                                    vx: fromLeft ? (3.5 + Math.random() * 1.2) : -(3.5 + Math.random() * 1.2),
                                     vy: 0,
                                     rotation: 0,
                                     rotationSpeed: 0.05,
@@ -804,14 +805,13 @@
                     } else if (item.subType === "trickshot") {
                         item.x += item.vx;
                         item.y += item.vy;
+                        // Честный трикшот от стенок
                         if (item.x < 30) {
                             item.x = 30;
                             item.vx *= -1;
-                            item.vy += (Math.random() - 0.5) * 1.2;
                         } else if (item.x > W - 30) {
                             item.x = W - 30;
                             item.vx *= -1;
-                            item.vy += (Math.random() - 0.5) * 1.2;
                         }
                     } else {
                         item.x += (item.vx || 0);
