@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v94_dasha_shields_gifts_added";
+        const CURRENT_APP_VERSION = "v95_ultimate_dasha_barricade_collision";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -221,11 +221,16 @@
 
             const now = Date.now();
             const isInvincible = now < invincibleUntil;
-            const isSlowed = now < slowUntil;
+            let isSlowed = now < slowUntil;
+
+            // Специфичная фаза Даши < 100 HP: игра становится медленной и падает много столов
+            if (currentBoss === "dasha" && bossHp < 100 && bossState === "active") {
+                isSlowed = true; 
+            }
 
             if (bossState !== "intro" && bossState !== "victory") {
                 if (isSlowed) {
-                    player.x += (targetX - player.x) * 0.09;
+                    player.x += (targetX - player.x) * 0.05; // более плавное замедленное движение
                 } else {
                     player.x = targetX;
                 }
@@ -278,8 +283,8 @@
 
                 // Специфика Босса Даши (500 HP)
                 if (currentBoss === "dasha") {
-                    // Редкий спавн белых капель
-                    if (Math.random() < 0.012) {
+                    // Редкий спавн белых капель (сделано меньше по запросу)
+                    if (Math.random() < 0.007) {
                         items.push({
                             x: Math.random() * (W - 50) + 25,
                             y: -30,
@@ -288,29 +293,42 @@
                         });
                     }
 
-                    // Спавн столов (безопасные углы вылета!)
+                    // Спавн крутящихся столов
                     let activeTables = items.filter(it => it.type === "table").length;
-                    if (activeTables < 2 && Math.random() < 0.015) {
-                        if (bossHp > 350) {
+                    let tableSpawnChance = 0.012;
+                    let maxActiveTables = 2;
+
+                    if (bossHp < 100) {
+                        tableSpawnChance = 0.035; // много столов в финальной фазе Даши
+                        maxActiveTables = 5;
+                    } else if (bossHp <= 150) {
+                        tableSpawnChance = 0.025; // больше столов после 150 HP
+                        maxActiveTables = 3;
+                    }
+
+                    if (activeTables < maxActiveTables && Math.random() < tableSpawnChance) {
+                        if (bossHp > 150) {
+                            // До 150 HP столов мало (и с самого начала они уже есть)
                             items.push({
                                 x: Math.random() * (W - 60) + 30,
                                 y: -30,
                                 vx: (Math.random() - 0.5) * 1.2,
-                                vy: 3.2 + Math.random() * 1.2,
+                                vy: (isSlowed ? 2.0 : 3.0) + Math.random() * 1.0,
                                 rotation: 0,
                                 rotationSpeed: 0.05,
                                 type: "table",
                                 subType: "drop"
                             });
                         } else {
+                            // После 150 HP и на <100 HP столов становится больше
                             let randChoice = Math.random();
                             if (randChoice < 0.55) {
                                 let sideDir = bossX < W / 2 ? 1 : -1; 
                                 items.push({
                                     x: bossX,
                                     y: bossY,
-                                    vx: sideDir * (3.5 + Math.random() * 1.2),
-                                    vy: 1.2 + Math.random() * 1.0, 
+                                    vx: sideDir * (3.0 + Math.random() * 1.0),
+                                    vy: (isSlowed ? 1.0 : 1.5) + Math.random() * 1.0, 
                                     rotation: 0,
                                     rotationSpeed: 0.06,
                                     type: "table",
@@ -321,7 +339,7 @@
                                 items.push({
                                     x: fromLeft ? -30 : W + 30,
                                     y: 180 + Math.random() * (H - 350),
-                                    vx: fromLeft ? (3.5 + Math.random() * 1.2) : -(3.5 + Math.random() * 1.2),
+                                    vx: fromLeft ? (isSlowed ? 2.5 : 3.5) : -(isSlowed ? 2.5 : 3.5),
                                     vy: 0,
                                     rotation: 0,
                                     rotationSpeed: 0.05,
@@ -332,21 +350,21 @@
                         }
                     }
 
-                    // Баррикады из бочек
-                    if (Math.random() < 0.003) {
-                        let barX = bossX;
-                        [-35, 0, 35].forEach(offset => {
+                    // Баррикады из бочек (теперь падают ровно по 3 штуки горизонтально)
+                    if (Math.random() < 0.0025) {
+                        let startBarX = Math.random() * (W - 200) + 100;
+                        [-45, 0, 45].forEach(offset => {
                             items.push({
-                                x: Math.max(30, Math.min(W - 30, barX + offset)),
+                                x: Math.max(30, Math.min(W - 30, startBarX + offset)),
                                 y: -30,
-                                speed: 3.8,
+                                speed: isSlowed ? 2.5 : 3.8,
                                 type: "barricade"
                             });
                         });
                     }
                 }
 
-                // Специфика Босса Риты (полностью сохранена)
+                // Специфика Босса Риты (оригинальная струя полностью восстановлена и не тронута)
                 if (currentBoss === "rita") {
                     if (bossHp < 100) {
                         if (!bossDropsStarted) {
@@ -408,7 +426,6 @@
                         ctx.fill();
                     }
 
-                    // Отрисовка реалистичной белой мазюты на Даше (пропадает через 2 сек)
                     if (currentBoss === "dasha") {
                         bossWhiteSplats = bossWhiteSplats.filter(s => now < s.expiresAt);
                         bossWhiteSplats.forEach(s => {
@@ -491,7 +508,7 @@
                 ctx.restore();
 
                 if (Math.hypot(bossX - fd.x, bossY - fd.y) < 25) {
-                    bossHp = Math.max(0, bossHp - 10); // снятие 10 урона
+                    bossHp = Math.max(0, bossHp - 10);
                     
                     bossWhiteSplats.push({
                         offsetX: Math.random() * 32 - 16,
@@ -623,8 +640,7 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
-            // Ускорение игры каждые 20 мл
-            const speedMultiplier = 1 + Math.floor(mlEarned / 20) * 0.12;
+            const speedMultiplier = (isSlowed ? 0.75 : 1) * (1 + Math.floor(mlEarned / 20) * 0.12);
 
             // ИНТЕРФЕЙС
             ctx.fillStyle = "#ffffff";
@@ -651,7 +667,7 @@
             }
             if (isSlowed) {
                 ctx.fillStyle = "#99ffff";
-                ctx.fillText("❄️ Замедление!", 12, statusY);
+                ctx.fillText("❄️ Замедление фазы!", 12, statusY);
             }
 
             // Рендер игрока (яйца)
@@ -694,7 +710,7 @@
                 ctx.stroke();
             }
 
-            // Струя воды (Риты)
+            // Струя воды (Риты — оригинальная и нетронутая)
             if (bossState === "active" && currentBoss === "rita") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
                     activeWaterStreams.push({
@@ -753,11 +769,11 @@
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
                         else type = "sword";
                     } else if (bossState === "active" && currentBoss === "dasha") {
-                        if (rand < 0.08 && !hasShield) type = "shield";       // Добавлен редкий спавн щита у Даши
-                        else if (rand >= 0.08 && rand < 0.16) type = "random_cube"; // Добавлены редкие подарки/кубики у Даши
-                        else if (rand >= 0.16 && rand < 0.28) type = "barricade";
-                        else if (rand >= 0.28 && rand < 0.50) type = "white_drop";
-                        else if (rand >= 0.50 && rand < 0.62) type = "bomb";
+                        if (rand < 0.12 && !hasShield) type = "shield";       // Чуть больше щитов у Даши
+                        else if (rand >= 0.12 && rand < 0.22) type = "random_cube"; // Подарки / кубики
+                        else if (rand >= 0.22 && rand < 0.30) type = "barricade";
+                        else if (rand >= 0.30 && rand < 0.42) type = "white_drop";
+                        else if (rand >= 0.42 && rand < 0.54) type = "bomb";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -792,7 +808,7 @@
                 }
             }
 
-            // Движение и отрисовка предметов
+            // Движение и проверка столкновений столов с баррикадами (отлет и пропажа)
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
 
@@ -806,7 +822,6 @@
                     } else if (item.subType === "trickshot") {
                         item.x += item.vx;
                         item.y += item.vy;
-                        // Честный трикшот от стенок
                         if (item.x < 30) {
                             item.x = 30;
                             item.vx *= -1;
@@ -818,10 +833,24 @@
                         item.x += (item.vx || 0);
                         item.y += (item.vy || item.speed);
                     }
+
+                    // Проверка столкновения стола с баррикадой (🛢️)
+                    for (let j = items.length - 1; j >= 0; j--) {
+                        if (i !== j && items[j].type === "barricade") {
+                            let bar = items[j];
+                            if (Math.hypot(item.x - bar.x, item.y - bar.y) < 35) {
+                                // Стол отлетает и пропаадает (удаляется)
+                                items.splice(i, 1);
+                                break;
+                            }
+                        }
+                    }
                 } else {
                     item.y += item.speed;
                     if (item.vx) item.x += item.vx;
                 }
+
+                if (!items[i]) continue; // если стол удалился при столкновении с баррикадой
 
                 ctx.font = "35px Arial";
                 ctx.textAlign = "center";
@@ -895,7 +924,7 @@
                     }
                 }
 
-                // Классическая точная проверка коллизии
+                // Проверка коллизии с игроком
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
