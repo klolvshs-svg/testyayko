@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v96_fan_and_egg_freeze";
+        const CURRENT_APP_VERSION = "v97_smooth_default_movement_fixed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -152,11 +152,10 @@
         let hasHelmet = false;
 
         let invincibleUntil = 0; 
-        let eggFrozenUntil = 0; // Заморозка именно яйца
+        let eggFrozenUntil = 0; // Оледенение только яйца при подборе снежинки / подарка со снежинкой
         let targetX = W / 2;
 
-        // Анимация ветра от веера
-        let fanWindAnimation = null; // { startTime, duration }
+        let fanWindAnimation = null;
 
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
@@ -222,10 +221,10 @@
             const isInvincible = now < invincibleUntil;
             const isEggFrozen = now < eggFrozenUntil;
 
-            // Управление яйцом с учетом заморозки самого яйца (игра не стопорится, но яйцо замерзает на месте)
+            // Если яйцо не заморожено снежинкой, оно двигается мгновенно и плавно за пальцем/мышкой
             if (bossState !== "intro" && bossState !== "victory") {
                 if (!isEggFrozen) {
-                    player.x += (targetX - player.x) * 0.12;
+                    player.x = targetX; // Мгновенное и быстрое следование за пальцем без задержки
                 }
             }
             player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
@@ -305,7 +304,6 @@
                                 subType: "drop"
                             });
                         } else {
-                            // После 150 HP столы со сторон падают и отбиваются от баррикад
                             let randChoice = Math.random();
                             if (randChoice < 0.55) {
                                 let sideDir = bossX < W / 2 ? 1 : -1; 
@@ -335,7 +333,6 @@
                         }
                     }
 
-                    // Баррикады по 3 штуки горизонтально
                     if (Math.random() < 0.0025) {
                         let startBarX = Math.random() * (W - 200) + 100;
                         [-45, 0, 45].forEach(offset => {
@@ -700,7 +697,7 @@
                 fanWindAnimation = null;
             }
 
-            // Струя воды (Риты — оригинальная и нетронутая)
+            // Струя воды (Риты)
             if (bossState === "active" && currentBoss === "rita") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
                     activeWaterStreams.push({
@@ -742,7 +739,7 @@
                 }
             }
 
-            // Спавн предметов
+            // Спавн предметов (снежинки исключены из босс-файта с Дашей)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -759,7 +756,7 @@
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
                         else type = "sword";
                     } else if (bossState === "active" && currentBoss === "dasha") {
-                        if (bossHp < 100 && rand < 0.15) type = "fan"; // Появление веера при HP < 100
+                        if (bossHp < 100 && rand < 0.15) type = "fan";
                         else if (rand < 0.12 && !hasShield) type = "shield";
                         else if (rand >= 0.12 && rand < 0.22) type = "random_cube";
                         else if (rand >= 0.22 && rand < 0.30) type = "barricade";
@@ -778,7 +775,7 @@
                         } else if (mlEarned >= 6.0 && rand >= 0.061 && rand < 0.14) {
                             type = "splash"; 
                         } else if (mlEarned >= 12.0 && rand >= 0.14 && rand < (mlEarned >= 15.0 ? 0.30 : 0.22)) {
-                            type = "snow"; 
+                            type = "snow"; // Снежинки падают в обычной игре, но не у Даши
                         } else if (mlEarned >= 2.0 && !hasHelmet && rand >= 0.30 && rand < 0.35) {
                             type = "helmet";
                         } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
@@ -824,7 +821,6 @@
                         item.y += (item.vy || item.speed);
                     }
 
-                    // Отбивание стола от баррикады с отлетом и пропажей
                     for (let j = items.length - 1; j >= 0; j--) {
                         if (i !== j && items[j].type === "barricade") {
                             let bar = items[j];
@@ -856,7 +852,7 @@
                     ctx.restore();
                 }
                 else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y);
-                else if (item.type === "fan") ctx.fillText("🪭", item.x, item.y); // Веер
+                else if (item.type === "fan") ctx.fillText("🪭", item.x, item.y);
                 else if (item.type === "white_drop") {
                     ctx.save();
                     ctx.translate(item.x, item.y);
@@ -934,7 +930,6 @@
                     }
 
                     if (item.type === "fan") {
-                        // Веер раздувает все столы на экране с красивой анимацией
                         fanWindAnimation = { startTime: now };
                         items = items.filter(it => it.type !== "table");
                         items.splice(i, 1);
@@ -945,7 +940,7 @@
                         const randEffect = Math.random();
                         if (randEffect < 0.33) mlEarned += 1.0; 
                         else if (randEffect < 0.66) hasShield = true; 
-                        else eggFrozenUntil = Date.now() + 3000; // Оледенение только яйца из подарка
+                        else eggFrozenUntil = Date.now() + 3000; 
                         items.splice(i, 1);
                         continue;
                     }
@@ -979,7 +974,7 @@
                         items.splice(i, 1);
                         continue;
                     } else if (item.type === "snow") {
-                        eggFrozenUntil = Date.now() + 3000; // Оледенение только яйца
+                        eggFrozenUntil = Date.now() + 3000; 
                         items.splice(i, 1);
                         continue;
                     } else {
