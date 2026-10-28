@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v97_smooth_default_movement_fixed";
+        const CURRENT_APP_VERSION = "v100_egg_slowdown_only";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -152,7 +152,7 @@
         let hasHelmet = false;
 
         let invincibleUntil = 0; 
-        let eggFrozenUntil = 0; // Оледенение только яйца при подборе снежинки / подарка со снежинкой
+        let eggSlowUntil = 0;    // Таймер замедления исключительно самого яйца
         let targetX = W / 2;
 
         let fanWindAnimation = null;
@@ -219,12 +219,14 @@
 
             const now = Date.now();
             const isInvincible = now < invincibleUntil;
-            const isEggFrozen = now < eggFrozenUntil;
+            const isEggSlowed = now < eggSlowUntil;
 
-            // Если яйцо не заморожено снежинкой, оно двигается мгновенно и плавно за пальцем/мышкой
+            // Движение яйца: если активно замедление, плавно догоняет палец (замедлено), иначе следует мгновенно
             if (bossState !== "intro" && bossState !== "victory") {
-                if (!isEggFrozen) {
-                    player.x = targetX; // Мгновенное и быстрое следование за пальцем без задержки
+                if (isEggSlowed) {
+                    player.x += (targetX - player.x) * 0.10; // Яйцо двигается медленнее за пальцем
+                } else {
+                    player.x = targetX; // Обычное быстрое и мгновенное следование
                 }
             }
             player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
@@ -640,9 +642,9 @@
                 ctx.fillText("🪖 Каска активна!", 12, statusY);
                 statusY += 18;
             }
-            if (isEggFrozen) {
+            if (isEggSlowed) {
                 ctx.fillStyle = "#99ffff";
-                ctx.fillText("❄️ Яйцо заморожено!", 12, statusY);
+                ctx.fillText("❄️ Яйцо замедлено!", 12, statusY);
             }
 
             const renderPlayerX = Math.round(player.x);
@@ -683,7 +685,6 @@
                 ctx.stroke();
             }
 
-            // Рендер анимации ветра от веера
             if (fanWindAnimation && now - fanWindAnimation.startTime < 800) {
                 let progress = (now - fanWindAnimation.startTime) / 800;
                 ctx.save();
@@ -697,7 +698,6 @@
                 fanWindAnimation = null;
             }
 
-            // Струя воды (Риты)
             if (bossState === "active" && currentBoss === "rita") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
                     activeWaterStreams.push({
@@ -739,7 +739,6 @@
                 }
             }
 
-            // Спавн предметов (снежинки исключены из босс-файта с Дашей)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -775,7 +774,7 @@
                         } else if (mlEarned >= 6.0 && rand >= 0.061 && rand < 0.14) {
                             type = "splash"; 
                         } else if (mlEarned >= 12.0 && rand >= 0.14 && rand < (mlEarned >= 15.0 ? 0.30 : 0.22)) {
-                            type = "snow"; // Снежинки падают в обычной игре, но не у Даши
+                            type = "snow"; 
                         } else if (mlEarned >= 2.0 && !hasHelmet && rand >= 0.30 && rand < 0.35) {
                             type = "helmet";
                         } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
@@ -940,7 +939,7 @@
                         const randEffect = Math.random();
                         if (randEffect < 0.33) mlEarned += 1.0; 
                         else if (randEffect < 0.66) hasShield = true; 
-                        else eggFrozenUntil = Date.now() + 3000; 
+                        else eggSlowUntil = Date.now() + 3000; // Замедление яйца из подарка
                         items.splice(i, 1);
                         continue;
                     }
@@ -974,7 +973,7 @@
                         items.splice(i, 1);
                         continue;
                     } else if (item.type === "snow") {
-                        eggFrozenUntil = Date.now() + 3000; 
+                        eggSlowUntil = Date.now() + 3000; // Замедление яйца от снежинки
                         items.splice(i, 1);
                         continue;
                     } else {
@@ -1024,7 +1023,7 @@
             items = [];
             spawnTimer = 0;
             invincibleUntil = 0;
-            eggFrozenUntil = 0;
+            eggSlowUntil = 0;
             dashaTriggered = false;
             dashaDefeated = false;
             ritaTriggered = false;
