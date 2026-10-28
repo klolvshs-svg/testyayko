@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v100_egg_slowdown_only";
+        const CURRENT_APP_VERSION = "v101_textures_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -152,7 +152,7 @@
         let hasHelmet = false;
 
         let invincibleUntil = 0; 
-        let eggSlowUntil = 0;    // Таймер замедления исключительно самого яйца
+        let eggSlowUntil = 0;    
         let targetX = W / 2;
 
         let fanWindAnimation = null;
@@ -183,6 +183,7 @@
         let bossMaxHp = 500; 
         let bossHp = 500;
 
+        // Загрузка текстур (сохранены оригинальные пути)
         const dashaImg = new Image();
         dashaImg.src = "bosses/dashaboss.webp";
 
@@ -221,12 +222,11 @@
             const isInvincible = now < invincibleUntil;
             const isEggSlowed = now < eggSlowUntil;
 
-            // Движение яйца: если активно замедление, плавно догоняет палец (замедлено), иначе следует мгновенно
             if (bossState !== "intro" && bossState !== "victory") {
                 if (isEggSlowed) {
-                    player.x += (targetX - player.x) * 0.10; // Яйцо двигается медленнее за пальцем
+                    player.x += (targetX - player.x) * 0.10; 
                 } else {
-                    player.x = targetX; // Обычное быстрое и мгновенное следование
+                    player.x = targetX; 
                 }
             }
             player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
@@ -386,8 +386,7 @@
                                         y: bossY + 20,
                                         vx: vx,
                                         speed: 5.0,
-                                        rotation: 0,
-                                        rotationSpeed: (vx > 0 ? 0.06 : -0.06),
+                                        rotation: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb"
                                     });
                                 });
@@ -939,7 +938,7 @@
                         const randEffect = Math.random();
                         if (randEffect < 0.33) mlEarned += 1.0; 
                         else if (randEffect < 0.66) hasShield = true; 
-                        else eggSlowUntil = Date.now() + 3000; // Замедление яйца из подарка
+                        else eggSlowUntil = Date.now() + 3000; 
                         items.splice(i, 1);
                         continue;
                     }
@@ -973,7 +972,7 @@
                         items.splice(i, 1);
                         continue;
                     } else if (item.type === "snow") {
-                        eggSlowUntil = Date.now() + 3000; // Замедление яйца от снежинки
+                        eggSlowUntil = Date.now() + 3000; 
                         items.splice(i, 1);
                         continue;
                     } else {
