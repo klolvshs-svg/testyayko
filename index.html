@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v95_ultimate_dasha_barricade_collision";
+        const CURRENT_APP_VERSION = "v96_fan_and_egg_freeze";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -131,7 +131,6 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Поддержка Retina / High-DPI экранов
         const dpr = window.devicePixelRatio || 1;
         const W = window.innerWidth;
         const H = window.innerHeight;
@@ -153,25 +152,26 @@
         let hasHelmet = false;
 
         let invincibleUntil = 0; 
-        let slowUntil = 0;       
+        let eggFrozenUntil = 0; // Заморозка именно яйца
         let targetX = W / 2;
 
-        // Классический стабильный хитбокс яйца
+        // Анимация ветра от веера
+        let fanWindAnimation = null; // { startTime, duration }
+
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
-        // --- ПЕРЕМЕННЫЕ ДВУХ БОССОВ ---
         let dashaTriggered = false;
         let dashaDefeated = false;
         let ritaTriggered = false;
 
-        let currentBoss = null; // "dasha" | "rita" | null
-        let bossState = "none"; // "none" | "intro" | "active" | "victory"
+        let currentBoss = null; 
+        let bossState = "none"; 
         let introTimer = 0;
         let victoryTimer = 0;
         let activeWaterStreams = [];  
         let flyingFists = []; 
-        let flyingWhiteDrops = []; // Летящие белые капли в Дашу
-        let bossWhiteSplats = [];  // Реалистичные белые мазюты на Даше
+        let flyingWhiteDrops = []; 
+        let bossWhiteSplats = [];  
         let lastCubeMilestone = 0; 
         
         let bossDropsStarted = false;
@@ -184,7 +184,6 @@
         let bossMaxHp = 500; 
         let bossHp = 500;
 
-        // Загрузка картинок боссов
         const dashaImg = new Image();
         dashaImg.src = "bosses/dashaboss.webp";
 
@@ -221,27 +220,19 @@
 
             const now = Date.now();
             const isInvincible = now < invincibleUntil;
-            let isSlowed = now < slowUntil;
+            const isEggFrozen = now < eggFrozenUntil;
 
-            // Специфичная фаза Даши < 100 HP: игра становится медленной и падает много столов
-            if (currentBoss === "dasha" && bossHp < 100 && bossState === "active") {
-                isSlowed = true; 
-            }
-
+            // Управление яйцом с учетом заморозки самого яйца (игра не стопорится, но яйцо замерзает на месте)
             if (bossState !== "intro" && bossState !== "victory") {
-                if (isSlowed) {
-                    player.x += (targetX - player.x) * 0.05; // более плавное замедленное движение
-                } else {
-                    player.x = targetX;
+                if (!isEggFrozen) {
+                    player.x += (targetX - player.x) * 0.12;
                 }
             }
             player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
 
-            // Обычный цвет фона
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            // --- ПРОВЕРКА ПОЯВЛЕНИЯ БОССОВ ---
             if (mlEarned >= 1.0 && !dashaTriggered) {
                 dashaTriggered = true;
                 currentBoss = "dasha";
@@ -262,7 +253,6 @@
                 bossX = W / 2; 
             }
 
-            // --- ТЕСТОВЫЙ КУБИК КАЖДЫЙ 1 МЛ ---
             let currentWholeMl = Math.floor(mlEarned);
             if (currentWholeMl > lastCubeMilestone && bossState !== "intro" && bossState !== "victory") {
                 lastCubeMilestone = currentWholeMl;
@@ -274,16 +264,13 @@
                 });
             }
 
-            // --- АКТИВНАЯ ФАЗА БОССОВ ---
             if (bossState === "active") {
                 bossX += bossSpeedX;
                 if (bossX < 50 || bossX > W - 50) {
                     bossSpeedX *= -1;
                 }
 
-                // Специфика Босса Даши (500 HP)
                 if (currentBoss === "dasha") {
-                    // Редкий спавн белых капель (сделано меньше по запросу)
                     if (Math.random() < 0.007) {
                         items.push({
                             x: Math.random() * (W - 50) + 25,
@@ -293,34 +280,32 @@
                         });
                     }
 
-                    // Спавн крутящихся столов
                     let activeTables = items.filter(it => it.type === "table").length;
                     let tableSpawnChance = 0.012;
                     let maxActiveTables = 2;
 
                     if (bossHp < 100) {
-                        tableSpawnChance = 0.035; // много столов в финальной фазе Даши
+                        tableSpawnChance = 0.035;
                         maxActiveTables = 5;
                     } else if (bossHp <= 150) {
-                        tableSpawnChance = 0.025; // больше столов после 150 HP
+                        tableSpawnChance = 0.025;
                         maxActiveTables = 3;
                     }
 
                     if (activeTables < maxActiveTables && Math.random() < tableSpawnChance) {
                         if (bossHp > 150) {
-                            // До 150 HP столов мало (и с самого начала они уже есть)
                             items.push({
                                 x: Math.random() * (W - 60) + 30,
                                 y: -30,
                                 vx: (Math.random() - 0.5) * 1.2,
-                                vy: (isSlowed ? 2.0 : 3.0) + Math.random() * 1.0,
+                                vy: 3.0 + Math.random() * 1.0,
                                 rotation: 0,
                                 rotationSpeed: 0.05,
                                 type: "table",
                                 subType: "drop"
                             });
                         } else {
-                            // После 150 HP и на <100 HP столов становится больше
+                            // После 150 HP столы со сторон падают и отбиваются от баррикад
                             let randChoice = Math.random();
                             if (randChoice < 0.55) {
                                 let sideDir = bossX < W / 2 ? 1 : -1; 
@@ -328,7 +313,7 @@
                                     x: bossX,
                                     y: bossY,
                                     vx: sideDir * (3.0 + Math.random() * 1.0),
-                                    vy: (isSlowed ? 1.0 : 1.5) + Math.random() * 1.0, 
+                                    vy: 1.5 + Math.random() * 1.0, 
                                     rotation: 0,
                                     rotationSpeed: 0.06,
                                     type: "table",
@@ -339,7 +324,7 @@
                                 items.push({
                                     x: fromLeft ? -30 : W + 30,
                                     y: 180 + Math.random() * (H - 350),
-                                    vx: fromLeft ? (isSlowed ? 2.5 : 3.5) : -(isSlowed ? 2.5 : 3.5),
+                                    vx: fromLeft ? 3.5 : -3.5,
                                     vy: 0,
                                     rotation: 0,
                                     rotationSpeed: 0.05,
@@ -350,21 +335,20 @@
                         }
                     }
 
-                    // Баррикады из бочек (теперь падают ровно по 3 штуки горизонтально)
+                    // Баррикады по 3 штуки горизонтально
                     if (Math.random() < 0.0025) {
                         let startBarX = Math.random() * (W - 200) + 100;
                         [-45, 0, 45].forEach(offset => {
                             items.push({
                                 x: Math.max(30, Math.min(W - 30, startBarX + offset)),
                                 y: -30,
-                                speed: isSlowed ? 2.5 : 3.8,
+                                speed: 3.8,
                                 type: "barricade"
                             });
                         });
                     }
                 }
 
-                // Специфика Босса Риты (оригинальная струя полностью восстановлена и не тронута)
                 if (currentBoss === "rita") {
                     if (bossHp < 100) {
                         if (!bossDropsStarted) {
@@ -413,7 +397,6 @@
                     }
                 }
 
-                // Отрисовка активного босса
                 let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
                     ctx.drawImage(activeImg, bossX - 28, bossY - 28, 56, 56);
@@ -446,7 +429,6 @@
                     ctx.fillText(currentBoss === "dasha" ? "🧝‍♀️" : "👑", bossX, bossY + 10);
                 }
 
-                // Шкала здоровья босса
                 let barWidth = 220;
                 let barHeight = 12;
                 let barX = W / 2 - barWidth / 2;
@@ -470,7 +452,6 @@
                 ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
-            // --- ОБНОВЛЕНИЕ ЛЕТЯЩИХ КУЛАКОВ (РИТА) ---
             for (let f = flyingFists.length - 1; f >= 0; f--) {
                 let ff = flyingFists[f];
                 let angle = Math.atan2(bossY - ff.y, bossX - ff.x);
@@ -487,7 +468,6 @@
                 }
             }
 
-            // --- ОБНОВЛЕНИЕ ЛЕТЯЩИХ БЕЛЫХ КАПЕЛЬ (ДАША) ---
             for (let f = flyingWhiteDrops.length - 1; f >= 0; f--) {
                 let fd = flyingWhiteDrops[f];
                 let angle = Math.atan2(bossY - fd.y, bossX - fd.x);
@@ -525,7 +505,6 @@
                 }
             }
 
-            // --- ИНТРО АНИМАЦИЯ ---
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
@@ -586,7 +565,6 @@
                 }
             }
 
-            // --- ФАЗА ПОБЕДЫ ---
             if (bossState === "victory") {
                 let victoryPassed = now - victoryTimer;
                 let victoryDuration = 3500; 
@@ -640,7 +618,7 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
-            const speedMultiplier = (isSlowed ? 0.75 : 1) * (1 + Math.floor(mlEarned / 20) * 0.12);
+            const speedMultiplier = 1 + Math.floor(mlEarned / 20) * 0.12;
 
             // ИНТЕРФЕЙС
             ctx.fillStyle = "#ffffff";
@@ -665,12 +643,11 @@
                 ctx.fillText("🪖 Каска активна!", 12, statusY);
                 statusY += 18;
             }
-            if (isSlowed) {
+            if (isEggFrozen) {
                 ctx.fillStyle = "#99ffff";
-                ctx.fillText("❄️ Замедление фазы!", 12, statusY);
+                ctx.fillText("❄️ Яйцо заморожено!", 12, statusY);
             }
 
-            // Рендер игрока (яйца)
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
@@ -687,7 +664,6 @@
                 ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
             }
 
-            // Защитные кольца
             if (isInvincible) {
                 ctx.beginPath();
                 ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
@@ -708,6 +684,20 @@
                 ctx.strokeStyle = "#ff9900";
                 ctx.lineWidth = 4;
                 ctx.stroke();
+            }
+
+            // Рендер анимации ветра от веера
+            if (fanWindAnimation && now - fanWindAnimation.startTime < 800) {
+                let progress = (now - fanWindAnimation.startTime) / 800;
+                ctx.save();
+                ctx.strokeStyle = "rgba(0, 210, 255, " + (1 - progress) + ")";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, progress * 300, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            } else {
+                fanWindAnimation = null;
             }
 
             // Струя воды (Риты — оригинальная и нетронутая)
@@ -769,8 +759,9 @@
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
                         else type = "sword";
                     } else if (bossState === "active" && currentBoss === "dasha") {
-                        if (rand < 0.12 && !hasShield) type = "shield";       // Чуть больше щитов у Даши
-                        else if (rand >= 0.12 && rand < 0.22) type = "random_cube"; // Подарки / кубики
+                        if (bossHp < 100 && rand < 0.15) type = "fan"; // Появление веера при HP < 100
+                        else if (rand < 0.12 && !hasShield) type = "shield";
+                        else if (rand >= 0.12 && rand < 0.22) type = "random_cube";
                         else if (rand >= 0.22 && rand < 0.30) type = "barricade";
                         else if (rand >= 0.30 && rand < 0.42) type = "white_drop";
                         else if (rand >= 0.42 && rand < 0.54) type = "bomb";
@@ -808,7 +799,6 @@
                 }
             }
 
-            // Движение и проверка столкновений столов с баррикадами (отлет и пропажа)
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
 
@@ -834,12 +824,11 @@
                         item.y += (item.vy || item.speed);
                     }
 
-                    // Проверка столкновения стола с баррикадой (🛢️)
+                    // Отбивание стола от баррикады с отлетом и пропажей
                     for (let j = items.length - 1; j >= 0; j--) {
                         if (i !== j && items[j].type === "barricade") {
                             let bar = items[j];
                             if (Math.hypot(item.x - bar.x, item.y - bar.y) < 35) {
-                                // Стол отлетает и пропаадает (удаляется)
                                 items.splice(i, 1);
                                 break;
                             }
@@ -850,7 +839,7 @@
                     if (item.vx) item.x += item.vx;
                 }
 
-                if (!items[i]) continue; // если стол удалился при столкновении с баррикадой
+                if (!items[i]) continue;
 
                 ctx.font = "35px Arial";
                 ctx.textAlign = "center";
@@ -867,6 +856,7 @@
                     ctx.restore();
                 }
                 else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y);
+                else if (item.type === "fan") ctx.fillText("🪭", item.x, item.y); // Веер
                 else if (item.type === "white_drop") {
                     ctx.save();
                     ctx.translate(item.x, item.y);
@@ -924,7 +914,6 @@
                     }
                 }
 
-                // Проверка коллизии с игроком
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
                     if (bossState === "intro" || bossState === "victory") {
@@ -944,11 +933,19 @@
                         continue;
                     }
 
+                    if (item.type === "fan") {
+                        // Веер раздувает все столы на экране с красивой анимацией
+                        fanWindAnimation = { startTime: now };
+                        items = items.filter(it => it.type !== "table");
+                        items.splice(i, 1);
+                        continue;
+                    }
+
                     if (item.type === "random_cube") {
                         const randEffect = Math.random();
                         if (randEffect < 0.33) mlEarned += 1.0; 
                         else if (randEffect < 0.66) hasShield = true; 
-                        else slowUntil = Date.now() + 3000; 
+                        else eggFrozenUntil = Date.now() + 3000; // Оледенение только яйца из подарка
                         items.splice(i, 1);
                         continue;
                     }
@@ -982,7 +979,7 @@
                         items.splice(i, 1);
                         continue;
                     } else if (item.type === "snow") {
-                        slowUntil = Date.now() + 3000;
+                        eggFrozenUntil = Date.now() + 3000; // Оледенение только яйца
                         items.splice(i, 1);
                         continue;
                     } else {
@@ -1032,7 +1029,7 @@
             items = [];
             spawnTimer = 0;
             invincibleUntil = 0;
-            slowUntil = 0;
+            eggFrozenUntil = 0;
             dashaTriggered = false;
             dashaDefeated = false;
             ritaTriggered = false;
@@ -1051,6 +1048,7 @@
             gameOver = false;
             hasShield = false;
             hasHelmet = false;
+            fanWindAnimation = null;
             document.getElementById("gameOverScreen").style.display = "none";
             requestAnimationFrame(gameLoop);
         }
