@@ -122,7 +122,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v101_textures_restored";
+        const CURRENT_APP_VERSION = "v102_mainball_texture_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -183,7 +183,7 @@
         let bossMaxHp = 500; 
         let bossHp = 500;
 
-        // Загрузка текстур (сохранены оригинальные пути)
+        // Загрузка текстур
         const dashaImg = new Image();
         dashaImg.src = "bosses/dashaboss.webp";
 
@@ -386,7 +386,8 @@
                                         y: bossY + 20,
                                         vx: vx,
                                         speed: 5.0,
-                                        rotation: (vx > 0 ? 0.06 : -0.06),
+                                        rotation: 0,
+                                        rotationSpeed: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb"
                                     });
                                 });
@@ -649,6 +650,7 @@
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
+            // Рендер текстуры главного яйца (ball/mainball.png)
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 50; 
