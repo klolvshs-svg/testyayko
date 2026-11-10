@@ -71,27 +71,60 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы в углу: полностью серая, без рамок, никогда не пропадает */
+        /* Кнопка паузы в углу: одинаковый вид и на ПК, и на телефоне (как на скриншотах) */
         #pauseBtn {
             position: absolute;
             top: 15px;
             right: 15px;
-            background: transparent;
-            color: #b0bec5;
+            background: rgba(24, 34, 45, 0.75); /* Тёмно-серый полупрозрачный круг */
             border: none;
-            width: 44px;
-            height: 44px;
-            font-size: 24px;
-            font-weight: bold;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
             cursor: pointer;
             z-index: 30;
             display: none;
             justify-content: center;
             align-items: center;
             outline: none;
-            box-shadow: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            -webkit-tap-highlight-color: transparent;
         }
-        #pauseBtn:active { transform: scale(0.90); }
+        #pauseBtn:active { 
+            transform: scale(0.90);
+        }
+
+        /* Отрисовка значка паузы (две вертикальные белые полосы) как на скриншоте 1 */
+        .pause-icon {
+            display: flex;
+            gap: 5px;
+        }
+        .pause-icon span {
+            width: 6px;
+            height: 18px;
+            background-color: #ffffff;
+            border-radius: 2px;
+            display: block;
+        }
+
+        /* Отрисовка значка play (треугольник) как на скриншоте 2 */
+        .play-icon {
+            display: none;
+            width: 0;
+            height: 0;
+            border-top: 9px solid transparent;
+            border-bottom: 9px solid transparent;
+            border-left: 16px solid #ffffff;
+            margin-left: 3px;
+        }
+
+        /* Переключение состояний иконки */
+        #pauseBtn.paused .pause-icon {
+            display: none;
+        }
+        #pauseBtn.paused .play-icon {
+            display: block;
+        }
 
         input[type="number"] {
             padding: 10px;
@@ -122,7 +155,13 @@
     <canvas id="gameCanvas"></canvas>
 
     <!-- Кнопка паузы в правом верхнем углу -->
-    <button id="pauseBtn" onclick="togglePause()">⏸</button>
+    <button id="pauseBtn" onclick="togglePause()">
+        <div class="pause-icon">
+            <span></span>
+            <span></span>
+        </div>
+        <div class="play-icon"></div>
+    </button>
 
     <!-- Главный стартовый экран -->
     <div id="startScreen">
@@ -189,7 +228,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v112_fixed_pause_pos";
+        const CURRENT_APP_VERSION = "v114_fixed_mobile_pause";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -301,20 +340,26 @@
             gameStarted = true;
             isPaused = false;
             document.getElementById("startScreen").style.display = "none";
-            document.getElementById("pauseBtn").style.display = "flex";
-            document.getElementById("pauseBtn").innerText = "⏸";
+            
+            const pBtn = document.getElementById("pauseBtn");
+            pBtn.style.display = "flex";
+            pBtn.classList.remove("paused");
+            
+            // Сразу запускаем игровой цикл без ожидания кликов по паузе
+            requestAnimationFrame(gameLoop);
         }
 
         function togglePause() {
             if (!gameStarted || gameOver || bossState === "intro") return;
             isPaused = !isPaused;
             const pauseScreen = document.getElementById("pauseScreen");
+            const pBtn = document.getElementById("pauseBtn");
             if (isPaused) {
                 pauseScreen.style.display = "flex";
-                document.getElementById("pauseBtn").innerText = "▶";
+                pBtn.classList.add("paused");
             } else {
                 pauseScreen.style.display = "none";
-                document.getElementById("pauseBtn").innerText = "⏸";
+                pBtn.classList.remove("paused");
                 requestAnimationFrame(gameLoop);
             }
         }
@@ -339,7 +384,7 @@
                 ctx.fillStyle = "#0f1721";
                 ctx.fillRect(0, 0, W, H);
                 
-                // Отрисовка интерфейса и игрока в статичном виде без смещений
+                // Отрисовка интерфейса и игрока в статичном виде
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 15px Arial";
                 ctx.textAlign = "left";
@@ -1206,7 +1251,7 @@
             document.getElementById("gameOverScreen").style.display = "none";
             document.getElementById("pauseScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "flex";
-            document.getElementById("pauseBtn").innerText = "⏸";
+            document.getElementById("pauseBtn").classList.remove("paused");
             requestAnimationFrame(gameLoop);
         }
 
