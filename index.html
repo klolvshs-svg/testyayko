@@ -154,7 +154,7 @@
 <body>
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Кнопка паузы в правом верхнем углу -->
+    <!-- Кнопка паузы в правом верхнем углу (не трогаем!) -->
     <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
         <div class="pause-icon">
             <span></span>
@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v122_fix_menu_anim_and_speed";
+        const CURRENT_APP_VERSION = "v123_dasha_rage_update";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -418,7 +418,7 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            // Если игра в главном меню — рисуем падающие декоративные элементы
+            // Если игра в главном меню
             if (!gameStarted) {
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
@@ -557,15 +557,41 @@
                     let tableSpawnChance = 0.012 * 1.4;
                     let maxActiveTables = Math.round(2 * 1.4);
 
-                    if (bossHp < 100) {
-                        tableSpawnChance = 0.035 * 1.4;
-                        maxActiveTables = Math.round(5 * 1.4);
-                    } else if (bossHp <= 150) {
-                        tableSpawnChance = 0.025 * 1.4;
-                        maxActiveTables = Math.round(3 * 1.4);
+                    // Режим Даши < 150 ХП: замедление игры, много стульев с углов и падающие веера
+                    if (bossHp < 150) {
+                        tableSpawnChance = 0.065; // много стульев
+                        maxActiveTables = 8;
+
+                        // Спавн вееров из верха
+                        if (Math.random() < 0.02) {
+                            items.push({
+                                x: Math.random() * (W - 80) + 40,
+                                y: -30,
+                                vy: 2.2, // падает медленнее
+                                vx: (Math.random() - 0.5) * 1.5,
+                                type: "fan_item",
+                                rotation: 0,
+                                rotationSpeed: 0.03
+                            });
+                        }
+
+                        // Спавн стульев из левого/правого углов
+                        if (Math.random() < 0.045) {
+                            let fromLeft = Math.random() < 0.5;
+                            items.push({
+                                x: fromLeft ? 20 : W - 20,
+                                y: 50 + Math.random() * 150,
+                                vx: fromLeft ? (3.5 + Math.random() * 2.5) : -(3.5 + Math.random() * 2.5),
+                                vy: 1.5 + Math.random() * 1.5,
+                                rotation: 0,
+                                rotationSpeed: 0.07,
+                                type: "table",
+                                subType: "corner_chair"
+                            });
+                        }
                     }
 
-                    if (activeTables < maxActiveTables && Math.random() < tableSpawnChance) {
+                    if (activeTables < maxActiveTables && Math.random() < tableSpawnChance && bossHp >= 150) {
                         if (bossHp > 150) {
                             items.push({
                                 x: Math.random() * (W - 60) + 30,
@@ -577,37 +603,10 @@
                                 type: "table",
                                 subType: "drop"
                             });
-                        } else {
-                            let randChoice = Math.random();
-                            if (randChoice < 0.55) {
-                                let sideDir = bossX < W / 2 ? 1 : -1; 
-                                items.push({
-                                    x: bossX,
-                                    y: bossY,
-                                    vx: sideDir * (3.0 + Math.random() * 1.0),
-                                    vy: 1.5 + Math.random() * 1.0, 
-                                    rotation: 0,
-                                    rotationSpeed: 0.06,
-                                    type: "table",
-                                    subType: "trickshot"
-                                });
-                            } else {
-                                let fromLeft = Math.random() < 0.5;
-                                items.push({
-                                    x: fromLeft ? -30 : W + 30,
-                                    y: 180 + Math.random() * (H - 350),
-                                    vx: fromLeft ? 3.5 : -3.5,
-                                    vy: 0,
-                                    rotation: 0,
-                                    rotationSpeed: 0.05,
-                                    type: "table",
-                                    subType: "horizontal"
-                                });
-                            }
                         }
                     }
 
-                    if (Math.random() < 0.0025) {
+                    if (Math.random() < 0.0025 && bossHp >= 150) {
                         let startBarX = Math.random() * (W - 200) + 100;
                         [-45, 0, 45].forEach(offset => {
                             items.push({
@@ -888,7 +887,12 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
-            const speedMultiplier = 1 + Math.floor(mlEarned / 20) * 0.12;
+            // Если у Даши < 150 ХП, игра замедляется в 1.6 раза
+            let globalSpeedMul = 1 + Math.floor(mlEarned / 20) * 0.12;
+            if (currentBoss === "dasha" && bossState === "active" && bossHp < 150) {
+                globalSpeedMul *= 0.65; 
+            }
+            const speedMultiplier = globalSpeedMul;
 
             // ИНТЕРФЕЙС
             ctx.fillStyle = "#ffffff";
@@ -1000,6 +1004,7 @@
                                     continue;
                                 } else {
                                     showGameOver();
+                                    requestAnimationFrame(gameLoop);
                                     return;
                                 }
                             }
@@ -1015,7 +1020,7 @@
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
                 let currentSpawnInterval = (bossState === "active") ? baseInterval + 14 : baseInterval;
 
-                if (spawnTimer % currentSpawnInterval === 0) {
+                if (spawnTimer % currentSpawnInterval === 0 && !(currentBoss === "dasha" && bossHp < 150)) {
                     let type = "sword";
                     const rand = Math.random();
 
@@ -1024,14 +1029,6 @@
                         else if (rand >= 0.38 && rand < 0.45 && !hasShield) type = "shield";
                         else if (rand >= 0.45 && rand < 0.52) type = "drop1";
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
-                        else type = "sword";
-                    } else if (bossState === "active" && currentBoss === "dasha") {
-                        if (bossHp < 150 && rand < 0.15) type = "fan";
-                        else if (rand < 0.12 && !hasShield) type = "shield";
-                        else if (rand >= 0.12 && rand < 0.22) type = "random_cube";
-                        else if (rand >= 0.22 && rand < 0.30) type = "barricade";
-                        else if (rand >= 0.30 && rand < 0.42) type = "white_drop";
-                        else if (rand >= 0.42 && rand < 0.54) type = "bomb";
                         else type = "sword";
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
@@ -1069,13 +1066,35 @@
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
 
-                if (item.type === "table") {
+                // Логика взаимодействия веера и стульев (веер быстро отбрасывает стулья от себя)
+                if (item.type === "fan_item") {
+                    item.y += item.vy;
+                    item.x += (item.vx || 0);
+                    item.rotation = (item.rotation || 0) + 0.04;
+
+                    // Проверяем, не подлетел ли веер близко к стульям
+                    for (let j = items.length - 1; j >= 0; j--) {
+                        if (i !== j && items[j].type === "table") {
+                            let chair = items[j];
+                            let d = Math.hypot(item.x - chair.x, item.y - chair.y);
+                            if (d < 120) { // если веер рядом со стулом — мощно отбрасываем стул в сторону!
+                                let repulseAngle = Math.atan2(chair.y - item.y, chair.x - item.x);
+                                chair.vx = Math.cos(repulseAngle) * 9.5; // сильный отброс
+                                chair.vy = Math.sin(repulseAngle) * 9.5 - 2.0;
+                            }
+                        }
+                    }
+                } else if (item.type === "table") {
                     if (item.subType === "horizontal") {
                         item.x += item.vx;
                         if (item.x < -60 || item.x > W + 60) {
                             items.splice(i, 1);
                             continue;
                         }
+                    } else if (item.subType === "corner_chair") {
+                        item.x += item.vx;
+                        item.y += item.vy;
+                        item.vy += 0.08; // гравитация
                     } else if (item.subType === "trickshot") {
                         item.x += item.vx;
                         item.y += item.vy;
@@ -1101,7 +1120,7 @@
                         }
                     }
                 } else {
-                    item.y += item.speed;
+                    item.y += (item.speed || item.vy || 4);
                     if (item.vx) item.x += item.vx;
                 }
 
@@ -1111,6 +1130,15 @@
                 ctx.textAlign = "center";
 
                 if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
+                else if (item.type === "fan_item") {
+                    ctx.save();
+                    ctx.translate(item.x, item.y);
+                    ctx.rotate(item.rotation || 0);
+                    ctx.font = "38px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🪭", 0, 0);
+                    ctx.restore();
+                }
                 else if (item.type === "table") {
                     ctx.save();
                     ctx.translate(item.x, item.y);
@@ -1199,7 +1227,7 @@
                         continue;
                     }
 
-                    if (item.type === "fan") {
+                    if (item.type === "fan" || item.type === "fan_item") {
                         fanWindAnimation = { startTime: now };
                         const pushRadius = 220;
                         items.forEach(it => {
@@ -1280,7 +1308,7 @@
                     }
                 }
 
-                if (item.y > H + 40) {
+                if (item.y > H + 40 || item.x < -100 || item.x > W + 100) {
                     if (item.type === "sword" && bossState !== "victory") {
                         mlEarned += 0.015; 
                     }
