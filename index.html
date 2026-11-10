@@ -71,15 +71,15 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы в углу: уменьшена и сделана чуть более прозрачной */
+        /* Кнопка паузы в углу: уменьшена, чуть прозрачна */
         #pauseBtn {
             position: absolute;
             top: 15px;
             right: 15px;
-            background: rgba(24, 34, 45, 0.55); /* Чуть более прозрачный фон */
+            background: rgba(24, 34, 45, 0.55);
             border: none;
-            width: 40px;  /* Уменьшен размер */
-            height: 40px; /* Уменьшен размер */
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             cursor: pointer;
             z-index: 30;
@@ -94,7 +94,7 @@
             transform: scale(0.90);
         }
 
-        /* Отрисовка значка паузы (меньше под новый размер кнопки) */
+        /* Отрисовка значка паузы */
         .pause-icon {
             display: flex;
             gap: 4px;
@@ -228,7 +228,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v115_fixed_menu_bg";
+        const CURRENT_APP_VERSION = "v116_fixed_all_menu_bugs";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -337,6 +337,7 @@
         });
 
         function startTheGame() {
+            restartGame(); // Сбрасываем все параметры раунда и скорости при старте
             gameStarted = true;
             isPaused = false;
             document.getElementById("startScreen").style.display = "none";
@@ -380,7 +381,7 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            // Если в главном меню — рисуем падающие декоративные элементы (мечи, бомбы и т.д.)
+            // Если в главном меню — рисуем падающие декоративные элементы
             if (!gameStarted) {
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
@@ -426,7 +427,7 @@
             }
 
             if (isPaused) {
-                // Отрисовка интерфейса и игрока в статичном виде на паузе
+                // Отрисовка интерфейса и текущей позиции игрока без сдвигов
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 15px Arial";
                 ctx.textAlign = "left";
@@ -1291,7 +1292,6 @@
             document.getElementById("pauseScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "flex";
             document.getElementById("pauseBtn").classList.remove("paused");
-            requestAnimationFrame(gameLoop);
         }
 
         function showWithdrawModal() {
