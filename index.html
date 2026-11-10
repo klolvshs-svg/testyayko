@@ -38,19 +38,34 @@
             align-items: center;
             z-index: 10;
         }
+        /* Стартовый экран */
+        #startScreen {
+            display: flex;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 33, 0.85);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 15;
+        }
         .btn {
             background: #248bda;
             color: white;
             border: none;
-            padding: 12px 24px;
-            font-size: 16px;
+            padding: 14px 28px;
+            font-size: 18px;
             font-weight: bold;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
-            margin: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            transition: transform 0.1s;
         }
-        .btn:active { transform: scale(0.98); }
+        .btn:active { transform: scale(0.96); }
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         input[type="number"] {
@@ -80,6 +95,16 @@
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
+
+    <!-- Главный стартовый экран -->
+    <div id="startScreen">
+        <h1 style="font-size: 42px; margin: 0 0 10px 0; color: #00d2ff; text-shadow: 0 0 20px rgba(0,210,255,0.4);">🥚 СПАСИ ЯЙЦО</h1>
+        <p style="font-size: 18px; color: #aaa; margin-bottom: 25px;">Битва с боссами и выживание</p>
+        <div>
+            <button class="btn btn-withdraw" style="font-size: 20px; padding: 16px 36px;" onclick="startTheGame()">Играть ▶</button><br>
+            <button class="btn" onclick="showWithdrawModalFromStart()">Вывести мл 🎁</button>
+        </div>
+    </div>
 
     <!-- Экран окончания игры -->
     <div id="gameOverScreen" class="modal">
@@ -122,7 +147,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v103_fan_push_restored";
+        const CURRENT_APP_VERSION = "v105_full_checked";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -148,6 +173,7 @@
         let lastPromoCode = localStorage.getItem("egg_last_promo_code") || "";
         let mlEarned = 0.0;
         let gameOver = false;
+        let gameStarted = false; 
         let hasShield = false;
         let hasHelmet = false;
 
@@ -202,20 +228,78 @@
         let items = [];
         let spawnTimer = 0;
 
+        // Элементы заднего фона в меню
+        let menuDecorItems = [];
+        for (let i = 0; i < 15; i++) {
+            const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"];
+            menuDecorItems.push({
+                x: Math.random() * W,
+                y: Math.random() * H,
+                speed: 1.5 + Math.random() * 2.5,
+                type: typesPool[Math.floor(Math.random() * typesPool.length)],
+                rotation: Math.random() * Math.PI * 2,
+                rotSpeed: (Math.random() - 0.5) * 0.04
+            });
+        }
+
         function handleMove(e) {
-            if (gameOver || bossState === "intro") return; 
+            if (!gameStarted || gameOver || bossState === "intro") return; 
             targetX = e.touches ? e.touches[0].clientX : e.clientX;
         }
 
         window.addEventListener("mousemove", handleMove);
         window.addEventListener("touchmove", handleMove);
         window.addEventListener("touchstart", (e) => {
-            if (!gameOver && bossState !== "intro") {
+            if (gameStarted && !gameOver && bossState !== "intro") {
                 targetX = e.touches[0].clientX;
             }
         });
 
+        function startTheGame() {
+            gameStarted = true;
+            document.getElementById("startScreen").style.display = "none";
+        }
+
+        function showWithdrawModalFromStart() {
+            showWithdrawModal();
+        }
+
         function gameLoop() {
+            ctx.fillStyle = "#0f1721";
+            ctx.fillRect(0, 0, W, H);
+
+            if (!gameStarted) {
+                menuDecorItems.forEach(item => {
+                    item.y += item.speed;
+                    item.rotation += item.rotSpeed;
+                    if (item.y > H + 40) {
+                        item.y = -40;
+                        item.x = Math.random() * W;
+                    }
+
+                    ctx.save();
+                    ctx.translate(item.x, item.y);
+                    ctx.rotate(item.rotation);
+                    ctx.font = "32px Arial";
+                    ctx.textAlign = "center";
+
+                    let symbol = "🗡";
+                    if (item.type === "table") symbol = "🪑";
+                    else if (item.type === "bomb") symbol = "💣";
+                    else if (item.type === "shield") symbol = "🛡";
+                    else if (item.type === "helmet") symbol = "🪖";
+                    else if (item.type === "drop1") symbol = "💧";
+                    else if (item.type === "fan") symbol = "🪭";
+                    else if (item.type === "snow") symbol = "❄️";
+
+                    ctx.fillText(symbol, 0, 0);
+                    ctx.restore();
+                });
+
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
             if (gameOver) return;
 
             const now = Date.now();
@@ -230,9 +314,6 @@
                 }
             }
             player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
-
-            ctx.fillStyle = "#0f1721";
-            ctx.fillRect(0, 0, W, H);
 
             if (mlEarned >= 1.0 && !dashaTriggered) {
                 dashaTriggered = true;
@@ -281,17 +362,16 @@
                         });
                     }
 
-                    // Увеличение количества и частоты стульев на 40%
                     let activeTables = items.filter(it => it.type === "table").length;
                     let tableSpawnChance = 0.012 * 1.4;
-                    let maxActiveTables = Math.round(2 * 1.4); // ~3
+                    let maxActiveTables = Math.round(2 * 1.4);
 
                     if (bossHp < 100) {
                         tableSpawnChance = 0.035 * 1.4;
-                        maxActiveTables = Math.round(5 * 1.4); // ~7
+                        maxActiveTables = Math.round(5 * 1.4);
                     } else if (bossHp <= 150) {
                         tableSpawnChance = 0.025 * 1.4;
-                        maxActiveTables = Math.round(3 * 1.4); // ~4
+                        maxActiveTables = Math.round(3 * 1.4);
                     }
 
                     if (activeTables < maxActiveTables && Math.random() < tableSpawnChance) {
@@ -687,7 +767,6 @@
                 ctx.stroke();
             }
 
-            // Анимация веера: расходящаяся волна воздуха от игрока
             if (fanWindAnimation && now - fanWindAnimation.startTime < 800) {
                 let progress = (now - fanWindAnimation.startTime) / 800;
                 ctx.save();
@@ -931,7 +1010,6 @@
                         continue;
                     }
 
-                    // Логика подбора веера: отталкивает только стулья поблизости (радиус 220 пикселей)
                     if (item.type === "fan") {
                         fanWindAnimation = { startTime: now };
                         const pushRadius = 220;
