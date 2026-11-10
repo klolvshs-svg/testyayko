@@ -154,7 +154,7 @@
 <body>
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Кнопка паузы в правом верхнем углу (не трогаем!) -->
+    <!-- Кнопка паузы в правом верхнем углу -->
     <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
         <div class="pause-icon">
             <span></span>
@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v131_fan_timer_3s_less_spawn";
+        const CURRENT_APP_VERSION = "v132_dasha_chairs_hp400_phase";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -428,7 +428,7 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            // Если игра в главном меню
+            // Главное меню
             if (!gameStarted) {
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
@@ -566,14 +566,34 @@
                     }
 
                     let activeTables = items.filter(it => it.type === "table" || it.type === "sword").length;
-                    let tableSpawnChance = 0.012 * 1.4;
-                    let maxActiveTables = Math.round(2 * 1.4);
+                    
+                    // В начале боя (> 400 HP) стулья падают намного чаще мечей
+                    let tableSpawnChance = (bossHp > 400) ? 0.045 : 0.0168; 
+                    let maxActiveTables = (bossHp > 400) ? 5 : 3;
 
+                    // При ХП меньше 400 стулья и ножи начинают дополнительно падать из углов
+                    if (bossHp <= 400 && bossHp >= 150) {
+                        if (Math.random() < 0.028) {
+                            let fromLeft = Math.random() < 0.5;
+                            let cornerItemType = Math.random() < 0.65 ? "table" : "sword";
+                            items.push({
+                                x: fromLeft ? 20 : W - 20,
+                                y: 50 + Math.random() * 100,
+                                vx: fromLeft ? (3.0 + Math.random() * 2.0) : -(3.0 + Math.random() * 2.0),
+                                vy: 1.5 + Math.random() * 1.5,
+                                rotation: 0,
+                                rotationSpeed: 0.07,
+                                type: cornerItemType,
+                                subType: cornerItemType === "table" ? "corner_chair" : "corner_sword"
+                            });
+                        }
+                    }
+
+                    // Яростная фаза (< 150 HP)
                     if (bossHp < 150) {
                         tableSpawnChance = 0.07; 
                         maxActiveTables = 9;
 
-                        // Частота спавна вееров уменьшена ещё на 15% (до 0.0044)
                         if (Math.random() < 0.0044) {
                             items.push({
                                 x: Math.random() * (W - 80) + 40,
@@ -615,7 +635,7 @@
                         }
                     }
 
-                    if (activeTables < maxActiveTables && Math.random() < tableSpawnChance && bossHp >= 150) {
+                    if (activeTables < maxActiveTables && Math.random() < tableSpawnChance) {
                         items.push({
                             x: Math.random() * (W - 60) + 30,
                             y: -30,
@@ -1051,7 +1071,7 @@
                 }
             }
 
-            // СПАВН ОБЫЧНЫХ ПРЕДМЕТОВ (мечи, бомбы, щиты и т.д.) работает всегда вне кат-сцен
+            // СПАВН ОБЫЧНЫХ ПРЕДМЕТОВ (мечи, бомбы, щиты и т.д.)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -1270,7 +1290,6 @@
                         continue;
                     }
 
-                    // Веер теперь действует ровно 3 секунды (3000 мс)
                     if (item.type === "fan" || item.type === "fan_item") {
                         fanExpiresAt = now + 3000; 
                         fanWindAnimation = { startTime: now };
