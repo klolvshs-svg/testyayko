@@ -71,7 +71,7 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы в углу: полностью серая, без рамок */
+        /* Кнопка паузы в углу: полностью серая, без рамок, никогда не пропадает */
         #pauseBtn {
             position: absolute;
             top: 15px;
@@ -84,8 +84,8 @@
             font-size: 24px;
             font-weight: bold;
             cursor: pointer;
-            z-index: 5;
-            display: flex;
+            z-index: 30;
+            display: none;
             justify-content: center;
             align-items: center;
             outline: none;
@@ -122,7 +122,7 @@
     <canvas id="gameCanvas"></canvas>
 
     <!-- Кнопка паузы в правом верхнем углу -->
-    <button id="pauseBtn" onclick="togglePause()" style="display: none;">⏸</button>
+    <button id="pauseBtn" onclick="togglePause()">⏸</button>
 
     <!-- Главный стартовый экран -->
     <div id="startScreen">
@@ -189,7 +189,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v111_clean_pause_btn";
+        const CURRENT_APP_VERSION = "v112_fixed_pause_pos";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -333,56 +333,38 @@
         }
 
         function gameLoop() {
-            ctx.fillStyle = "#0f1721";
-            ctx.fillRect(0, 0, W, H);
-
-            if (!gameStarted) {
-                menuDecorItems.forEach(item => {
-                    item.y += item.speed;
-                    item.rotation += item.rotSpeed;
-                    if (item.y > H + 40) {
-                        item.y = -40;
-                        item.x = Math.random() * W;
-                    }
-
-                    ctx.save();
-                    ctx.translate(item.x, item.y);
-                    ctx.rotate(item.rotation);
-
-                    if (item.type === "bomb") {
-                        if (bombImg.complete && bombImg.naturalWidth !== 0) {
-                            let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                            let drawH = 36;
-                            let drawW = drawH * imgAspect;
-                            ctx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
-                        } else {
-                            ctx.font = "32px Arial";
-                            ctx.textAlign = "center";
-                            ctx.fillText("💣", 0, 0);
-                        }
-                    } else {
-                        ctx.font = "32px Arial";
-                        ctx.textAlign = "center";
-                        let symbol = "🗡";
-                        if (item.type === "table") symbol = "🪑";
-                        else if (item.type === "shield") symbol = "🛡";
-                        else if (item.type === "helmet") symbol = "🪖";
-                        else if (item.type === "drop1") symbol = "💧";
-                        else if (item.type === "fan") symbol = "🪭";
-                        else if (item.type === "snow") symbol = "❄️";
-                        ctx.fillText(symbol, 0, 0);
-                    }
-
-                    ctx.restore();
-                });
-
-                requestAnimationFrame(gameLoop);
-                return;
-            }
+            if (!gameStarted) return;
 
             if (isPaused) {
+                ctx.fillStyle = "#0f1721";
+                ctx.fillRect(0, 0, W, H);
+                
+                // Отрисовка интерфейса и игрока в статичном виде без смещений
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 15px Arial";
+                ctx.textAlign = "left";
+                ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
+                ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
+
+                const renderPlayerX = Math.round(player.x);
+                const renderPlayerY = Math.round(player.y);
+                if (eggImg.complete && eggImg.naturalWidth !== 0) {
+                    let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
+                    let drawH = 50; 
+                    let drawW = drawH * imgAspect; 
+                    let renderX = Math.round(renderPlayerX - drawW / 2);
+                    let renderY = Math.round(renderPlayerY - drawH / 2);
+                    ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
+                } else {
+                    ctx.font = "40px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
+                }
                 return;
             }
+
+            ctx.fillStyle = "#0f1721";
+            ctx.fillRect(0, 0, W, H);
 
             if (gameOver) return;
 
