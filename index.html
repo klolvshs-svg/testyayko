@@ -154,7 +154,7 @@
 <body>
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Кнопка паузы в правом верхнем углу с защитой от передачи клика на яйцо -->
+    <!-- Кнопка паузы в правом верхнем углу -->
     <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
         <div class="pause-icon">
             <span></span>
@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v119_pause_click_fix";
+        const CURRENT_APP_VERSION = "v120_logical_pause_fix";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -324,7 +324,6 @@
 
         function handleMove(e) {
             if (!gameStarted || isPaused || gameOver || bossState === "intro") return; 
-            // Игнорируем касания, если они попадают в зону кнопки паузы (верхний правый угол)
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             if (clientX > W - 70 && clientY < 70) return;
@@ -347,9 +346,12 @@
             restartGame();
             gameStarted = true;
             isPaused = false;
+            gameOver = false;
             targetX = W / 2;
             player.x = W / 2;
             document.getElementById("startScreen").style.display = "none";
+            document.getElementById("pauseScreen").style.display = "none";
+            document.getElementById("gameOverScreen").style.display = "none";
             
             const pBtn = document.getElementById("pauseBtn");
             pBtn.style.display = "flex";
@@ -373,7 +375,7 @@
             } else {
                 pauseScreen.style.display = "none";
                 pBtn.classList.remove("paused");
-                targetX = player.x; // Фиксируем текущую позицию, чтобы яйцо не дергалось
+                targetX = player.x; 
                 requestAnimationFrame(gameLoop);
             }
         }
@@ -381,6 +383,7 @@
         function returnToMainMenu() {
             isPaused = false;
             gameStarted = false;
+            gameOver = false;
             document.getElementById("pauseScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("startScreen").style.display = "flex";
@@ -466,6 +469,7 @@
             if (gameOver) return;
 
             const now = Date.now();
+            constрень = now < invincibleUntil;
             const isInvincible = now < invincibleUntil;
             const isEggSlowed = now < eggSlowUntil;
 
