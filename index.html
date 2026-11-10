@@ -228,7 +228,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v116_fixed_all_menu_bugs";
+        const CURRENT_APP_VERSION = "v117_fixed_original_speed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -337,7 +337,7 @@
         });
 
         function startTheGame() {
-            restartGame(); // Сбрасываем все параметры раунда и скорости при старте
+            restartGame();
             gameStarted = true;
             isPaused = false;
             document.getElementById("startScreen").style.display = "none";
@@ -368,7 +368,7 @@
             isPaused = false;
             gameStarted = false;
             document.getElementById("pauseScreen").style.display = "none";
-            document.getElementById("pauseBtn").style.display = "none"; // Прячем кнопку паузы в главном меню
+            document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("startScreen").style.display = "flex";
             restartGame();
         }
@@ -381,7 +381,6 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            // Если в главном меню — рисуем падающие декоративные элементы
             if (!gameStarted) {
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
@@ -427,7 +426,6 @@
             }
 
             if (isPaused) {
-                // Отрисовка интерфейса и текущей позиции игрока без сдвигов
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 15px Arial";
                 ctx.textAlign = "left";
@@ -849,6 +847,7 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
+            // Возвращено оригинальное стандартное ускорение (каждые 20 мл)
             const speedMultiplier = 1 + Math.floor(mlEarned / 20) * 0.12;
 
             // ИНТЕРФЕЙС
