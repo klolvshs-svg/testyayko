@@ -71,7 +71,7 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы в углу с блокировкой передачи клика на игровое поле */
+        /* Кнопка паузы в углу */
         #pauseBtn {
             position: absolute;
             top: 15px;
@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v120_logical_pause_fix";
+        const CURRENT_APP_VERSION = "v121_clean_restart_fix";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -343,12 +343,36 @@
         });
 
         function startTheGame() {
-            restartGame();
             gameStarted = true;
             isPaused = false;
             gameOver = false;
+            mlEarned = 0.0;
+            items = [];
+            spawnTimer = 0;
+            invincibleUntil = 0;
+            eggSlowUntil = 0;
+            dashaTriggered = false;
+            dashaDefeated = false;
+            ritaTriggered = false;
+            currentBoss = null;
+            bossState = "none";
+            activeWaterStreams = [];
+            flyingFists = [];
+            flyingWhiteDrops = [];
+            bossWhiteSplats = [];
+            lastCubeMilestone = 0;
+            bossDropsStarted = false;
+            bossDropStep = 0;
+            lastBossDropTime = 0;
+            bossHp = 500;
+            bossMaxHp = 500;
+            hasShield = false;
+            hasHelmet = false;
+            fanWindAnimation = null;
+
             targetX = W / 2;
             player.x = W / 2;
+
             document.getElementById("startScreen").style.display = "none";
             document.getElementById("pauseScreen").style.display = "none";
             document.getElementById("gameOverScreen").style.display = "none";
@@ -387,7 +411,6 @@
             document.getElementById("pauseScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("startScreen").style.display = "flex";
-            restartGame();
         }
 
         function showWithdrawModalFromStart() {
@@ -395,6 +418,11 @@
         }
 
         function gameLoop() {
+            // Если игра в режиме паузы или завершена, не крутим игровой цикл отрисовки падений
+            if (isPaused || gameOver) {
+                return;
+            }
+
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
@@ -442,34 +470,7 @@
                 return;
             }
 
-            if (isPaused) {
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 15px Arial";
-                ctx.textAlign = "left";
-                ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
-                ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
-
-                const renderPlayerX = Math.round(player.x);
-                const renderPlayerY = Math.round(player.y);
-                if (eggImg.complete && eggImg.naturalWidth !== 0) {
-                    let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
-                    let drawH = 50; 
-                    let drawW = drawH * imgAspect; 
-                    let renderX = Math.round(renderPlayerX - drawW / 2);
-                    let renderY = Math.round(renderPlayerY - drawH / 2);
-                    ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
-                } else {
-                    ctx.font = "40px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
-                }
-                return;
-            }
-
-            if (gameOver) return;
-
             const now = Date.now();
-            constрень = now < invincibleUntil;
             const isInvincible = now < invincibleUntil;
             const isEggSlowed = now < eggSlowUntil;
 
@@ -1278,35 +1279,7 @@
         }
 
         function restartGame() {
-            mlEarned = 0.0;
-            items = [];
-            spawnTimer = 0;
-            invincibleUntil = 0;
-            eggSlowUntil = 0;
-            dashaTriggered = false;
-            dashaDefeated = false;
-            ritaTriggered = false;
-            currentBoss = null;
-            bossState = "none";
-            activeWaterStreams = [];
-            flyingFists = [];
-            flyingWhiteDrops = [];
-            bossWhiteSplats = [];
-            lastCubeMilestone = 0;
-            bossDropsStarted = false;
-            bossDropStep = 0;
-            lastBossDropTime = 0;
-            bossHp = 500;
-            bossMaxHp = 500;
-            gameOver = false;
-            isPaused = false;
-            hasShield = false;
-            hasHelmet = false;
-            fanWindAnimation = null;
-            document.getElementById("gameOverScreen").style.display = "none";
-            document.getElementById("pauseScreen").style.display = "none";
-            document.getElementById("pauseBtn").style.display = "flex";
-            document.getElementById("pauseBtn").classList.remove("paused");
+            startTheGame();
         }
 
         function showWithdrawModal() {
