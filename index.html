@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v129_rita_exclusive_fists";
+        const CURRENT_APP_VERSION = "v130_center_spawn_and_pause_fix";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -406,6 +406,13 @@
         }
 
         function returnToMainMenu() {
+            // Начисление накопленных мл в банк при выходе через паузу в меню
+            if (mlEarned > 0) {
+                totalBank += mlEarned;
+                localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+                mlEarned = 0.0;
+            }
+
             isPaused = false;
             gameStarted = false;
             gameOver = false;
@@ -564,8 +571,8 @@
                     let maxActiveTables = Math.round(2 * 1.4);
 
                     if (bossHp < 150) {
-                        tableSpawnChance = 0.06; 
-                        maxActiveTables = 8;
+                        tableSpawnChance = 0.07; 
+                        maxActiveTables = 9;
 
                         if (Math.random() < 0.0052) {
                             items.push({
@@ -579,14 +586,30 @@
                             });
                         }
 
-                        if (Math.random() < 0.045) {
+                        // Стулья и ножи падают как из углов, так и сверху прямо по центру, чтобы центр не был безопасным
+                        if (Math.random() < 0.055) {
+                            let spawnMode = Math.random();
                             let fromLeft = Math.random() < 0.5;
                             let cornerItemType = Math.random() < 0.55 ? "table" : "sword";
+                            
+                            let spawnX, spawnVx, spawnVy;
+                            if (spawnMode < 0.6) {
+                                // Из углов
+                                spawnX = fromLeft ? 20 : W - 20;
+                                spawnVx = fromLeft ? (3.5 + Math.random() * 2.5) : -(3.5 + Math.random() * 2.5);
+                                spawnVy = 1.5 + Math.random() * 1.5;
+                            } else {
+                                // Прямо сверху в центральную зону
+                                spawnX = W / 2 + (Math.random() - 0.5) * (W * 0.5);
+                                spawnVx = (Math.random() - 0.5) * 2.0;
+                                spawnVy = 3.5 + Math.random() * 2.0;
+                            }
+
                             items.push({
-                                x: fromLeft ? 20 : W - 20,
-                                y: 50 + Math.random() * 150,
-                                vx: fromLeft ? (3.5 + Math.random() * 2.5) : -(3.5 + Math.random() * 2.5),
-                                vy: 1.5 + Math.random() * 1.5,
+                                x: spawnX,
+                                y: 50 + Math.random() * 100,
+                                vx: spawnVx,
+                                vy: spawnVy,
                                 rotation: 0,
                                 rotationSpeed: 0.07,
                                 type: cornerItemType,
@@ -621,7 +644,7 @@
                     }
                 }
 
-                // ЭКСКЛЮЗИВ РИТЫ (кулачки и желтые сферы падают строго здесь)
+                // ЭКСКЛЮЗИВ РИТЫ (кулачки и желтые сферы)
                 if (currentBoss === "rita") {
                     if (bossHp < 100) {
                         if (!bossDropsStarted) {
@@ -880,7 +903,7 @@
                     } else if (currentBoss === "rita") {
                         ritaDefeated = true;
                     }
-                    bossState = "normal"; // Полный возврат к обычному игровому процессу
+                    bossState = "normal"; 
                 }
             }
 
