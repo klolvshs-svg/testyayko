@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v121_clean_restart_fix";
+        const CURRENT_APP_VERSION = "v122_fix_menu_anim_and_speed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -380,8 +380,6 @@
             const pBtn = document.getElementById("pauseBtn");
             pBtn.style.display = "flex";
             pBtn.classList.remove("paused");
-            
-            requestAnimationFrame(gameLoop);
         }
 
         function togglePause(e) {
@@ -400,7 +398,6 @@
                 pauseScreen.style.display = "none";
                 pBtn.classList.remove("paused");
                 targetX = player.x; 
-                requestAnimationFrame(gameLoop);
             }
         }
 
@@ -418,14 +415,10 @@
         }
 
         function gameLoop() {
-            // Если игра в режиме паузы или завершена, не крутим игровой цикл отрисовки падений
-            if (isPaused || gameOver) {
-                return;
-            }
-
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
+            // Если игра в главном меню — рисуем падающие декоративные элементы
             if (!gameStarted) {
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
@@ -466,6 +459,36 @@
                     ctx.restore();
                 });
 
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            if (isPaused) {
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 15px Arial";
+                ctx.textAlign = "left";
+                ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
+                ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
+
+                const renderPlayerX = Math.round(player.x);
+                const renderPlayerY = Math.round(player.y);
+                if (eggImg.complete && eggImg.naturalWidth !== 0) {
+                    let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
+                    let drawH = 50; 
+                    let drawW = drawH * imgAspect; 
+                    let renderX = Math.round(renderPlayerX - drawW / 2);
+                    let renderY = Math.round(renderPlayerY - drawH / 2);
+                    ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
+                } else {
+                    ctx.font = "40px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
+                }
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            if (gameOver) {
                 requestAnimationFrame(gameLoop);
                 return;
             }
@@ -1252,6 +1275,7 @@
                         } 
 
                         showGameOver();
+                        requestAnimationFrame(gameLoop);
                         return;
                     }
                 }
