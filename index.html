@@ -154,7 +154,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v107_exact_egg_pos";
+        const CURRENT_APP_VERSION = "v108_fast_fan_and_menu_bomb";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -286,19 +286,31 @@
                     ctx.save();
                     ctx.translate(item.x, item.y);
                     ctx.rotate(item.rotation);
-                    ctx.font = "32px Arial";
-                    ctx.textAlign = "center";
 
-                    let symbol = "🗡";
-                    if (item.type === "table") symbol = "🪑";
-                    else if (item.type === "bomb") symbol = "💣";
-                    else if (item.type === "shield") symbol = "🛡";
-                    else if (item.type === "helmet") symbol = "🪖";
-                    else if (item.type === "drop1") symbol = "💧";
-                    else if (item.type === "fan") symbol = "🪭";
-                    else if (item.type === "snow") symbol = "❄️";
+                    if (item.type === "bomb") {
+                        if (bombImg.complete && bombImg.naturalWidth !== 0) {
+                            let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
+                            let drawH = 36;
+                            let drawW = drawH * imgAspect;
+                            ctx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
+                        } else {
+                            ctx.font = "32px Arial";
+                            ctx.textAlign = "center";
+                            ctx.fillText("💣", 0, 0);
+                        }
+                    } else {
+                        ctx.font = "32px Arial";
+                        ctx.textAlign = "center";
+                        let symbol = "🗡";
+                        if (item.type === "table") symbol = "🪑";
+                        else if (item.type === "shield") symbol = "🛡";
+                        else if (item.type === "helmet") symbol = "🪖";
+                        else if (item.type === "drop1") symbol = "💧";
+                        else if (item.type === "fan") symbol = "🪭";
+                        else if (item.type === "snow") symbol = "❄️";
+                        ctx.fillText(symbol, 0, 0);
+                    }
 
-                    ctx.fillText(symbol, 0, 0);
                     ctx.restore();
                 });
 
@@ -737,7 +749,6 @@
             const renderPlayerX = Math.round(player.x);
             const renderPlayerY = Math.round(player.y);
 
-            // Рендер текстуры главного яйца в исходном оригинальном виде
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 50; 
@@ -1024,7 +1035,8 @@
                                 let dToPlayer = Math.hypot(player.x - it.x, player.y - it.y);
                                 if (dToPlayer <= pushRadius) {
                                     let pushAngle = Math.atan2(it.y - player.y, it.x - player.x);
-                                    let force = 8 + (1 - dToPlayer / pushRadius) * 8;
+                                    // Увеличена сила и скорость отталкивания стульев
+                                    let force = 16 + (1 - dToPlayer / pushRadius) * 16;
                                     it.vx = (it.vx || 0) + Math.cos(pushAngle) * force;
                                     it.vy = (it.vy || it.speed || 3) + Math.sin(pushAngle) * force;
                                 }
