@@ -154,7 +154,7 @@
 <body>
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Кнопка паузы в правом верхнем углу -->
+    <!-- Кнопка паузы в углу -->
     <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
         <div class="pause-icon">
             <span></span>
@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v132_dasha_chairs_hp400_phase";
+        const CURRENT_APP_VERSION = "v133_dasha_balanced_hp400_shields";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -567,22 +567,22 @@
 
                     let activeTables = items.filter(it => it.type === "table" || it.type === "sword").length;
                     
-                    // В начале боя (> 400 HP) стулья падают намного чаще мечей
-                    let tableSpawnChance = (bossHp > 400) ? 0.045 : 0.0168; 
-                    let maxActiveTables = (bossHp > 400) ? 5 : 3;
+                    // HP > 400: стульев больше, чем мечей, но их меньше, чем в яростной фазе (< 150)
+                    let tableSpawnChance = (bossHp > 400) ? 0.024 : 0.0168; 
+                    let maxActiveTables = (bossHp > 400) ? 3 : 3;
 
-                    // При ХП меньше 400 стулья и ножи начинают дополнительно падать из углов
+                    // HP от 400 до 150: стулья и ножи аккуратно падают из углов
                     if (bossHp <= 400 && bossHp >= 150) {
-                        if (Math.random() < 0.028) {
+                        if (Math.random() < 0.015) {
                             let fromLeft = Math.random() < 0.5;
-                            let cornerItemType = Math.random() < 0.65 ? "table" : "sword";
+                            let cornerItemType = Math.random() < 0.60 ? "table" : "sword";
                             items.push({
                                 x: fromLeft ? 20 : W - 20,
                                 y: 50 + Math.random() * 100,
-                                vx: fromLeft ? (3.0 + Math.random() * 2.0) : -(3.0 + Math.random() * 2.0),
-                                vy: 1.5 + Math.random() * 1.5,
+                                vx: fromLeft ? (2.5 + Math.random() * 1.5) : -(2.5 + Math.random() * 1.5),
+                                vy: 1.2 + Math.random() * 1.2,
                                 rotation: 0,
-                                rotationSpeed: 0.07,
+                                rotationSpeed: 0.05,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword"
                             });
@@ -1087,6 +1087,17 @@
                         else if (rand >= 0.45 && rand < 0.52) type = "drop1";
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
                         else type = "sword";
+                    } else if (bossState === "active" && currentBoss === "dasha") {
+                        // Редкий аккуратный спавн щитов во время битвы с Дашей (если нет щита)
+                        if (!hasShield && rand < 0.08) {
+                            type = "shield";
+                        } else if (rand >= 0.08 && rand < 0.35) {
+                            type = "bomb";
+                        } else if (rand >= 0.35 && rand < 0.45) {
+                            type = "drop1";
+                        } else {
+                            type = "sword";
+                        }
                     } else {
                         if (mlEarned >= 15.0 && rand < 0.008) {
                             type = "egg20"; 
