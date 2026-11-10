@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v130_center_spawn_and_pause_fix";
+        const CURRENT_APP_VERSION = "v131_fan_timer_3s_less_spawn";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -406,7 +406,6 @@
         }
 
         function returnToMainMenu() {
-            // Начисление накопленных мл в банк при выходе через паузу в меню
             if (mlEarned > 0) {
                 totalBank += mlEarned;
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
@@ -574,7 +573,8 @@
                         tableSpawnChance = 0.07; 
                         maxActiveTables = 9;
 
-                        if (Math.random() < 0.0052) {
+                        // Частота спавна вееров уменьшена ещё на 15% (до 0.0044)
+                        if (Math.random() < 0.0044) {
                             items.push({
                                 x: Math.random() * (W - 80) + 40,
                                 y: -30,
@@ -586,7 +586,6 @@
                             });
                         }
 
-                        // Стулья и ножи падают как из углов, так и сверху прямо по центру, чтобы центр не был безопасным
                         if (Math.random() < 0.055) {
                             let spawnMode = Math.random();
                             let fromLeft = Math.random() < 0.5;
@@ -594,12 +593,10 @@
                             
                             let spawnX, spawnVx, spawnVy;
                             if (spawnMode < 0.6) {
-                                // Из углов
                                 spawnX = fromLeft ? 20 : W - 20;
                                 spawnVx = fromLeft ? (3.5 + Math.random() * 2.5) : -(3.5 + Math.random() * 2.5);
                                 spawnVy = 1.5 + Math.random() * 1.5;
                             } else {
-                                // Прямо сверху в центральную зону
                                 spawnX = W / 2 + (Math.random() - 0.5) * (W * 0.5);
                                 spawnVx = (Math.random() - 0.5) * 2.0;
                                 spawnVy = 3.5 + Math.random() * 2.0;
@@ -644,7 +641,7 @@
                     }
                 }
 
-                // ЭКСКЛЮЗИВ РИТЫ (кулачки и желтые сферы)
+                // ЭКСКЛЮЗИВ РИТЫ
                 if (currentBoss === "rita") {
                     if (bossHp < 100) {
                         if (!bossDropsStarted) {
@@ -1273,8 +1270,9 @@
                         continue;
                     }
 
+                    // Веер теперь действует ровно 3 секунды (3000 мс)
                     if (item.type === "fan" || item.type === "fan_item") {
-                        fanExpiresAt = now + 4000; 
+                        fanExpiresAt = now + 3000; 
                         fanWindAnimation = { startTime: now };
                         const pushRadius = 250;
                         items.forEach(it => {
