@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v126_boss_victory_fix";
+        const CURRENT_APP_VERSION = "v129_rita_exclusive_fists";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -270,6 +270,7 @@
         let dashaTriggered = false;
         let dashaDefeated = false;
         let ritaTriggered = false;
+        let ritaDefeated = false;
 
         let currentBoss = null; 
         let bossState = "normal"; 
@@ -355,6 +356,7 @@
             dashaTriggered = false;
             dashaDefeated = false;
             ritaTriggered = false;
+            ritaDefeated = false;
             currentBoss = null;
             bossState = "normal"; 
             activeWaterStreams = [];
@@ -546,6 +548,7 @@
                     bossSpeedX *= -1;
                 }
 
+                // ЭКСКЛЮЗИВ ДАШИ
                 if (currentBoss === "dasha") {
                     if (Math.random() < 0.007) {
                         items.push({
@@ -560,13 +563,11 @@
                     let tableSpawnChance = 0.012 * 1.4;
                     let maxActiveTables = Math.round(2 * 1.4);
 
-                    // Режим Даши < 150 ХП: поменьше вееров, падают стулья и ножи из углов
                     if (bossHp < 150) {
                         tableSpawnChance = 0.06; 
                         maxActiveTables = 8;
 
-                        // Редкие вееры сверху (уменьшенный размер)
-                        if (Math.random() < 0.007) {
+                        if (Math.random() < 0.0052) {
                             items.push({
                                 x: Math.random() * (W - 80) + 40,
                                 y: -30,
@@ -578,7 +579,6 @@
                             });
                         }
 
-                        // Спавн стульев и ножей из углов
                         if (Math.random() < 0.045) {
                             let fromLeft = Math.random() < 0.5;
                             let cornerItemType = Math.random() < 0.55 ? "table" : "sword";
@@ -621,6 +621,7 @@
                     }
                 }
 
+                // ЭКСКЛЮЗИВ РИТЫ (кулачки и желтые сферы падают строго здесь)
                 if (currentBoss === "rita") {
                     if (bossHp < 100) {
                         if (!bossDropsStarted) {
@@ -876,8 +877,10 @@
                 if (victoryPassed >= victoryDuration) {
                     if (currentBoss === "dasha") {
                         dashaDefeated = true;
+                    } else if (currentBoss === "rita") {
+                        ritaDefeated = true;
                     }
-                    bossState = "normal"; // Сбрасываем флаг, игра продолжается дальше!
+                    bossState = "normal"; // Полный возврат к обычному игровому процессу
                 }
             }
 
@@ -1028,12 +1031,13 @@
                 }
             }
 
+            // СПАВН ОБЫЧНЫХ ПРЕДМЕТОВ (мечи, бомбы, щиты и т.д.) работает всегда вне кат-сцен
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
                 let currentSpawnInterval = (bossState === "active") ? baseInterval + 14 : baseInterval;
 
-                if (spawnTimer % currentSpawnInterval === 0 && !(currentBoss === "dasha" && bossHp < 150)) {
+                if (spawnTimer % currentSpawnInterval === 0 && !(currentBoss === "dasha" && bossState === "active" && bossHp < 150)) {
                     let type = "sword";
                     const rand = Math.random();
 
@@ -1153,7 +1157,7 @@
                     ctx.save();
                     ctx.translate(item.x, item.y);
                     ctx.rotate(item.rotation || 0);
-                    ctx.font = "30px Arial"; /* Уменьшенный размер веера */
+                    ctx.font = "26px Arial"; 
                     ctx.textAlign = "center";
                     ctx.fillText("🪭", 0, 0);
                     ctx.restore();
