@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v125_fan_timer_fix";
+        const CURRENT_APP_VERSION = "v126_boss_victory_fix";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -257,7 +257,7 @@
         let isPaused = false;
         let hasShield = false;
         let hasHelmet = false;
-        let fanExpiresAt = 0; // Время окончания работы веера (4 секунды)
+        let fanExpiresAt = 0; 
 
         let invincibleUntil = 0; 
         let eggSlowUntil = 0;    
@@ -272,7 +272,7 @@
         let ritaTriggered = false;
 
         let currentBoss = null; 
-        let bossState = "none"; 
+        let bossState = "normal"; 
         let introTimer = 0;
         let victoryTimer = 0;
         let activeWaterStreams = [];  
@@ -356,7 +356,7 @@
             dashaDefeated = false;
             ritaTriggered = false;
             currentBoss = null;
-            bossState = "normal"; // Сразу обычное состояние игры со спавном предметов
+            bossState = "normal"; 
             activeWaterStreams = [];
             flyingFists = [];
             flyingWhiteDrops = [];
@@ -498,7 +498,7 @@
             const now = Date.now();
             const isInvincible = now < invincibleUntil;
             const isEggSlowed = now < eggSlowUntil;
-            const hasFanActive = now < fanExpiresAt; // Проверяем активен ли веер по таймеру (4 сек)
+            const hasFanActive = now < fanExpiresAt; 
 
             if (bossState !== "intro" && bossState !== "victory") {
                 if (isEggSlowed) {
@@ -556,15 +556,17 @@
                         });
                     }
 
-                    let activeTables = items.filter(it => it.type === "table").length;
+                    let activeTables = items.filter(it => it.type === "table" || it.type === "sword").length;
                     let tableSpawnChance = 0.012 * 1.4;
                     let maxActiveTables = Math.round(2 * 1.4);
 
+                    // Режим Даши < 150 ХП: поменьше вееров, падают стулья и ножи из углов
                     if (bossHp < 150) {
-                        tableSpawnChance = 0.055; 
-                        maxActiveTables = 7;
+                        tableSpawnChance = 0.06; 
+                        maxActiveTables = 8;
 
-                        if (Math.random() < 0.008) {
+                        // Редкие вееры сверху (уменьшенный размер)
+                        if (Math.random() < 0.007) {
                             items.push({
                                 x: Math.random() * (W - 80) + 40,
                                 y: -30,
@@ -576,8 +578,10 @@
                             });
                         }
 
-                        if (Math.random() < 0.04) {
+                        // Спавн стульев и ножей из углов
+                        if (Math.random() < 0.045) {
                             let fromLeft = Math.random() < 0.5;
+                            let cornerItemType = Math.random() < 0.55 ? "table" : "sword";
                             items.push({
                                 x: fromLeft ? 20 : W - 20,
                                 y: 50 + Math.random() * 150,
@@ -585,25 +589,23 @@
                                 vy: 1.5 + Math.random() * 1.5,
                                 rotation: 0,
                                 rotationSpeed: 0.07,
-                                type: "table",
-                                subType: "corner_chair"
+                                type: cornerItemType,
+                                subType: cornerItemType === "table" ? "corner_chair" : "corner_sword"
                             });
                         }
                     }
 
                     if (activeTables < maxActiveTables && Math.random() < tableSpawnChance && bossHp >= 150) {
-                        if (bossHp > 150) {
-                            items.push({
-                                x: Math.random() * (W - 60) + 30,
-                                y: -30,
-                                vx: (Math.random() - 0.5) * 1.2,
-                                vy: 3.0 + Math.random() * 1.0,
-                                rotation: 0,
-                                rotationSpeed: 0.05,
-                                type: "table",
-                                subType: "drop"
-                            });
-                        }
+                        items.push({
+                            x: Math.random() * (W - 60) + 30,
+                            y: -30,
+                            vx: (Math.random() - 0.5) * 1.2,
+                            vy: 3.0 + Math.random() * 1.0,
+                            rotation: 0,
+                            rotationSpeed: 0.05,
+                            type: "table",
+                            subType: "drop"
+                        });
                     }
 
                     if (Math.random() < 0.0025 && bossHp >= 150) {
@@ -875,7 +877,7 @@
                     if (currentBoss === "dasha") {
                         dashaDefeated = true;
                     }
-                    bossState = "normal"; // Сбрасываем флаг победы, чтобы игра продолжалась штатно!
+                    bossState = "normal"; // Сбрасываем флаг, игра продолжается дальше!
                 }
             }
 
@@ -1077,8 +1079,7 @@
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
 
-                // Если веер активен (прошло меньше 4 секунд с подбора), он отбивает стулья вблизи
-                if (hasFanActive && item.type === "table") {
+                if (hasFanActive && (item.type === "table" || item.type === "sword")) {
                     let dToPlayer = Math.hypot(player.x - item.x, player.y - item.y);
                     if (dToPlayer < 180) { 
                         let pushAngle = Math.atan2(item.y - player.y, item.x - player.x);
@@ -1092,14 +1093,14 @@
                     item.y += item.vy;
                     item.x += (item.vx || 0);
                     item.rotation = (item.rotation || 0) + 0.04;
-                } else if (item.type === "table") {
+                } else if (item.type === "table" || item.type === "sword") {
                     if (item.subType === "horizontal") {
                         item.x += item.vx;
                         if (item.x < -60 || item.x > W + 60) {
                             items.splice(i, 1);
                             continue;
                         }
-                    } else if (item.subType === "corner_chair") {
+                    } else if (item.subType === "corner_chair" || item.subType === "corner_sword") {
                         item.x += item.vx;
                         item.y += item.vy;
                         item.vy += 0.08;
@@ -1137,12 +1138,22 @@
                 ctx.font = "35px Arial";
                 ctx.textAlign = "center";
 
-                if (item.type === "sword") ctx.fillText("🗡", item.x, item.y);
+                if (item.type === "sword" && item.subType !== "corner_sword") ctx.fillText("🗡", item.x, item.y);
+                else if (item.type === "sword" && item.subType === "corner_sword") {
+                    ctx.save();
+                    ctx.translate(item.x, item.y);
+                    item.rotation = (item.rotation || 0) + 0.08;
+                    ctx.rotate(item.rotation);
+                    ctx.font = "32px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🗡", 0, 0);
+                    ctx.restore();
+                }
                 else if (item.type === "fan_item") {
                     ctx.save();
                     ctx.translate(item.x, item.y);
                     ctx.rotate(item.rotation || 0);
-                    ctx.font = "38px Arial";
+                    ctx.font = "30px Arial"; /* Уменьшенный размер веера */
                     ctx.textAlign = "center";
                     ctx.fillText("🪭", 0, 0);
                     ctx.restore();
@@ -1236,11 +1247,11 @@
                     }
 
                     if (item.type === "fan" || item.type === "fan_item") {
-                        fanExpiresAt = now + 4000; // Веер активен ровно 4 секунды
+                        fanExpiresAt = now + 4000; 
                         fanWindAnimation = { startTime: now };
                         const pushRadius = 250;
                         items.forEach(it => {
-                            if (it.type === "table") {
+                            if (it.type === "table" || it.type === "sword") {
                                 let dToPlayer = Math.hypot(player.x - it.x, player.y - it.y);
                                 if (dToPlayer <= pushRadius) {
                                     let pushAngle = Math.atan2(it.y - player.y, it.x - player.x);
@@ -1318,7 +1329,7 @@
                 }
 
                 if (item.y > H + 40 || item.x < -100 || item.x > W + 100) {
-                    if (item.type === "sword" && bossState !== "victory") {
+                    if (item.type === "sword" && bossState !== "victory" && item.subType !== "corner_sword") {
                         mlEarned += 0.015; 
                     }
                     items.splice(i, 1);
