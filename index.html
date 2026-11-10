@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v123_dasha_rage_update";
+        const CURRENT_APP_VERSION = "v124_fan_buff_fix";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -257,6 +257,7 @@
         let isPaused = false;
         let hasShield = false;
         let hasHelmet = false;
+        let hasFanActive = false; // Активен ли веер у игрока
 
         let invincibleUntil = 0; 
         let eggSlowUntil = 0;    
@@ -368,6 +369,7 @@
             bossMaxHp = 500;
             hasShield = false;
             hasHelmet = false;
+            hasFanActive = false;
             fanWindAnimation = null;
 
             targetX = W / 2;
@@ -557,17 +559,17 @@
                     let tableSpawnChance = 0.012 * 1.4;
                     let maxActiveTables = Math.round(2 * 1.4);
 
-                    // Режим Даши < 150 ХП: замедление игры, много стульев с углов и падающие веера
+                    // Режим Даши < 150 ХП: меньше вееров, много стульев из углов
                     if (bossHp < 150) {
-                        tableSpawnChance = 0.065; // много стульев
-                        maxActiveTables = 8;
+                        tableSpawnChance = 0.055; 
+                        maxActiveTables = 7;
 
-                        // Спавн вееров из верха
-                        if (Math.random() < 0.02) {
+                        // Редкие веера сверху (меньше по количеству)
+                        if (Math.random() < 0.008) {
                             items.push({
                                 x: Math.random() * (W - 80) + 40,
                                 y: -30,
-                                vy: 2.2, // падает медленнее
+                                vy: 2.2,
                                 vx: (Math.random() - 0.5) * 1.5,
                                 type: "fan_item",
                                 rotation: 0,
@@ -575,8 +577,8 @@
                             });
                         }
 
-                        // Спавн стульев из левого/правого углов
-                        if (Math.random() < 0.045) {
+                        // Спавн стульев из углов
+                        if (Math.random() < 0.04) {
                             let fromLeft = Math.random() < 0.5;
                             items.push({
                                 x: fromLeft ? 20 : W - 20,
@@ -875,7 +877,7 @@
                     if (currentBoss === "dasha") {
                         dashaDefeated = true;
                     }
-                    bossState = "normal"; 
+                    bossState = "normal"; // Возвращаем обычный режим игры со всеми предметами и ускорением
                 }
             }
 
@@ -887,10 +889,10 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
-            // Если у Даши < 150 ХП, игра замедляется в 1.6 раза
-            let globalSpeedMul = 1 + Math.floor(mlEarned / 20) * 0.12;
+            // Плавное небольшое ускорение каждые 10 мл (как и просил: чучуть)
+            let globalSpeedMul = 1 + Math.floor(mlEarned / 10) * 0.08;
             if (currentBoss === "dasha" && bossState === "active" && bossHp < 150) {
-                globalSpeedMul *= 0.65; 
+                globalSpeedMul *= 0.65; // легкое замедление при ярости Даши
             }
             const speedMultiplier = globalSpeedMul;
 
@@ -915,6 +917,11 @@
             if (hasHelmet && !isInvincible) {
                 ctx.fillStyle = "#ff9900";
                 ctx.fillText("🪖 Каска активна!", 12, statusY);
+                statusY += 18;
+            }
+            if (hasFanActive) {
+                ctx.fillStyle = "#00ffcc";
+                ctx.fillText("🪭 Веер активен!", 12, statusY);
                 statusY += 18;
             }
             if (isEggSlowed) {
@@ -959,11 +966,18 @@
                 ctx.lineWidth = 4;
                 ctx.stroke();
             }
+            if (hasFanActive) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 20, 0, Math.PI * 2);
+                ctx.strokeStyle = "#00ffcc";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
 
             if (fanWindAnimation && now - fanWindAnimation.startTime < 800) {
                 let progress = (now - fanWindAnimation.startTime) / 800;
                 ctx.save();
-                ctx.strokeStyle = "rgba(0, 210, 255, " + (1 - progress) + ")";
+                ctx.strokeStyle = "rgba(0, 255, 204, " + (1 - progress) + ")";
                 ctx.lineWidth = 4;
                 ctx.beginPath();
                 ctx.arc(renderPlayerX, renderPlayerY, progress * 220, 0, Math.PI * 2);
@@ -1066,24 +1080,21 @@
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
 
-                // Логика взаимодействия веера и стульев (веер быстро отбрасывает стулья от себя)
+                // Если у игрока активен веер, он автоматически защищает от стульев вблизи
+                if (hasFanActive && item.type === "table") {
+                    let dToPlayer = Math.hypot(player.x - item.x, player.y - item.y);
+                    if (dToPlayer < 180) { // Если стул подлетел близко к игроку с веером
+                        let pushAngle = Math.atan2(item.y - player.y, item.x - player.x);
+                        item.vx = Math.cos(pushAngle) * 11;
+                        item.vy = Math.sin(pushAngle) * 11 - 3;
+                        fanWindAnimation = { startTime: now };
+                    }
+                }
+
                 if (item.type === "fan_item") {
                     item.y += item.vy;
                     item.x += (item.vx || 0);
                     item.rotation = (item.rotation || 0) + 0.04;
-
-                    // Проверяем, не подлетел ли веер близко к стульям
-                    for (let j = items.length - 1; j >= 0; j--) {
-                        if (i !== j && items[j].type === "table") {
-                            let chair = items[j];
-                            let d = Math.hypot(item.x - chair.x, item.y - chair.y);
-                            if (d < 120) { // если веер рядом со стулом — мощно отбрасываем стул в сторону!
-                                let repulseAngle = Math.atan2(chair.y - item.y, chair.x - item.x);
-                                chair.vx = Math.cos(repulseAngle) * 9.5; // сильный отброс
-                                chair.vy = Math.sin(repulseAngle) * 9.5 - 2.0;
-                            }
-                        }
-                    }
                 } else if (item.type === "table") {
                     if (item.subType === "horizontal") {
                         item.x += item.vx;
@@ -1094,7 +1105,7 @@
                     } else if (item.subType === "corner_chair") {
                         item.x += item.vx;
                         item.y += item.vy;
-                        item.vy += 0.08; // гравитация
+                        item.vy += 0.08;
                     } else if (item.subType === "trickshot") {
                         item.x += item.vx;
                         item.y += item.vy;
@@ -1228,16 +1239,17 @@
                     }
 
                     if (item.type === "fan" || item.type === "fan_item") {
+                        hasFanActive = true; // Подобрали веер — теперь он защищает рядом
                         fanWindAnimation = { startTime: now };
-                        const pushRadius = 220;
+                        const pushRadius = 250;
                         items.forEach(it => {
                             if (it.type === "table") {
                                 let dToPlayer = Math.hypot(player.x - it.x, player.y - it.y);
                                 if (dToPlayer <= pushRadius) {
                                     let pushAngle = Math.atan2(it.y - player.y, it.x - player.x);
-                                    let force = 16 + (1 - dToPlayer / pushRadius) * 16;
-                                    it.vx = (it.vx || 0) + Math.cos(pushAngle) * force;
-                                    it.vy = (it.vy || it.speed || 3) + Math.sin(pushAngle) * force;
+                                    let force = 18 + (1 - dToPlayer / pushRadius) * 16;
+                                    it.vx = Math.cos(pushAngle) * force;
+                                    it.vy = Math.sin(pushAngle) * force - 3;
                                 }
                             }
                         });
