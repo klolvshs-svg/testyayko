@@ -71,27 +71,27 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы: серая и полупрозрачная */
+        /* Кнопка паузы в углу: полностью серая, без рамок */
         #pauseBtn {
             position: absolute;
             top: 15px;
             right: 15px;
-            background: rgba(108, 117, 125, 0.6);
-            color: white;
+            background: transparent;
+            color: #b0bec5;
             border: none;
             width: 44px;
             height: 44px;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
-            border-radius: 10px;
             cursor: pointer;
             z-index: 5;
             display: flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            outline: none;
+            box-shadow: none;
         }
-        #pauseBtn:active { transform: scale(0.92); }
+        #pauseBtn:active { transform: scale(0.90); }
 
         input[type="number"] {
             padding: 10px;
@@ -139,12 +139,12 @@
         </div>
     </div>
 
-    <!-- Меню паузы -->
+    <!-- Меню паузы в центре -->
     <div id="pauseScreen" class="modal" style="z-index: 15;">
-        <h1 style="font-size: 36px; margin: 0 0 15px 0; color: #00d2ff;">⏸ ИГРА НА ПАУЗЕ</h1>
+        <h1 style="font-size: 36px; margin: 0 0 15px 0; color: #00d2ff;">Игра на паузе</h1>
         <div>
             <button class="btn btn-withdraw" style="font-size: 20px; padding: 14px 32px;" onclick="togglePause()">Продолжить ▶</button><br>
-            <button class="btn btn-secondary" onclick="returnToMainMenu()">В главное меню 🏠</button>
+            <button class="btn btn-secondary" onclick="returnToMainMenu()">Главное меню</button>
         </div>
     </div>
 
@@ -189,7 +189,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v110_fixed_instant_start";
+        const CURRENT_APP_VERSION = "v111_clean_pause_btn";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -302,6 +302,7 @@
             isPaused = false;
             document.getElementById("startScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "flex";
+            document.getElementById("pauseBtn").innerText = "⏸";
         }
 
         function togglePause() {
