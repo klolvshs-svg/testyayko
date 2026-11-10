@@ -70,6 +70,29 @@
         .btn:active { transform: scale(0.96); }
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
+        
+        /* Кнопка паузы в правом верхнем углу */
+        #pauseBtn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(36, 139, 218, 0.8);
+            color: white;
+            border: none;
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            z-index: 5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        #pauseBtn:active { transform: scale(0.92); }
+
         input[type="number"] {
             padding: 10px;
             font-size: 18px;
@@ -98,6 +121,9 @@
 <body>
     <canvas id="gameCanvas"></canvas>
 
+    <!-- Кнопка паузы в правом верхнем углу -->
+    <button id="pauseBtn" onclick="togglePause()" style="display: none;">⏸</button>
+
     <!-- Главный стартовый экран -->
     <div id="startScreen">
         <div id="menuEggContainer" style="margin-bottom: 15px;">
@@ -110,6 +136,15 @@
         <div style="position: relative; z-index: 25;">
             <button class="btn btn-withdraw" style="font-size: 20px; padding: 16px 36px;" onclick="startTheGame()">Играть ▶</button><br>
             <button class="btn" onclick="showWithdrawModalFromStart()">Вывести мл 🎁</button>
+        </div>
+    </div>
+
+    <!-- Меню паузы -->
+    <div id="pauseScreen" class="modal" style="z-index: 15;">
+        <h1 style="font-size: 36px; margin: 0 0 15px 0; color: #00d2ff;">⏸ ИГРА НА ПАУЗЕ</h1>
+        <div>
+            <button class="btn btn-withdraw" style="font-size: 20px; padding: 14px 32px;" onclick="togglePause()">Продолжить ▶</button><br>
+            <button class="btn btn-secondary" onclick="returnToMainMenu()">В главное меню 🏠</button>
         </div>
     </div>
 
@@ -154,7 +189,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v108_fast_fan_and_menu_bomb";
+        const CURRENT_APP_VERSION = "v109_pause_and_dasha_fans";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -181,6 +216,7 @@
         let mlEarned = 0.0;
         let gameOver = false;
         let gameStarted = false; 
+        let isPaused = false;
         let hasShield = false;
         let hasHelmet = false;
 
@@ -249,21 +285,46 @@
         }
 
         function handleMove(e) {
-            if (!gameStarted || gameOver || bossState === "intro") return; 
+            if (!gameStarted || isPaused || gameOver || bossState === "intro") return; 
             targetX = e.touches ? e.touches[0].clientX : e.clientX;
         }
 
         window.addEventListener("mousemove", handleMove);
         window.addEventListener("touchmove", handleMove);
         window.addEventListener("touchstart", (e) => {
-            if (gameStarted && !gameOver && bossState !== "intro") {
+            if (gameStarted && !isPaused && !gameOver && bossState !== "intro") {
                 targetX = e.touches[0].clientX;
             }
         });
 
         function startTheGame() {
             gameStarted = true;
+            isPaused = false;
             document.getElementById("startScreen").style.display = "none";
+            document.getElementById("pauseBtn").style.display = "flex";
+        }
+
+        function togglePause() {
+            if (!gameStarted || gameOver || bossState === "intro") return;
+            isPaused = !isPaused;
+            const pauseScreen = document.getElementById("pauseScreen");
+            if (isPaused) {
+                pauseScreen.style.display = "flex";
+                document.getElementById("pauseBtn").innerText = "▶";
+            } else {
+                pauseScreen.style.display = "none";
+                document.getElementById("pauseBtn").innerText = "⏸";
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function returnToMainMenu() {
+            isPaused = false;
+            gameStarted = false;
+            document.getElementById("pauseScreen").style.display = "none";
+            document.getElementById("pauseBtn").style.display = "none";
+            document.getElementById("startScreen").style.display = "flex";
+            restartGame();
         }
 
         function showWithdrawModalFromStart() {
@@ -271,52 +332,11 @@
         }
 
         function gameLoop() {
+            if (!gameStarted) return;
+            if (isPaused) return;
+
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
-
-            if (!gameStarted) {
-                menuDecorItems.forEach(item => {
-                    item.y += item.speed;
-                    item.rotation += item.rotSpeed;
-                    if (item.y > H + 40) {
-                        item.y = -40;
-                        item.x = Math.random() * W;
-                    }
-
-                    ctx.save();
-                    ctx.translate(item.x, item.y);
-                    ctx.rotate(item.rotation);
-
-                    if (item.type === "bomb") {
-                        if (bombImg.complete && bombImg.naturalWidth !== 0) {
-                            let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                            let drawH = 36;
-                            let drawW = drawH * imgAspect;
-                            ctx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
-                        } else {
-                            ctx.font = "32px Arial";
-                            ctx.textAlign = "center";
-                            ctx.fillText("💣", 0, 0);
-                        }
-                    } else {
-                        ctx.font = "32px Arial";
-                        ctx.textAlign = "center";
-                        let symbol = "🗡";
-                        if (item.type === "table") symbol = "🪑";
-                        else if (item.type === "shield") symbol = "🛡";
-                        else if (item.type === "helmet") symbol = "🪖";
-                        else if (item.type === "drop1") symbol = "💧";
-                        else if (item.type === "fan") symbol = "🪭";
-                        else if (item.type === "snow") symbol = "❄️";
-                        ctx.fillText(symbol, 0, 0);
-                    }
-
-                    ctx.restore();
-                });
-
-                requestAnimationFrame(gameLoop);
-                return;
-            }
 
             if (gameOver) return;
 
@@ -854,7 +874,8 @@
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
                         else type = "sword";
                     } else if (bossState === "active" && currentBoss === "dasha") {
-                        if (bossHp < 100 && rand < 0.15) type = "fan";
+                        // Падение вееров начинается, когда у Даши HP < 150
+                        if (bossHp < 150 && rand < 0.15) type = "fan";
                         else if (rand < 0.12 && !hasShield) type = "shield";
                         else if (rand >= 0.12 && rand < 0.22) type = "random_cube";
                         else if (rand >= 0.22 && rand < 0.30) type = "barricade";
@@ -1035,7 +1056,6 @@
                                 let dToPlayer = Math.hypot(player.x - it.x, player.y - it.y);
                                 if (dToPlayer <= pushRadius) {
                                     let pushAngle = Math.atan2(it.y - player.y, it.x - player.x);
-                                    // Увеличена сила и скорость отталкивания стульев
                                     let force = 16 + (1 - dToPlayer / pushRadius) * 16;
                                     it.vx = (it.vx || 0) + Math.cos(pushAngle) * force;
                                     it.vy = (it.vy || it.speed || 3) + Math.sin(pushAngle) * force;
@@ -1124,6 +1144,7 @@
             totalBank += mlEarned;
             localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
 
+            document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("roundScoreText").innerText = "+" + mlEarned.toFixed(3) + " мл 💦";
             document.getElementById("totalBankText").innerText = totalBank.toFixed(3);
             document.getElementById("gameOverScreen").style.display = "flex";
@@ -1151,10 +1172,14 @@
             bossHp = 500;
             bossMaxHp = 500;
             gameOver = false;
+            isPaused = false;
             hasShield = false;
             hasHelmet = false;
             fanWindAnimation = null;
             document.getElementById("gameOverScreen").style.display = "none";
+            document.getElementById("pauseScreen").style.display = "none";
+            document.getElementById("pauseBtn").style.display = "flex";
+            document.getElementById("pauseBtn").innerText = "⏸";
             requestAnimationFrame(gameLoop);
         }
 
