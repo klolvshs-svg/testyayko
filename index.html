@@ -71,7 +71,7 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы в углу */
+        /* Кнопка паузы в углу с блокировкой передачи клика на игровое поле */
         #pauseBtn {
             position: absolute;
             top: 15px;
@@ -154,8 +154,8 @@
 <body>
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Кнопка паузы в правом верхнем углу -->
-    <button id="pauseBtn" onclick="togglePause()">
+    <!-- Кнопка паузы в правом верхнем углу с защитой от передачи клика на яйцо -->
+    <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
         <div class="pause-icon">
             <span></span>
             <span></span>
@@ -178,7 +178,7 @@
         </div>
     </div>
 
-    <!-- Меню паузы в центре (только серая кнопка главного меню) -->
+    <!-- Меню паузы в центре -->
     <div id="pauseScreen" class="modal" style="z-index: 15;">
         <h1 style="font-size: 36px; margin: 0 0 15px 0; color: #00d2ff;">Игра на паузе</h1>
         <div>
@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v118_original_speed_fixed";
+        const CURRENT_APP_VERSION = "v119_pause_click_fix";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -324,14 +324,22 @@
 
         function handleMove(e) {
             if (!gameStarted || isPaused || gameOver || bossState === "intro") return; 
-            targetX = e.touches ? e.touches[0].clientX : e.clientX;
+            // Игнорируем касания, если они попадают в зону кнопки паузы (верхний правый угол)
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            if (clientX > W - 70 && clientY < 70) return;
+            
+            targetX = clientX;
         }
 
         window.addEventListener("mousemove", handleMove);
         window.addEventListener("touchmove", handleMove);
         window.addEventListener("touchstart", (e) => {
             if (gameStarted && !isPaused && !gameOver && bossState !== "intro") {
-                targetX = e.touches[0].clientX;
+                const clientX = e.touches[0].clientX;
+                const clientY = e.touches[0].clientY;
+                if (clientX > W - 70 && clientY < 70) return;
+                targetX = clientX;
             }
         });
 
@@ -339,6 +347,8 @@
             restartGame();
             gameStarted = true;
             isPaused = false;
+            targetX = W / 2;
+            player.x = W / 2;
             document.getElementById("startScreen").style.display = "none";
             
             const pBtn = document.getElementById("pauseBtn");
@@ -348,7 +358,11 @@
             requestAnimationFrame(gameLoop);
         }
 
-        function togglePause() {
+        function togglePause(e) {
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
             if (!gameStarted || gameOver || bossState === "intro") return;
             isPaused = !isPaused;
             const pauseScreen = document.getElementById("pauseScreen");
@@ -359,6 +373,7 @@
             } else {
                 pauseScreen.style.display = "none";
                 pBtn.classList.remove("paused");
+                targetX = player.x; // Фиксируем текущую позицию, чтобы яйцо не дергалось
                 requestAnimationFrame(gameLoop);
             }
         }
@@ -615,8 +630,7 @@
                                         y: bossY + 20,
                                         vx: vx,
                                         speed: 5.0,
-                                        rotation: 0,
-                                        rotationSpeed: (vx > 0 ? 0.06 : -0.06),
+                                        rotation: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb"
                                     });
                                 });
@@ -846,7 +860,6 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
-            // Стандартное плавное ускорение по старой формуле (каждые 20 мл)
             const speedMultiplier = 1 + Math.floor(mlEarned / 20) * 0.12;
 
             // ИНТЕРФЕЙС
