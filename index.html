@@ -71,15 +71,15 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы в углу: одинаковый вид и на ПК, и на телефоне (как на скриншотах) */
+        /* Кнопка паузы в углу: уменьшена и сделана чуть более прозрачной */
         #pauseBtn {
             position: absolute;
             top: 15px;
             right: 15px;
-            background: rgba(24, 34, 45, 0.75); /* Тёмно-серый полупрозрачный круг */
+            background: rgba(24, 34, 45, 0.55); /* Чуть более прозрачный фон */
             border: none;
-            width: 48px;
-            height: 48px;
+            width: 40px;  /* Уменьшен размер */
+            height: 40px; /* Уменьшен размер */
             border-radius: 50%;
             cursor: pointer;
             z-index: 30;
@@ -87,34 +87,34 @@
             justify-content: center;
             align-items: center;
             outline: none;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
             -webkit-tap-highlight-color: transparent;
         }
         #pauseBtn:active { 
             transform: scale(0.90);
         }
 
-        /* Отрисовка значка паузы (две вертикальные белые полосы) как на скриншоте 1 */
+        /* Отрисовка значка паузы (меньше под новый размер кнопки) */
         .pause-icon {
             display: flex;
-            gap: 5px;
+            gap: 4px;
         }
         .pause-icon span {
-            width: 6px;
-            height: 18px;
+            width: 5px;
+            height: 15px;
             background-color: #ffffff;
             border-radius: 2px;
             display: block;
         }
 
-        /* Отрисовка значка play (треугольник) как на скриншоте 2 */
+        /* Отрисовка значка play (треугольник) */
         .play-icon {
             display: none;
             width: 0;
             height: 0;
-            border-top: 9px solid transparent;
-            border-bottom: 9px solid transparent;
-            border-left: 16px solid #ffffff;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+            border-left: 14px solid #ffffff;
             margin-left: 3px;
         }
 
@@ -228,7 +228,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v114_fixed_mobile_pause";
+        const CURRENT_APP_VERSION = "v115_fixed_menu_bg";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -345,7 +345,6 @@
             pBtn.style.display = "flex";
             pBtn.classList.remove("paused");
             
-            // Сразу запускаем игровой цикл без ожидания кликов по паузе
             requestAnimationFrame(gameLoop);
         }
 
@@ -368,7 +367,7 @@
             isPaused = false;
             gameStarted = false;
             document.getElementById("pauseScreen").style.display = "none";
-            document.getElementById("pauseBtn").style.display = "none";
+            document.getElementById("pauseBtn").style.display = "none"; // Прячем кнопку паузы в главном меню
             document.getElementById("startScreen").style.display = "flex";
             restartGame();
         }
@@ -378,13 +377,56 @@
         }
 
         function gameLoop() {
-            if (!gameStarted) return;
+            ctx.fillStyle = "#0f1721";
+            ctx.fillRect(0, 0, W, H);
+
+            // Если в главном меню — рисуем падающие декоративные элементы (мечи, бомбы и т.д.)
+            if (!gameStarted) {
+                menuDecorItems.forEach(item => {
+                    item.y += item.speed;
+                    item.rotation += item.rotSpeed;
+                    if (item.y > H + 40) {
+                        item.y = -40;
+                        item.x = Math.random() * W;
+                    }
+
+                    ctx.save();
+                    ctx.translate(item.x, item.y);
+                    ctx.rotate(item.rotation);
+
+                    if (item.type === "bomb") {
+                        if (bombImg.complete && bombImg.naturalWidth !== 0) {
+                            let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
+                            let drawH = 36;
+                            let drawW = drawH * imgAspect;
+                            ctx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
+                        } else {
+                            ctx.font = "32px Arial";
+                            ctx.textAlign = "center";
+                            ctx.fillText("💣", 0, 0);
+                        }
+                    } else {
+                        ctx.font = "32px Arial";
+                        ctx.textAlign = "center";
+                        let symbol = "🗡";
+                        if (item.type === "table") symbol = "🪑";
+                        else if (item.type === "shield") symbol = "🛡";
+                        else if (item.type === "helmet") symbol = "🪖";
+                        else if (item.type === "drop1") symbol = "💧";
+                        else if (item.type === "fan") symbol = "🪭";
+                        else if (item.type === "snow") symbol = "❄️";
+                        ctx.fillText(symbol, 0, 0);
+                    }
+
+                    ctx.restore();
+                });
+
+                requestAnimationFrame(gameLoop);
+                return;
+            }
 
             if (isPaused) {
-                ctx.fillStyle = "#0f1721";
-                ctx.fillRect(0, 0, W, H);
-                
-                // Отрисовка интерфейса и игрока в статичном виде
+                // Отрисовка интерфейса и игрока в статичном виде на паузе
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 15px Arial";
                 ctx.textAlign = "left";
@@ -407,9 +449,6 @@
                 }
                 return;
             }
-
-            ctx.fillStyle = "#0f1721";
-            ctx.fillRect(0, 0, W, H);
 
             if (gameOver) return;
 
