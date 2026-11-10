@@ -71,7 +71,7 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы в углу: уменьшена, чуть прозрачна */
+        /* Кнопка паузы в углу */
         #pauseBtn {
             position: absolute;
             top: 15px;
@@ -178,11 +178,10 @@
         </div>
     </div>
 
-    <!-- Меню паузы в центре -->
+    <!-- Меню паузы в центре (только серая кнопка главного меню) -->
     <div id="pauseScreen" class="modal" style="z-index: 15;">
         <h1 style="font-size: 36px; margin: 0 0 15px 0; color: #00d2ff;">Игра на паузе</h1>
         <div>
-            <button class="btn btn-withdraw" style="font-size: 20px; padding: 14px 32px;" onclick="togglePause()">Продолжить ▶</button><br>
             <button class="btn btn-secondary" onclick="returnToMainMenu()">Главное меню</button>
         </div>
     </div>
@@ -228,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v117_fixed_original_speed";
+        const CURRENT_APP_VERSION = "v118_original_speed_fixed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -847,7 +846,7 @@
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
             }
 
-            // Возвращено оригинальное стандартное ускорение (каждые 20 мл)
+            // Стандартное плавное ускорение по старой формуле (каждые 20 мл)
             const speedMultiplier = 1 + Math.floor(mlEarned / 20) * 0.12;
 
             // ИНТЕРФЕЙС
