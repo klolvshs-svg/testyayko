@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v144_exact_dasha_timings";
+        const CURRENT_APP_VERSION = "v145_exact_blinking_items";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1042,10 +1042,10 @@
                 }
             }
 
-            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ ДЛЯ ДАШИ (С самого начала боя с Дашей, пока HP > 170)
-            // Общий цикл 20 сек: 5 сек плавно темнеет -> 10 сек темнота (с подсветкой предметов) -> 5 сек плавно светлеет
+            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ ДЛЯ ДАШИ (20 сек цикл: 5с плавное затемнение -> 10с полная темнота с миганием предметов -> 5с плавный рассвет)
+            // Работает с самого начала боя пока HP > 170
             let darknessAlpha = 0;
-            let glowAlpha = 0; 
+            let itemAlpha = 1.0; // Прозрачность предметов во время мигания
             let isDarkPhaseActive = false;
 
             if (bossState === "active" && currentBoss === "dasha" && bossHp > 170) {
@@ -1059,20 +1059,21 @@
                 if (cycleElapsed < 5000) {
                     // 1. Плавное нарастание темноты от 0 до 1 за первые 5 секунд
                     darknessAlpha = cycleElapsed / 5000;
+                    itemAlpha = 1.0;
                 } else if (cycleElapsed < 15000) {
-                    // 2. Абсолютная темнота (10 секунд)
+                    // 2. Полная темнота (10 секунд): предметы четко мигают каждую секунду (1с горят, 1с пропадают)
                     darknessAlpha = 1.0; 
-                    
                     let darkTime = cycleElapsed - 5000; // от 0 до 10000 мс
-                    let pulsePhase = darkTime % 2000; // каждые 2 секунды: 1с появление света, 1с затухание
+                    let pulsePhase = darkTime % 2000; // каждые 2 секунды
                     if (pulsePhase < 1000) {
-                        glowAlpha = pulsePhase / 1000; 
+                        itemAlpha = 1.0; // Предмет виден
                     } else {
-                        glowAlpha = (2000 - pulsePhase) / 1000; 
+                        itemAlpha = 0.0; // Предмет полностью пропадает на секунду
                     }
                 } else {
-                    // 3. Плавное рассветление от 1 до 0 за последние 5 секунд
+                    // 3. Плавный рассвет от 1 до 0 за последние 5 секунд
                     darknessAlpha = 1.0 - ((cycleElapsed - 15000) / 5000);
+                    itemAlpha = 1.0;
                 }
             } else if (bossHp <= 170 && currentBoss === "dasha") {
                 dashaActiveStartTime = 0; 
@@ -1138,24 +1139,26 @@
 
                 if (!items[i]) continue;
 
-                // Отрисовка предметов во время фазы темноты: мягкое лунное свечение (появляется и гаснет за секунду)
+                // Отрисовка предметов: во время 10-секундной темноты они мигают (itemAlpha: 1.0 или 0.0) с лунной подсветкой
                 if (isDarkPhaseActive && darknessAlpha > 0.05) {
-                    ctx.save();
-                    
-                    let currentGlow = (glowAlpha > 0 ? glowAlpha : 0.2); 
-                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 55);
-                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${currentGlow * 0.95})`);
-                    moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${currentGlow * 0.5})`);
-                    moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
+                    if (itemAlpha > 0) {
+                        ctx.save();
+                        ctx.globalAlpha = itemAlpha;
+                        
+                        let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 55);
+                        moonGlow.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+                        moonGlow.addColorStop(0.5, 'rgba(0, 210, 255, 0.5)');
+                        moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
-                    ctx.beginPath();
-                    ctx.arc(item.x, item.y, 55, 0, Math.PI * 2);
-                    ctx.fillStyle = moonGlow;
-                    ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(item.x, item.y, 55, 0, Math.PI * 2);
+                        ctx.fillStyle = moonGlow;
+                        ctx.fill();
 
-                    drawSingleItem(item);
-                    ctx.restore();
-                } else if (!isDarkPhaseActive || darknessAlpha <= 0.05) {
+                        drawSingleItem(item);
+                        ctx.restore();
+                    }
+                } else {
                     drawSingleItem(item);
                 }
 
