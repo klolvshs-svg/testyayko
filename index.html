@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v138_dasha_glow_items_visible";
+        const CURRENT_APP_VERSION = "v139_dasha_smooth_hole_light";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -427,7 +427,6 @@
             showWithdrawModal();
         }
 
-        // Функция вспомогательной отрисовки предметов
         function drawSingleItem(item) {
             ctx.font = "35px Arial";
             ctx.textAlign = "center";
@@ -794,7 +793,8 @@
                                         x: bossX,
                                         y: bossY + 20,
                                         vx: vx,
-                                        speed: (vx > 0 ? 0.06 : -0.06),
+                                        speed: 5.0,
+                                        rotation: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb"
                                     });
                                 });
@@ -1040,6 +1040,36 @@
                 }
             }
 
+            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ (Плавный старт с 0 без резких скачков)
+            let darknessAlpha = 0;
+            let glowAlpha = 0; 
+            let isDarkPhaseActive = false;
+
+            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
+                isDarkPhaseActive = true;
+                let cycleElapsed = (now - dashaActiveStartTime) % 30000; 
+
+                if (cycleElapsed < 10000) {
+                    darknessAlpha = 0; // Первые 10 сек абсолютно светло
+                } else if (cycleElapsed < 15000) {
+                    // Плавное нарастание затемнения от 0 до 1 в течение 5 секунд
+                    darknessAlpha = (cycleElapsed - 10000) / 5000;
+                } else if (cycleElapsed < 25000) {
+                    darknessAlpha = 1.0; // Абсолютная темнота (10 секунд)
+                    
+                    let darkTime = cycleElapsed - 15000; 
+                    let pulsePhase = darkTime % 2000; // Пульсация подсветки каждые 2 секунды
+                    if (pulsePhase < 1000) {
+                        glowAlpha = pulsePhase / 1000; 
+                    } else {
+                        glowAlpha = (2000 - pulsePhase) / 1000; 
+                    }
+                } else {
+                    // Плавное рассветление от 1 до 0 в течение 5 секунд
+                    darknessAlpha = 1.0 - ((cycleElapsed - 25000) / 5000);
+                }
+            }
+
             // ДВИЖЕНИЕ ПРЕДМЕТОВ И ПРОВЕРКА СТОЛКНОВЕНИЙ
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
@@ -1100,8 +1130,30 @@
 
                 if (!items[i]) continue;
 
-                // Рисуем предметы вобычном режиме (когда нет полных затемнений)
-                drawSingleItem(item);
+                // Если фаза темноты активна и экран тёмный, предметы рисуются с подсветкой-"дыркой"
+                if (isDarkPhaseActive && darknessAlpha > 0.05) {
+                    if (glowAlpha > 0) {
+                        ctx.save();
+                        
+                        // Создаем прозрачный круг света («дырка» в темноте) без резких рамок
+                        let radialGradient = ctx.createRadialGradient(item.x, item.y, 5, item.x, item.y, 35);
+                        radialGradient.addColorStop(0, `rgba(0, 210, 255, ${glowAlpha * 0.9})`);
+                        radialGradient.addColorStop(0.5, `rgba(0, 210, 255, ${glowAlpha * 0.4})`);
+                        radialGradient.addColorStop(1, 'rgba(0, 210, 255, 0)');
+
+                        ctx.beginPath();
+                        ctx.arc(item.x, item.y, 35, 0, Math.PI * 2);
+                        ctx.fillStyle = radialGradient;
+                        ctx.fill();
+
+                        // Сам предмет полностью виден внутри светового пятна
+                        drawSingleItem(item);
+                        ctx.restore();
+                    }
+                } else {
+                    // Обычная отрисовка предметов, когда светло
+                    drawSingleItem(item);
+                }
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
@@ -1212,60 +1264,11 @@
                 }
             }
 
-            // ЭФФЕКТ ЗАТЕМНЕНИЯ С КРАСИВОЙ ПОДСВЕТКОЙ ПРЕДМЕТОВ ВО ТЬМЕ
-            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
-                let cycleElapsed = (now - dashaActiveStartTime) % 30000; 
-                let darknessAlpha = 0;
-                let glowAlpha = 0; 
-
-                if (cycleElapsed < 10000) {
-                    darknessAlpha = 0;
-                } else if (cycleElapsed < 15000) {
-                    darknessAlpha = (cycleElapsed - 10000) / 5000;
-                } else if (cycleElapsed < 25000) {
-                    darknessAlpha = 1.0; // Абсолютная темнота
-                    
-                    let darkTime = cycleElapsed - 15000; 
-                    let pulsePhase = darkTime % 2000; // каждые 2 секунды цикл пульсации
-                    if (pulsePhase < 1000) {
-                        glowAlpha = pulsePhase / 1000; // 1 сек плавный плач света
-                    } else {
-                        glowAlpha = (2000 - pulsePhase) / 1000; // 1 сек затухание
-                    }
-                } else {
-                    darknessAlpha = 1.0 - ((cycleElapsed - 25000) / 5000);
-                }
-
-                // Рисуем затемнение экрана
+            // РИСУЕМ ФОНОВОЕ ЗАТЕМНЕНИЕ ЭКРАНА (поверх предметов, но под боссом и яйцом)
+            if (isDarkPhaseActive && darknessAlpha > 0) {
                 ctx.save();
                 ctx.fillStyle = `rgba(15, 23, 33, ${darknessAlpha})`;
                 ctx.fillRect(0, 0, W, H);
-
-                // Если экран погрузился в темноту, подсвечиваем предметы прозрачным светящимся ореолом И рисуем сам предмет!
-                if (glowAlpha > 0) {
-                    items.forEach(item => {
-                        ctx.save();
-                        
-                        // 1. Прозрачный светящийся кружок вокруг предмета
-                        ctx.beginPath();
-                        ctx.arc(item.x, item.y, 28, 0, Math.PI * 2);
-                        ctx.fillStyle = `rgba(0, 210, 255, ${glowAlpha * 0.25})`; // Мягкое прозрачное свечение
-                        ctx.shadowColor = "#00d2ff";
-                        ctx.shadowBlur = 18;
-                        ctx.fill();
-                        
-                        ctx.strokeStyle = `rgba(0, 210, 255, ${glowAlpha * 0.8})`; // Светящаяся рамка круга
-                        ctx.lineWidth = 2;
-                        ctx.stroke();
-
-                        // 2. ОТРИСОВКА САМОГО ПРЕДМЕТА ПОВЕРХ СВЕТЯЩЕГОСЯ КРУГА (он полностью виден!)
-                        ctx.globalAlpha = glowAlpha;
-                        drawSingleItem(item);
-
-                        ctx.restore();
-                    });
-                }
-
                 ctx.restore();
             }
 
