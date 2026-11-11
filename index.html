@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v141_dasha_moon_glow_effect";
+        const CURRENT_APP_VERSION = "v142_dasha_perfect_moon_glow";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1040,7 +1040,7 @@
                 }
             }
 
-            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ (Плавный отсчет 30 секунд: 10с светло -> 5с затемнение -> 10с темнота -> 5с рассвет)
+            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ (30 сек цикл: 10с светло -> 5с плавное затемнение -> 10с темнота с лунным свечением -> 5с плавное рассветление)
             let darknessAlpha = 0;
             let glowAlpha = 0; 
             let isDarkPhaseActive = false;
@@ -1062,11 +1062,11 @@
                     darknessAlpha = 1.0; // Абсолютная темнота (10 секунд)
                     
                     let darkTime = cycleElapsed - 15000; // от 0 до 10000 мс
-                    let pulsePhase = darkTime % 2000; // Пульсация каждые 2 секунды (1с свет Луны, 1с темнота)
+                    let pulsePhase = darkTime % 2000; // каждые 2 секунды: 1 сек плавное появление лунного света, 1 сек затухание
                     if (pulsePhase < 1000) {
-                        glowAlpha = pulsePhase / 1000; // Плавное появление света
+                        glowAlpha = pulsePhase / 1000; 
                     } else {
-                        glowAlpha = (2000 - pulsePhase) / 1000; // Плавное затухание света
+                        glowAlpha = (2000 - pulsePhase) / 1000; 
                     }
                 } else {
                     // Плавное рассветление от 1 до 0 за 5 секунд
@@ -1136,22 +1136,20 @@
 
                 if (!items[i]) continue;
 
-                // Отрисовка предметов во время фазы темноты с «лунным» свечением (без рамок)
+                // Отрисовка предметов во время фазы темноты с мягким «лунным» свечением в тумане (без рамок)
                 if (isDarkPhaseActive && darknessAlpha > 0.05 && glowAlpha > 0) {
                     ctx.save();
                     
-                    // Мягкий лунный ореол без контуров и рамок
-                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 45);
+                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 50);
                     moonGlow.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.95})`);
-                    moonGlow.addColorStop(0.4, `rgba(0, 210, 255, ${glowAlpha * 0.5})`);
+                    moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${glowAlpha * 0.45})`);
                     moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
                     ctx.beginPath();
-                    ctx.arc(item.x, item.y, 45, 0, Math.PI * 2);
+                    ctx.arc(item.x, item.y, 50, 0, Math.PI * 2);
                     ctx.fillStyle = moonGlow;
                     ctx.fill();
 
-                    // Сам предмет четко виден в центре лунного света
                     drawSingleItem(item);
                     ctx.restore();
                 } else if (!isDarkPhaseActive || darknessAlpha <= 0.05) {
@@ -1267,7 +1265,7 @@
                 }
             }
 
-            // РИСУЕМ ФОНОВОЕ ЗАТЕМНЕНИЕ ЭКРАНА
+            // РИСУЕМ ФОНОВОЕ ЗАТЕМНЕНИЕ ЭКРАНА (плавно следует значению darknessAlpha)
             if (isDarkPhaseActive && darknessAlpha > 0) {
                 ctx.save();
                 ctx.fillStyle = `rgba(15, 23, 33, ${darknessAlpha})`;
