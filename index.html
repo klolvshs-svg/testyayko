@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v153_center_sides_flicker";
+        const CURRENT_APP_VERSION = "v154_hp_flicker_phases";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -291,6 +291,8 @@
         let bossSpeedX = 2.8;
         let bossMaxHp = 500; 
         let bossHp = 500;
+
+        let dashaPhaseStartTime = 0;
 
         // Загрузка текстур
         const dashaImg = new Image();
@@ -373,6 +375,7 @@
             hasHelmet = false;
             fanExpiresAt = 0;
             fanWindAnimation = null;
+            dashaPhaseStartTime = 0;
 
             targetX = W / 2;
             player.x = W / 2;
@@ -639,7 +642,8 @@
                     y: -30,
                     speed: 4,
                     type: "random_cube",
-                    flickerOffset: Math.random() * 2000
+                    flickerOffset: Math.random() * 2000,
+                    shouldFlicker: Math.random() < 0.35
                 });
             }
 
@@ -657,7 +661,8 @@
                             y: -30,
                             speed: 4.5,
                             type: "white_drop",
-                            flickerOffset: Math.random() * 2000
+                            flickerOffset: Math.random() * 2000,
+                            shouldFlicker: Math.random() < 0.35
                         });
                     }
 
@@ -679,7 +684,8 @@
                                 rotationSpeed: 0.05,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                flickerOffset: Math.random() * 2000
+                                flickerOffset: Math.random() * 2000,
+                                shouldFlicker: Math.random() < 0.35
                             });
                         }
                     }
@@ -697,7 +703,8 @@
                                 type: "fan_item",
                                 rotation: 0,
                                 rotationSpeed: 0.03,
-                                flickerOffset: Math.random() * 2000
+                                flickerOffset: Math.random() * 2000,
+                                shouldFlicker: Math.random() < 0.35
                             });
                         }
 
@@ -726,7 +733,8 @@
                                 rotationSpeed: 0.07,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                flickerOffset: Math.random() * 2000
+                                flickerOffset: Math.random() * 2000,
+                                shouldFlicker: Math.random() < 0.35
                             });
                         }
                     }
@@ -741,7 +749,8 @@
                             rotationSpeed: 0.05,
                             type: "table",
                             subType: "drop",
-                            flickerOffset: Math.random() * 2000
+                            flickerOffset: Math.random() * 2000,
+                            shouldFlicker: Math.random() < 0.35
                         });
                     }
 
@@ -753,7 +762,8 @@
                                 y: -30,
                                 speed: 3.8,
                                 type: "barricade",
-                                flickerOffset: Math.random() * 2000
+                                flickerOffset: Math.random() * 2000,
+                                shouldFlicker: Math.random() < 0.35
                             });
                         });
                     }
@@ -775,7 +785,8 @@
                                     rotation: 0,
                                     rotationSpeed: (vx > 0 ? 0.06 : -0.06),
                                     type: "yellow_orb",
-                                    flickerOffset: Math.random() * 2000
+                                    flickerOffset: Math.random() * 2000,
+                                    shouldFlicker: Math.random() < 0.35
                                 });
                             });
                         } else if (now - lastBossDropTime >= 2000) {
@@ -791,7 +802,8 @@
                                     rotation: 0,
                                     rotationSpeed: 0.06,
                                     type: "yellow_orb",
-                                    flickerOffset: Math.random() * 2000
+                                    flickerOffset: Math.random() * 2000,
+                                    shouldFlicker: Math.random() < 0.35
                                 });
                             } else {
                                 [-2.2, 2.2].forEach(vx => {
@@ -802,7 +814,8 @@
                                         speed: 5.0,
                                         rotation: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb",
-                                        flickerOffset: Math.random() * 2000
+                                        flickerOffset: Math.random() * 2000,
+                                        shouldFlicker: Math.random() < 0.35
                                     });
                                 });
                             }
@@ -868,6 +881,7 @@
                     bossState = "active";
                     bossX = W / 2; 
                     bossDropsStarted = false; 
+                    dashaPhaseStartTime = now;
                 }
             }
 
@@ -1042,14 +1056,30 @@
                         vy: 4 + Math.random() * 3,
                         speed: (4 + Math.random() * 3) * speedMultiplier,
                         type: type,
-                        flickerOffset: Math.random() * 2000
+                        flickerOffset: Math.random() * 2000,
+                        shouldFlicker: Math.random() < 0.35 // 35% шанс мерцания для нового предмета
                     });
                 }
             }
 
-            // ПРОВЕРКА ФАЗЫ БОССА ДАШИ
-            let isItemFlickerActive = (bossState === "active" && currentBoss === "dasha" && bossHp > 170);
+            // ПРОВЕРКА ФАЗЫ БОССА ДАШИ И ЕЁ ЗДОРОВЬЯ (< 300)
+            let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
             
+            // Расчет цикла 15 сек мигания + 5 сек паузы (всего 20 секунд цикл)
+            let isFlickerPhaseActive = false;
+            if (isDashaActive) {
+                if (dashaPhaseStartTime === 0) {
+                    dashaPhaseStartTime = now;
+                }
+                let cycleTime = (now - dashaPhaseStartTime) % 20000;
+                // Первые 15 секунд (0 - 15000мс) мигает, остальные 5 секунд (15000 - 20000мс) пауза
+                if (cycleTime < 15000) {
+                    isFlickerPhaseActive = true;
+                }
+            } else {
+                dashaPhaseStartTime = 0;
+            }
+
             // Единый таймер синхронного мигания для предметов по центру экрана
             let centerZoneCycle = (now % 1600);
             let centerVal = Math.sin((centerZoneCycle / 1600) * Math.PI * 2);
@@ -1115,41 +1145,48 @@
 
                 if (!items[i]) continue;
 
-                // ОТРИСОВКА И МИГАНИЕ: Центр экрана падает и светится синхронно, бока — индивидуально
-                if (isItemFlickerActive) {
-                    let alpha = 0;
-                    
-                    let centerX = W / 2;
-                    let distanceFromCenter = Math.abs(item.x - centerX);
-
-                    // Если предмет падает ближе к центру экрана (в пределах 32% ширины от центра), он светится синхронно со всеми по центру
-                    if (distanceFromCenter < W * 0.32) {
-                        alpha = centerZoneAlpha;
-                    } else {
-                        // Боковые предметы мигают индивидуально
-                        let cycle = (now + (item.flickerOffset || 0)) % 1600;
-                        let val = Math.sin((cycle / 1600) * Math.PI * 2);
-                        if (val > -0.3) {
-                            alpha = Math.max(0.1, (val + 0.3) / 1.3);
-                        }
+                // ОТРИСОВКА И МИГАНИЕ В ЗАВИСИМОСТИ ОТ ЗДОРОВЬЯ БОССА
+                if (isFlickerPhaseActive) {
+                    let shouldDoFlicker = true;
+                    // Если ХП меньше 170, мерцают только те предметы, у которых shouldFlicker === true (~35% из всех)
+                    if (bossHp < 170 && !item.shouldFlicker) {
+                        shouldDoFlicker = false;
                     }
 
-                    if (alpha > 0) {
-                        ctx.save();
-                        
-                        let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
-                        moonGlow.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-                        moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${alpha * 0.7})`);
-                        moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
+                    if (shouldDoFlicker) {
+                        let alpha = 0;
+                        let centerX = W / 2;
+                        let distanceFromCenter = Math.abs(item.x - centerX);
 
-                        ctx.beginPath();
-                        ctx.arc(item.x, item.y, 65, 0, Math.PI * 2);
-                        ctx.fillStyle = moonGlow;
-                        ctx.fill();
+                        // Центр экрана мигает синхронно, бока — индивидуально
+                        if (distanceFromCenter < W * 0.32) {
+                            alpha = centerZoneAlpha;
+                        } else {
+                            let cycle = (now + (item.flickerOffset || 0)) % 1600;
+                            let val = Math.sin((cycle / 1600) * Math.PI * 2);
+                            if (val > -0.3) {
+                                alpha = Math.max(0.1, (val + 0.3) / 1.3);
+                            }
+                        }
 
-                        ctx.globalAlpha = alpha;
+                        if (alpha > 0) {
+                            ctx.save();
+                            let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
+                            moonGlow.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+                            moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${alpha * 0.7})`);
+                            moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
+
+                            ctx.beginPath();
+                            ctx.arc(item.x, item.y, 65, 0, Math.PI * 2);
+                            ctx.fillStyle = moonGlow;
+                            ctx.fill();
+
+                            ctx.globalAlpha = alpha;
+                            drawSingleItem(item);
+                            ctx.restore();
+                        }
+                    } else {
                         drawSingleItem(item);
-                        ctx.restore();
                     }
                 } else {
                     drawSingleItem(item);
