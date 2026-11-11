@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v148_per_item_blinking_glow";
+        const CURRENT_APP_VERSION = "v149_smooth_calm_glow";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -642,7 +642,7 @@
                     y: -30,
                     speed: 4,
                     type: "random_cube",
-                    glowPhaseOffset: Math.random() * 2000
+                    glowPhaseOffset: Math.random() * 3000
                 });
             }
 
@@ -660,7 +660,7 @@
                             y: -30,
                             speed: 4.5,
                             type: "white_drop",
-                            glowPhaseOffset: Math.random() * 2000
+                            glowPhaseOffset: Math.random() * 3000
                         });
                     }
 
@@ -682,7 +682,7 @@
                                 rotationSpeed: 0.05,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                glowPhaseOffset: Math.random() * 2000
+                                glowPhaseOffset: Math.random() * 3000
                             });
                         }
                     }
@@ -700,7 +700,7 @@
                                 type: "fan_item",
                                 rotation: 0,
                                 rotationSpeed: 0.03,
-                                glowPhaseOffset: Math.random() * 2000
+                                glowPhaseOffset: Math.random() * 3000
                             });
                         }
 
@@ -729,7 +729,7 @@
                                 rotationSpeed: 0.07,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                glowPhaseOffset: Math.random() * 2000
+                                glowPhaseOffset: Math.random() * 3000
                             });
                         }
                     }
@@ -744,7 +744,7 @@
                             rotationSpeed: 0.05,
                             type: "table",
                             subType: "drop",
-                            glowPhaseOffset: Math.random() * 2000
+                            glowPhaseOffset: Math.random() * 3000
                         });
                     }
 
@@ -756,7 +756,7 @@
                                 y: -30,
                                 speed: 3.8,
                                 type: "barricade",
-                                glowPhaseOffset: Math.random() * 2000
+                                glowPhaseOffset: Math.random() * 3000
                             });
                         });
                     }
@@ -778,7 +778,7 @@
                                     rotation: 0,
                                     rotationSpeed: (vx > 0 ? 0.06 : -0.06),
                                     type: "yellow_orb",
-                                    glowPhaseOffset: Math.random() * 2000
+                                    glowPhaseOffset: Math.random() * 3000
                                 });
                             });
                         } else if (now - lastBossDropTime >= 2000) {
@@ -794,7 +794,7 @@
                                     rotation: 0,
                                     rotationSpeed: 0.06,
                                     type: "yellow_orb",
-                                    glowPhaseOffset: Math.random() * 2000
+                                    glowPhaseOffset: Math.random() * 3000
                                 });
                             } else {
                                 [-2.2, 2.2].forEach(vx => {
@@ -805,7 +805,7 @@
                                         speed: 5.0,
                                         rotation: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb",
-                                        glowPhaseOffset: Math.random() * 2000
+                                        glowPhaseOffset: Math.random() * 3000
                                     });
                                 });
                             }
@@ -1048,7 +1048,7 @@
                         vy: 4 + Math.random() * 3,
                         speed: (4 + Math.random() * 3) * speedMultiplier,
                         type: type,
-                        glowPhaseOffset: Math.random() * 2000 // Каждому предмету своё уникальное время подсветки
+                        glowPhaseOffset: Math.random() * 3000
                     });
                 }
             }
@@ -1137,31 +1137,29 @@
 
                 if (!items[i]) continue;
 
-                // ОТРИСОВКА И ПОДСВЕТКА ПРЕДМЕТОВ
+                // ОТРИСОВКА И ПЛАВНАЯ ПОДСВЕТКА КАЖДОГО ПРЕДМЕТА
                 if (isDarkPhaseActive && darknessAlpha > 0.05) {
-                    // Ритмичное индивидуальное вспыхивание предмета раз в 1-2 секунды
+                    // Плавная, спокойная синусоида (период ~2.2 секунды), чтобы глаза не уставали
                     let itemTime = now + (item.glowPhaseOffset || 0);
-                    let pulse = Math.sin((itemTime / 300) * Math.PI); // Быстрая вспышка каждые 1.2 сек
-                    let isGlowing = pulse > 0.1; // 1 секунду видно, 0.2 секунды пауза
+                    let pulse = Math.sin((itemTime / 1100) * Math.PI); 
+                    // Яркость плавно колеблется от 0.35 (всегда видно) до 1.0 (красивый лунный свет)
+                    let glowAlpha = 0.35 + 0.65 * Math.abs(pulse);
 
-                    if (isGlowing) {
-                        let glowAlpha = Math.max(0.2, (pulse - 0.1) / 0.9);
-                        ctx.save();
-                        
-                        let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
-                        moonGlow.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.95})`);
-                        moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${glowAlpha * 0.6})`);
-                        moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
+                    ctx.save();
+                    
+                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
+                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.95})`);
+                    moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${glowAlpha * 0.6})`);
+                    moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
-                        ctx.beginPath();
-                        ctx.arc(item.x, item.y, 65, 0, Math.PI * 2);
-                        ctx.fillStyle = moonGlow;
-                        ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, 65, 0, Math.PI * 2);
+                    ctx.fillStyle = moonGlow;
+                    ctx.fill();
 
-                        ctx.globalAlpha = glowAlpha;
-                        drawSingleItem(item);
-                        ctx.restore();
-                    }
+                    ctx.globalAlpha = glowAlpha;
+                    drawSingleItem(item);
+                    ctx.restore();
                 } else {
                     drawSingleItem(item);
                 }
