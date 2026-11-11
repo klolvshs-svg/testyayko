@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v155_smooth_vapor_phases";
+        const CURRENT_APP_VERSION = "v156_fixed_moon_phases";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -293,7 +293,7 @@
         let bossHp = 500;
 
         let dashaPhaseStartTime = 0;
-        let vaporTransitionStartTime = 0; // Время начала плавного испарения света
+        let vaporTransitionStartTime = 0; // Время начала плавного испарения света при хп < 170
 
         // Загрузка текстур
         const dashaImg = new Image();
@@ -1068,25 +1068,25 @@
             // ПРОВЕРКА ФАЗЫ БОССА ДАШИ И ЕЁ ЗДОРОВЬЯ (< 300)
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
             
-            // Расчет цикла 15 сек мигания + 5 сек ровного свечения (всего 20 секунд цикл)
+            // Расчет цикла: 15 секунд мигания + 5 секунд ровного лунного свечения (всего 20 секунд цикл)
             let isFlickerPhaseActive = false;
             let isSteadyGlowActive = false;
             
-            if (isDashaActive) {
+            if (isDashaActive && bossHp >= 170) {
                 if (dashaPhaseStartTime === 0) {
                     dashaPhaseStartTime = now;
                 }
                 let cycleTime = (now - dashaPhaseStartTime) % 20000;
                 if (cycleTime < 15000) {
-                    isFlickerPhaseActive = true; // 15 секунд мигания
+                    isFlickerPhaseActive = true; // 15 сек мигания
                 } else {
-                    isSteadyGlowActive = true;   // 5 секунд ровного свечения
+                    isSteadyGlowActive = true;   // 5 сек ровного свечения без затухания
                 }
-            } else {
+            } else if (!isDashaActive) {
                 dashaPhaseStartTime = 0;
             }
 
-            // Проверка перехода при хп < 170 (плавное испарение света за 1.5 секунды)
+            // Когда хп становится меньше 170: плавно испаряем свет за 1.5 секунды
             let vaporMultiplier = 1.0;
             if (isDashaActive && bossHp < 170) {
                 if (vaporTransitionStartTime === 0) {
@@ -1164,58 +1164,64 @@
 
                 if (!items[i]) continue;
 
-                // ОТРИСОВКА С УЧЕТОМ МИГАНИЯ, РОВНОГО СВЕЧЕНИЯ И ПЛАВНОГО ИСПАРЕНИЯ
-                if (isFlickerPhaseActive || isSteadyGlowActive) {
-                    let shouldDoEffect = true;
-                    if (bossHp < 170 && !item.shouldFlicker) {
-                        shouldDoEffect = false;
-                    }
+                // ЛОГИКА СВЕЧЕНИЯ И МИГАНИЯ В ЗАВИСИМОСТИ ОТ ХП
+                let showMoonGlow = false;
+                let alpha = 0;
 
-                    if (shouldDoEffect && vaporMultiplier > 0) {
-                        let alpha = 0;
+                if (isDashaActive && bossHp >= 170) {
+                    if (isSteadyGlowActive) {
+                        // 5 секунд стабильного ровного лунного света без затухания
+                        showMoonGlow = true;
+                        alpha = 0.75;
+                    } else if (isFlickerPhaseActive) {
+                        // 15 секунд мигания (центр синхронно, бока по индивидуальному таймеру)
                         let centerX = W / 2;
                         let distanceFromCenter = Math.abs(item.x - centerX);
-
-                        if (isSteadyGlowActive) {
-                            // 5 секунд ровного, приятного глазу свечения без мерцания
-                            alpha = 0.7; 
+                        if (distanceFromCenter < W * 0.32) {
+                            alpha = centerZoneAlpha;
                         } else {
-                            // 15 секунд мигания (центр синхронно, бока индивидуально)
-                            if (distanceFromCenter < W * 0.32) {
-                                alpha = centerZoneAlpha;
-                            } else {
-                                let cycle = (now + (item.flickerOffset || 0)) % 1600;
-                                let val = Math.sin((cycle / 1600) * Math.PI * 2);
-                                if (val > -0.3) {
-                                    alpha = Math.max(0.1, (val + 0.3) / 1.3);
-                                }
+                            let cycle = (now + (item.flickerOffset || 0)) % 1600;
+                            let val = Math.sin((cycle / 1600) * Math.PI * 2);
+                            if (val > -0.3) {
+                                alpha = Math.max(0.1, (val + 0.3) / 1.3);
                             }
                         }
-
-                        // Умножаем на коэффициент плавного испарения при ХП < 170
-                        alpha *= vaporMultiplier;
-
-                        if (alpha > 0) {
-                            ctx.save();
-                            let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
-                            moonGlow.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-                            moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${alpha * 0.7})`);
-                            moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
-
-                            ctx.beginPath();
-                            ctx.arc(item.x, item.y, 65, 0, Math.PI * 2);
-                            ctx.fillStyle = moonGlow;
-                            ctx.fill();
-
-                            ctx.globalAlpha = alpha;
-                            drawSingleItem(item);
-                            ctx.restore();
-                        } else {
-                            drawSingleItem(item);
-                        }
-                    } else {
-                        drawSingleItem(item);
+                        if (alpha > 0) showMoonGlow = true;
                     }
+                } else if (isDashaActive && bossHp < 170) {
+                    // ХП меньше 170: мигают только 35% предметов, и свет плавно испаряется
+                    if (item.shouldFlicker && vaporMultiplier > 0) {
+                        let centerX = W / 2;
+                        let distanceFromCenter = Math.abs(item.x - centerX);
+                        if (distanceFromCenter < W * 0.32) {
+                            alpha = centerZoneAlpha;
+                        } else {
+                            let cycle = (now + (item.flickerOffset || 0)) % 1600;
+                            let val = Math.sin((cycle / 1600) * Math.PI * 2);
+                            if (val > -0.3) {
+                                alpha = Math.max(0.1, (val + 0.3) / 1.3);
+                            }
+                        }
+                        alpha *= vaporMultiplier;
+                        if (alpha > 0) showMoonGlow = true;
+                    }
+                }
+
+                if (showMoonGlow && alpha > 0) {
+                    ctx.save();
+                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
+                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+                    moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${alpha * 0.7})`);
+                    moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
+
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, 65, 0, Math.PI * 2);
+                    ctx.fillStyle = moonGlow;
+                    ctx.fill();
+
+                    ctx.globalAlpha = alpha;
+                    drawSingleItem(item);
+                    ctx.restore();
                 } else {
                     drawSingleItem(item);
                 }
