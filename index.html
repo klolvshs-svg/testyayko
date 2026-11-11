@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v142_dasha_perfect_moon_glow";
+        const CURRENT_APP_VERSION = "v143_fixed_spawning_and_moon_glow";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -981,7 +981,7 @@
                 }
             }
 
-            // СПАВН ОБЫЧНЫХ ПРЕДМЕТОВ (мечи, бомбы, щиты и т.д.)
+            // СПАВН ОБЫЧНЫХ ПРЕДМЕТОВ (исправлено: мечи, бомбы и т.д. теперь всегда стабильно падают с начала игры)
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -1008,6 +1008,7 @@
                             type = "sword";
                         }
                     } else {
+                        // Обычный режим и обычные боссы: падают мечи, бомбы, капли и бонусы
                         if (mlEarned >= 15.0 && rand < 0.008) {
                             type = "egg20"; 
                         } else if (mlEarned >= 14.0 && rand >= 0.008 && rand < 0.016) {
@@ -1024,8 +1025,10 @@
                             type = "helmet";
                         } else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) {
                             type = "shield";
-                        } else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.72) {
+                        } else if (rand >= 0.43 && rand < 0.75) {
                             type = "bomb"; 
+                        } else {
+                            type = "sword";
                         }
                     }
 
@@ -1040,12 +1043,12 @@
                 }
             }
 
-            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ (30 сек цикл: 10с светло -> 5с плавное затемнение -> 10с темнота с лунным свечением -> 5с плавное рассветление)
+            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ (30 сек цикл: 10с светло -> 5с плавное затемнение -> 10с темнота со свечением предметов -> 5с плавный рассвет)
             let darknessAlpha = 0;
             let glowAlpha = 0; 
             let isDarkPhaseActive = false;
 
-            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
+            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300) {
                 isDarkPhaseActive = true;
                 if (dashaActiveStartTime === 0) {
                     dashaActiveStartTime = now;
@@ -1062,7 +1065,7 @@
                     darknessAlpha = 1.0; // Абсолютная темнота (10 секунд)
                     
                     let darkTime = cycleElapsed - 15000; // от 0 до 10000 мс
-                    let pulsePhase = darkTime % 2000; // каждые 2 секунды: 1 сек плавное появление лунного света, 1 сек затухание
+                    let pulsePhase = darkTime % 2000; // каждые 2 секунды: 1с плавное появление света, 1с затухание
                     if (pulsePhase < 1000) {
                         glowAlpha = pulsePhase / 1000; 
                     } else {
@@ -1136,17 +1139,18 @@
 
                 if (!items[i]) continue;
 
-                // Отрисовка предметов во время фазы темноты с мягким «лунным» свечением в тумане (без рамок)
-                if (isDarkPhaseActive && darknessAlpha > 0.05 && glowAlpha > 0) {
+                // Отрисовка предметов во время фазы темноты: каждый предмет излучает мягкий лунный свет в тумане
+                if (isDarkPhaseActive && darknessAlpha > 0.05) {
                     ctx.save();
                     
-                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 50);
-                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.95})`);
-                    moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${glowAlpha * 0.45})`);
+                    let currentGlow = (glowAlpha > 0 ? glowAlpha : 0.35); // Даже в моменты затухания предмет виден в тумане
+                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 55);
+                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${currentGlow * 0.95})`);
+                    moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${currentGlow * 0.5})`);
                     moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
                     ctx.beginPath();
-                    ctx.arc(item.x, item.y, 50, 0, Math.PI * 2);
+                    ctx.arc(item.x, item.y, 55, 0, Math.PI * 2);
                     ctx.fillStyle = moonGlow;
                     ctx.fill();
 
@@ -1265,7 +1269,7 @@
                 }
             }
 
-            // РИСУЕМ ФОНОВОЕ ЗАТЕМНЕНИЕ ЭКРАНА (плавно следует значению darknessAlpha)
+            // РИСУЕМ ФОНОВОЕ ЗАТЕМНЕНИЕ ЭКРАНА
             if (isDarkPhaseActive && darknessAlpha > 0) {
                 ctx.save();
                 ctx.fillStyle = `rgba(15, 23, 33, ${darknessAlpha})`;
