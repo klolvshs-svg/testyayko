@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v136_dasha_darkness_hides_items";
+        const CURRENT_APP_VERSION = "v137_dasha_darkness_20s_cycle_glowing_items";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1205,29 +1205,86 @@
                 }
             }
 
-            // ЭФФЕКТ ЗАТЕМНЕНИЯ СЛЕПОЙ ФАЗЫ (Накладывается поверх летящих предметов, но ПОД боссом и игроком)
+            // ЭФФЕКТ ЗАТЕМНЕНИЯ (Цикл 20 секунд: 10 сек светло -> 5 сек затемнение -> 10 сек темнота с красивой подсветкой -> 5 сек рассвет)
             if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
-                let cycleElapsed = (now - dashaActiveStartTime) % 8000; // Полный цикл 8 секунд
+                let cycleElapsed = (now - dashaActiveStartTime) % 20000; 
                 let darknessAlpha = 0;
 
-                if (cycleElapsed < 3000) {
-                    // 3 сек: плавное затемнение 0 -> 1
-                    darknessAlpha = cycleElapsed / 3000;
-                } else if (cycleElapsed < 5000) {
-                    // 2 сек: абсолютная темнота (1.0), ничего из предметов не видно
+                if (cycleElapsed < 10000) {
+                    // Первые 10 секунд: светло (alpha = 0)
+                    darknessAlpha = 0;
+                } else if (cycleElapsed < 15000) {
+                    // С 10 по 15 сек (5 секунд): плавное затемнение 0 -> 1
+                    darknessAlpha = (cycleElapsed - 10000) / 5000;
+                } else if (cycleElapsed < 25000) { // до 25 сек (15-я секунда + 10 секунд абсолютной темноты)
+                    // С 15 по 25 сек (10 секунд): полностью темно (alpha = 1)
                     darknessAlpha = 1.0;
                 } else {
-                    // 3 сек: плавное прояснение 1 -> 0
-                    darknessAlpha = 1.0 - ((cycleElapsed - 5000) / 3000);
+                    // Последние 5 секунд (с 25 до 30 сек по логике, но цикл 20 сек, поэтому поправка на тайминг: 
+                    // С 15 по 20 сек — 5 секунд рассветления)
+                }
+
+                // Корректный расчёт 20-секундного цикла:
+                // 0 - 10 сек: 0
+                // 10 - 15 сек: плавно 0 -> 1 (5 сек)
+                // 15 - 18 сек: 1.0 (но нам нужно 10 сек темноты, значит весь цикл 25 секунд!)
+            }
+
+            // ПЕРЕСЧИТЫВАЕМ ЦИКЛ ТОЧНО ПО ВАШИМ ТАЙМИНГАМ (Общая длительность = 10 свет + 5 затемнение + 10 темнота + 5 рассвет = 30 секунд)
+            // Давай сделаем 30-секундный цикл, чтобы всё идеально влезло:
+            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
+                let cycleElapsed = (now - dashaActiveStartTime) % 30000; 
+                let darknessAlpha = 0;
+                let glowAlpha = 0; // Красивая подсветка предметов
+
+                if (cycleElapsed < 10000) {
+                    // 10 сек: светло
+                    darknessAlpha = 0;
+                } else if (cycleElapsed < 15000) {
+                    // 5 сек: плавное затемнение
+                    darknessAlpha = (cycleElapsed - 10000) / 5000;
+                } else if (cycleElapsed < 25000) {
+                    // 10 сек: полная темнота (alpha = 1)
+                    darknessAlpha = 1.0;
+                    
+                    // Красивая пульсирующая подсветка предметов в темноте (появляется и пропадает за 1 секунду)
+                    let darkTime = cycleElapsed - 15000; // от 0 до 10000 мс
+                    let pulsePhase = darkTime % 2000; // каждые 2 секунды цикл пульсации (1с появление, 1с затухание)
+                    if (pulsePhase < 1000) {
+                        glowAlpha = pulsePhase / 1000; // наростание от 0 до 1
+                    } else {
+                        glowAlpha = (2000 - pulsePhase) / 1000; // затухание от 1 до 0
+                    }
+                } else {
+                    // 5 сек: плавное рассветление
+                    darknessAlpha = 1.0 - ((cycleElapsed - 25000) / 5000);
                 }
 
                 ctx.save();
                 ctx.fillStyle = `rgba(15, 23, 33, ${darknessAlpha})`;
                 ctx.fillRect(0, 0, W, H);
+
+                // Если экран погрузился в темноту, рисуем красивую неоновую подсветку летящих предметов
+                if (glowAlpha > 0) {
+                    items.forEach(item => {
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.arc(item.x, item.y, 28, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(0, 210, 255, ${glowAlpha * 0.35})`;
+                        ctx.shadowColor = "#00d2ff";
+                        ctx.shadowBlur = 15;
+                        ctx.fill();
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${glowAlpha * 0.7})`;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        ctx.restore();
+                    });
+                }
+
                 ctx.restore();
             }
 
-            // ОТРИСОВКА БОССА (Рисуется ПОВЕРХ затемнения, поэтому он всегда виден)
+            // ОТРИСОВКА БОССА (Всегда виден поверх затемнения)
             if (bossState === "active") {
                 let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
@@ -1284,7 +1341,7 @@
                 ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
-            // ИНТЕРФЕЙС И ЯЙЦО (Отрисовываются ПОВЕРХ затемнения)
+            // ИНТЕРФЕЙС И ЯЙЦО (Всегда видны)
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 15px Arial";
             ctx.textAlign = "left";
