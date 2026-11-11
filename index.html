@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v150_true_darkness_blinking";
+        const CURRENT_APP_VERSION = "v151_item_moon_fading";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -291,8 +291,6 @@
         let bossSpeedX = 2.8;
         let bossMaxHp = 500; 
         let bossHp = 500;
-
-        let dashaActiveStartTime = 0; 
 
         // Загрузка текстур
         const dashaImg = new Image();
@@ -375,7 +373,6 @@
             hasHelmet = false;
             fanExpiresAt = 0;
             fanWindAnimation = null;
-            dashaActiveStartTime = 0;
 
             targetX = W / 2;
             player.x = W / 2;
@@ -642,7 +639,7 @@
                     y: -30,
                     speed: 4,
                     type: "random_cube",
-                    blinkOffset: Math.random() * 2000
+                    flickerOffset: Math.random() * 2000
                 });
             }
 
@@ -660,7 +657,7 @@
                             y: -30,
                             speed: 4.5,
                             type: "white_drop",
-                            blinkOffset: Math.random() * 2000
+                            flickerOffset: Math.random() * 2000
                         });
                     }
 
@@ -682,7 +679,7 @@
                                 rotationSpeed: 0.05,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                blinkOffset: Math.random() * 2000
+                                flickerOffset: Math.random() * 2000
                             });
                         }
                     }
@@ -700,7 +697,7 @@
                                 type: "fan_item",
                                 rotation: 0,
                                 rotationSpeed: 0.03,
-                                blinkOffset: Math.random() * 2000
+                                flickerOffset: Math.random() * 2000
                             });
                         }
 
@@ -729,7 +726,7 @@
                                 rotationSpeed: 0.07,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                blinkOffset: Math.random() * 2000
+                                flickerOffset: Math.random() * 2000
                             });
                         }
                     }
@@ -744,7 +741,7 @@
                             rotationSpeed: 0.05,
                             type: "table",
                             subType: "drop",
-                            blinkOffset: Math.random() * 2000
+                            flickerOffset: Math.random() * 2000
                         });
                     }
 
@@ -756,7 +753,7 @@
                                 y: -30,
                                 speed: 3.8,
                                 type: "barricade",
-                                blinkOffset: Math.random() * 2000
+                                flickerOffset: Math.random() * 2000
                             });
                         });
                     }
@@ -778,7 +775,7 @@
                                     rotation: 0,
                                     rotationSpeed: (vx > 0 ? 0.06 : -0.06),
                                     type: "yellow_orb",
-                                    blinkOffset: Math.random() * 2000
+                                    flickerOffset: Math.random() * 2000
                                 });
                             });
                         } else if (now - lastBossDropTime >= 2000) {
@@ -794,7 +791,7 @@
                                     rotation: 0,
                                     rotationSpeed: 0.06,
                                     type: "yellow_orb",
-                                    blinkOffset: Math.random() * 2000
+                                    flickerOffset: Math.random() * 2000
                                 });
                             } else {
                                 [-2.2, 2.2].forEach(vx => {
@@ -805,7 +802,7 @@
                                         speed: 5.0,
                                         rotation: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb",
-                                        blinkOffset: Math.random() * 2000
+                                        flickerOffset: Math.random() * 2000
                                     });
                                 });
                             }
@@ -871,9 +868,6 @@
                     bossState = "active";
                     bossX = W / 2; 
                     bossDropsStarted = false; 
-                    if (currentBoss === "dasha" && dashaActiveStartTime === 0) {
-                        dashaActiveStartTime = now;
-                    }
                 }
             }
 
@@ -1048,36 +1042,13 @@
                         vy: 4 + Math.random() * 3,
                         speed: (4 + Math.random() * 3) * speedMultiplier,
                         type: type,
-                        blinkOffset: Math.random() * 2000
+                        flickerOffset: Math.random() * 2000
                     });
                 }
             }
 
-            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ ДЛЯ ДАШИ
-            // 20 сек цикл: 5с плавное затемнение -> 10с полная темнота (внутри которой предметы ритмично мигают) -> 5с рассвет
-            let darknessAlpha = 0;
-            let isDarkPhaseActive = false;
-            let isFullDarkness10Sec = false;
-
-            if (bossState === "active" && currentBoss === "dasha" && bossHp > 170) {
-                isDarkPhaseActive = true;
-                if (dashaActiveStartTime === 0) {
-                    dashaActiveStartTime = now;
-                }
-                
-                let cycleElapsed = (now - dashaActiveStartTime) % 20000; 
-
-                if (cycleElapsed < 5000) {
-                    darknessAlpha = cycleElapsed / 5000;
-                } else if (cycleElapsed < 15000) {
-                    darknessAlpha = 1.0; 
-                    isFullDarkness10Sec = true; // Вот те самые 10 секунд полной темноты!
-                } else {
-                    darknessAlpha = 1.0 - ((cycleElapsed - 15000) / 5000);
-                }
-            } else if (bossHp <= 170 && currentBoss === "dasha") {
-                dashaActiveStartTime = 0; 
-            }
+            // ПРОВЕРКА ФАЗЫ БОССА ДАШИ (КОГДА ОНА АКТИВИРУЕТ МИГАНИЕ ПРЕДМЕТОВ В ЛУННОМ СВЕТЕ)
+            let isItemFlickerActive = (bossState === "active" && currentBoss === "dasha" && bossHp > 170);
 
             // ДВИЖЕНИЕ ПРЕДМЕТОВ И ПРОВЕРКА СТОЛКНОВЕНИЙ
             for (let i = items.length - 1; i >= 0; i--) {
@@ -1139,14 +1110,15 @@
 
                 if (!items[i]) continue;
 
-                // ОТРИСОВКА И МИГАНИЕ ПРЕДМЕТОВ В ТЕМНОТЕ
-                if (isFullDarkness10Sec) {
-                    // Во время 10 секунд темноты предметы ритмично мигают: вспыхивают и пропадают (синусоида)
-                    let blinkCycle = (now + (item.blinkOffset || 0)) % 1400; // каждые 1.4 секунды полный цикл
-                    let visibilityProgress = Math.sin((blinkCycle / 1400) * Math.PI * 2); 
-                    // Если visibilityProgress > -0.2, предмет подсвечен, иначе уходит в невидимость
-                    if (visibilityProgress > -0.2) {
-                        let alpha = Math.max(0.15, (visibilityProgress + 0.2) / 1.2);
+                // ОТРИСОВКА И ИНДИВИДУАЛЬНОЕ МИГАНИЕ САМИХ ПРЕДМЕТОВ
+                if (isItemFlickerActive) {
+                    // У каждого предмета свой мягкий синусоидальный цикл: плавно вспыхивает в лунном свете, затухает и пропадает на мгновение
+                    let cycle = (now + (item.flickerOffset || 0)) % 1600; // полный цикл за 1.6 секунды
+                    let val = Math.sin((cycle / 1600) * Math.PI * 2); 
+                    
+                    // Если значение больше -0.3, предмет виден и подсвечен лунным светом; если ниже — затухает и исчезает во тьме на долю секунды
+                    if (val > -0.3) {
+                        let alpha = Math.max(0.1, (val + 0.3) / 1.3);
                         ctx.save();
                         
                         let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
@@ -1163,13 +1135,6 @@
                         drawSingleItem(item);
                         ctx.restore();
                     }
-                    // Когда предмет в фазе скрытности — он не рисуется вообще (полностью исчезает на мгновение во тьме), но потом снова вспыхивает!
-                } else if (isDarkPhaseActive && darknessAlpha > 0.05) {
-                    // Во время плавного затухания/рассвета просто рисуем с учетом альфы темноты
-                    ctx.save();
-                    ctx.globalAlpha = 1.0 - (darknessAlpha * 0.3);
-                    drawSingleItem(item);
-                    ctx.restore();
                 } else {
                     drawSingleItem(item);
                 }
@@ -1281,14 +1246,6 @@
                     }
                     items.splice(i, 1);
                 }
-            }
-
-            // РИСУЕМ ФОНОВОЕ ЗАТЕМНЕНИЕ ЭКРАНА
-            if (isDarkPhaseActive && darknessAlpha > 0) {
-                ctx.save();
-                ctx.fillStyle = `rgba(15, 23, 33, ${darknessAlpha})`;
-                ctx.fillRect(0, 0, W, H);
-                ctx.restore();
             }
 
             // ОТРИСОВКА БОССА (Всегда виден)
