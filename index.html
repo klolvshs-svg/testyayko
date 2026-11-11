@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v140_dasha_fixed_dark_cycle_timing";
+        const CURRENT_APP_VERSION = "v141_dasha_moon_glow_effect";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -861,7 +861,6 @@
                     bossState = "active";
                     bossX = W / 2; 
                     bossDropsStarted = false; 
-                    // При активации босса фиксируем точное время старта для правильного цикла
                     if (currentBoss === "dasha" && dashaActiveStartTime === 0) {
                         dashaActiveStartTime = now;
                     }
@@ -1041,7 +1040,7 @@
                 }
             }
 
-            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ (Плавный запуск ровно с 0, когда хп < 300)
+            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ (Плавный отсчет 30 секунд: 10с светло -> 5с затемнение -> 10с темнота -> 5с рассвет)
             let darknessAlpha = 0;
             let glowAlpha = 0; 
             let isDarkPhaseActive = false;
@@ -1055,26 +1054,26 @@
                 let cycleElapsed = (now - dashaActiveStartTime) % 30000; 
 
                 if (cycleElapsed < 10000) {
-                    darknessAlpha = 0; // Первые 10 сек абсолютно светло
+                    darknessAlpha = 0; // Первые 10 сек светло
                 } else if (cycleElapsed < 15000) {
-                    // Плавное нарастание затемнения от 0 до 1 в течение 5 секунд
+                    // Плавное нарастание темноты от 0 до 1 за 5 секунд
                     darknessAlpha = (cycleElapsed - 10000) / 5000;
                 } else if (cycleElapsed < 25000) {
                     darknessAlpha = 1.0; // Абсолютная темнота (10 секунд)
                     
                     let darkTime = cycleElapsed - 15000; // от 0 до 10000 мс
-                    let pulsePhase = darkTime % 2000; // каждые 2 секунды цикл: 1 сек свет, 1 сек темнота
+                    let pulsePhase = darkTime % 2000; // Пульсация каждые 2 секунды (1с свет Луны, 1с темнота)
                     if (pulsePhase < 1000) {
-                        glowAlpha = pulsePhase / 1000; // наростание света за 1 сек
+                        glowAlpha = pulsePhase / 1000; // Плавное появление света
                     } else {
-                        glowAlpha = (2000 - pulsePhase) / 1000; // затухание за 1 сек
+                        glowAlpha = (2000 - pulsePhase) / 1000; // Плавное затухание света
                     }
                 } else {
-                    // Плавное рассветление от 1 до 0 в течение 5 секунд
+                    // Плавное рассветление от 1 до 0 за 5 секунд
                     darknessAlpha = 1.0 - ((cycleElapsed - 25000) / 5000);
                 }
             } else if (bossHp >= 300) {
-                dashaActiveStartTime = 0; // Сбрасываем таймер, если здоровье выше 300
+                dashaActiveStartTime = 0; 
             }
 
             // ДВИЖЕНИЕ ПРЕДМЕТОВ И ПРОВЕРКА СТОЛКНОВЕНИЙ
@@ -1137,24 +1136,25 @@
 
                 if (!items[i]) continue;
 
-                // Если фаза темноты активна и экран тёмный, абсолютно ВСЕ предметы (включая баррикады) подсвечиваются «дыркой» в темноте
+                // Отрисовка предметов во время фазы темноты с «лунным» свечением (без рамок)
                 if (isDarkPhaseActive && darknessAlpha > 0.05 && glowAlpha > 0) {
                     ctx.save();
                     
-                    let radialGradient = ctx.createRadialGradient(item.x, item.y, 5, item.x, item.y, 35);
-                    radialGradient.addColorStop(0, `rgba(0, 210, 255, ${glowAlpha * 0.9})`);
-                    radialGradient.addColorStop(0.5, `rgba(0, 210, 255, ${glowAlpha * 0.4})`);
-                    radialGradient.addColorStop(1, 'rgba(0, 210, 255, 0)');
+                    // Мягкий лунный ореол без контуров и рамок
+                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 45);
+                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.95})`);
+                    moonGlow.addColorStop(0.4, `rgba(0, 210, 255, ${glowAlpha * 0.5})`);
+                    moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
                     ctx.beginPath();
-                    ctx.arc(item.x, item.y, 35, 0, Math.PI * 2);
-                    ctx.fillStyle = radialGradient;
+                    ctx.arc(item.x, item.y, 45, 0, Math.PI * 2);
+                    ctx.fillStyle = moonGlow;
                     ctx.fill();
 
+                    // Сам предмет четко виден в центре лунного света
                     drawSingleItem(item);
                     ctx.restore();
                 } else if (!isDarkPhaseActive || darknessAlpha <= 0.05) {
-                    // Обычная отрисовка предметов, когда светло
                     drawSingleItem(item);
                 }
 
@@ -1267,7 +1267,7 @@
                 }
             }
 
-            // РИСУЕМ ФОНОВОЕ ЗАТЕМНЕНИЕ ЭКРАНА (поверх предметов, но под боссом и яйцом)
+            // РИСУЕМ ФОНОВОЕ ЗАТЕМНЕНИЕ ЭКРАНА
             if (isDarkPhaseActive && darknessAlpha > 0) {
                 ctx.save();
                 ctx.fillStyle = `rgba(15, 23, 33, ${darknessAlpha})`;
