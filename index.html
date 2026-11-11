@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v134_fans_drop_straight_down";
+        const CURRENT_APP_VERSION = "v135_dasha_darkness_cycle_3s_2s_3s";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -291,6 +291,8 @@
         let bossSpeedX = 2.8;
         let bossMaxHp = 500; 
         let bossHp = 500;
+
+        let dashaActiveStartTime = 0; // Время начала активной фазы Даши для расчета цикла затемнения
 
         // Загрузка текстур
         const dashaImg = new Image();
@@ -373,6 +375,7 @@
             hasHelmet = false;
             fanExpiresAt = 0;
             fanWindAnimation = null;
+            dashaActiveStartTime = 0;
 
             targetX = W / 2;
             player.x = W / 2;
@@ -570,7 +573,6 @@
                     let tableSpawnChance = (bossHp > 400) ? 0.024 : 0.0168; 
                     let maxActiveTables = (bossHp > 400) ? 3 : 3;
 
-                    // HP от 400 до 150: частота угловых предметов уменьшена ещё на 20% (было 0.015 -> стало 0.012)
                     if (bossHp <= 400 && bossHp >= 150) {
                         if (Math.random() < 0.012) {
                             let fromLeft = Math.random() < 0.5;
@@ -588,17 +590,16 @@
                         }
                     }
 
-                    // Яростная фаза (< 150 HP): вееры падают строго сверху вниз прямо на игрока
                     if (bossHp < 150) {
                         tableSpawnChance = 0.07; 
                         maxActiveTables = 9;
 
                         if (Math.random() < 0.0044) {
                             items.push({
-                                x: player.x, // Спавним прямо над текущей позицией игрока
+                                x: player.x,
                                 y: -30,
-                                vy: 4.5 + Math.random() * 1.5, // Падение прямо вниз
-                                vx: 0, // Без бокового смещения
+                                vy: 4.5 + Math.random() * 1.5,
+                                vx: 0,
                                 type: "fan_item",
                                 rotation: 0,
                                 rotationSpeed: 0.03
@@ -698,7 +699,8 @@
                                         x: bossX,
                                         y: bossY + 20,
                                         vx: vx,
-                                        speed: (vx > 0 ? 0.06 : -0.06),
+                                        speed: 5.0,
+                                        rotation: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb"
                                     });
                                 });
@@ -872,6 +874,9 @@
                     bossState = "active";
                     bossX = W / 2; 
                     bossDropsStarted = false; 
+                    if (currentBoss === "dasha") {
+                        dashaActiveStartTime = now;
+                    }
                 }
             }
 
@@ -935,6 +940,28 @@
                 globalSpeedMul *= 0.65; 
             }
             const speedMultiplier = globalSpeedMul;
+
+            // ЭФФЕКТ ЗАТЕМНЕНИЯ ЭКРАНА ДЛЯ ДАШИ (когда HP < 300 и HP >= 200)
+            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
+                let cycleElapsed = (now - dashaActiveStartTime) % 8000; // 8 секунд цикл
+                let darknessAlpha = 0;
+
+                if (cycleElapsed < 3000) {
+                    // Первые 3 сек: плавное затемнение от 0 до 1
+                    darknessAlpha = cycleElapsed / 3000;
+                } else if (cycleElapsed < 5000) {
+                    // Следующие 2 сек (с 3 по 5 сек): полностью темно (alpha = 1)
+                    darknessAlpha = 1.0;
+                } else {
+                    // Последние 3 сек (с 5 по 8 сек): плавное рассветление от 1 до 0
+                    darknessAlpha = 1.0 - ((cycleElapsed - 5000) / 3000);
+                }
+
+                ctx.save();
+                ctx.fillStyle = `rgba(0, 0, 0, ${darknessAlpha})`;
+                ctx.fillRect(0, 0, W, H);
+                ctx.restore();
+            }
 
             // ИНТЕРФЕЙС
             ctx.fillStyle = "#ffffff";
