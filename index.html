@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v146_permanent_item_glow";
+        const CURRENT_APP_VERSION = "v147_rhythmic_flashing_glow";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1042,9 +1042,10 @@
                 }
             }
 
-            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ ДЛЯ ДАШИ (20 сек цикл: 5с плавное затемнение -> 10с темнота с постоянной яркой подсветкой предметов -> 5с рассвет)
+            // РАСЧЁТ ЦИКЛА ЗАТЕМНЕНИЯ ДЛЯ ДАШИ (20 сек цикл: 5с плавное затемнение -> 10с темнота с ритмичной пульсацией света на предметах -> 5с рассвет)
             // Работает с самого начала боя пока HP > 170
             let darknessAlpha = 0;
+            let itemGlowIntensity = 1.0; 
             let isDarkPhaseActive = false;
 
             if (bossState === "active" && currentBoss === "dasha" && bossHp > 170) {
@@ -1058,12 +1059,17 @@
                 if (cycleElapsed < 5000) {
                     // 1. Плавное нарастание темноты от 0 до 1 за первые 5 секунд
                     darknessAlpha = cycleElapsed / 5000;
+                    itemGlowIntensity = 1.0;
                 } else if (cycleElapsed < 15000) {
-                    // 2. Полная темнота (10 секунд): предметы НИКОГДА не пропадают, а постоянно ярко подсвечены лунным ореолом
+                    // 2. Полная темнота (10 секунд): предметы ритмично вспыхивают и затухают (каждую секунду видно их приближение)
                     darknessAlpha = 1.0; 
+                    let darkTime = cycleElapsed - 5000; // от 0 до 10000 мс
+                    // Плавная синусоидальная пульсация яркости предметов (пик каждые 1.5 секунды)
+                    itemGlowIntensity = 0.3 + 0.7 * Math.abs(Math.sin((darkTime / 1000) * Math.PI));
                 } else {
                     // 3. Плавный рассвет от 1 до 0 за последние 5 секунд
                     darknessAlpha = 1.0 - ((cycleElapsed - 15000) / 5000);
+                    itemGlowIntensity = 1.0;
                 }
             } else if (bossHp <= 170 && currentBoss === "dasha") {
                 dashaActiveStartTime = 0; 
@@ -1129,17 +1135,17 @@
 
                 if (!items[i]) continue;
 
-                // Отрисовка предметов: во время темноты они ВСЕГДА горят ярким лунным светом и не исчезают
+                // Отрисовка предметов: во время 10-секундной темноты они пульсируют светом, но никогда не исчезают полностью
                 if (isDarkPhaseActive && darknessAlpha > 0.05) {
                     ctx.save();
                     
-                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 60);
-                    moonGlow.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
-                    moonGlow.addColorStop(0.5, 'rgba(0, 210, 255, 0.7)');
+                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
+                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${itemGlowIntensity})`);
+                    moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${itemGlowIntensity * 0.75})`);
                     moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
                     ctx.beginPath();
-                    ctx.arc(item.x, item.y, 60, 0, Math.PI * 2);
+                    ctx.arc(item.x, item.y, 65, 0, Math.PI * 2);
                     ctx.fillStyle = moonGlow;
                     ctx.fill();
 
