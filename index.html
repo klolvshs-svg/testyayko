@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v133_dasha_balanced_hp400_shields";
+        const CURRENT_APP_VERSION = "v134_fans_drop_straight_down";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -567,13 +567,12 @@
 
                     let activeTables = items.filter(it => it.type === "table" || it.type === "sword").length;
                     
-                    // HP > 400: стульев больше, чем мечей, но их меньше, чем в яростной фазе (< 150)
                     let tableSpawnChance = (bossHp > 400) ? 0.024 : 0.0168; 
                     let maxActiveTables = (bossHp > 400) ? 3 : 3;
 
-                    // HP от 400 до 150: стулья и ножи аккуратно падают из углов
+                    // HP от 400 до 150: частота угловых предметов уменьшена ещё на 20% (было 0.015 -> стало 0.012)
                     if (bossHp <= 400 && bossHp >= 150) {
-                        if (Math.random() < 0.015) {
+                        if (Math.random() < 0.012) {
                             let fromLeft = Math.random() < 0.5;
                             let cornerItemType = Math.random() < 0.60 ? "table" : "sword";
                             items.push({
@@ -589,17 +588,17 @@
                         }
                     }
 
-                    // Яростная фаза (< 150 HP)
+                    // Яростная фаза (< 150 HP): вееры падают строго сверху вниз прямо на игрока
                     if (bossHp < 150) {
                         tableSpawnChance = 0.07; 
                         maxActiveTables = 9;
 
                         if (Math.random() < 0.0044) {
                             items.push({
-                                x: Math.random() * (W - 80) + 40,
+                                x: player.x, // Спавним прямо над текущей позицией игрока
                                 y: -30,
-                                vy: 2.2,
-                                vx: (Math.random() - 0.5) * 1.5,
+                                vy: 4.5 + Math.random() * 1.5, // Падение прямо вниз
+                                vx: 0, // Без бокового смещения
                                 type: "fan_item",
                                 rotation: 0,
                                 rotationSpeed: 0.03
@@ -699,8 +698,7 @@
                                         x: bossX,
                                         y: bossY + 20,
                                         vx: vx,
-                                        speed: 5.0,
-                                        rotation: (vx > 0 ? 0.06 : -0.06),
+                                        speed: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb"
                                     });
                                 });
@@ -1088,7 +1086,6 @@
                         else if (rand >= 0.52 && rand < 0.62) type = "bomb";
                         else type = "sword";
                     } else if (bossState === "active" && currentBoss === "dasha") {
-                        // Редкий аккуратный спавн щитов во время битвы с Дашей (если нет щита)
                         if (!hasShield && rand < 0.08) {
                             type = "shield";
                         } else if (rand >= 0.08 && rand < 0.35) {
