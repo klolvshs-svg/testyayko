@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v135_dasha_darkness_cycle_3s_2s_3s";
+        const CURRENT_APP_VERSION = "v136_dasha_darkness_hides_items";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -292,7 +292,7 @@
         let bossMaxHp = 500; 
         let bossHp = 500;
 
-        let dashaActiveStartTime = 0; // Время начала активной фазы Даши для расчета цикла затемнения
+        let dashaActiveStartTime = 0; 
 
         // Загрузка текстур
         const dashaImg = new Image();
@@ -699,121 +699,13 @@
                                         x: bossX,
                                         y: bossY + 20,
                                         vx: vx,
-                                        speed: 5.0,
-                                        rotation: (vx > 0 ? 0.06 : -0.06),
+                                        speed: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb"
                                     });
                                 });
                             }
                         }
                     }
-                }
-
-                let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
-                if (activeImg.complete && activeImg.naturalWidth !== 0) {
-                    ctx.drawImage(activeImg, bossX - 28, bossY - 28, 56, 56);
-                    
-                    if (currentBoss === "rita" && bossHp < 100) {
-                        ctx.fillStyle = "rgba(100, 50, 160, 0.8)";
-                        ctx.beginPath();
-                        ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2);
-                        ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    if (currentBoss === "dasha") {
-                        bossWhiteSplats = bossWhiteSplats.filter(s => now < s.expiresAt);
-                        bossWhiteSplats.forEach(s => {
-                            ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-                            s.blobs.forEach(b => {
-                                ctx.beginPath();
-                                ctx.arc(bossX + s.offsetX + b.dx, bossY + s.offsetY + b.dy, b.r, 0, Math.PI * 2);
-                                ctx.fill();
-                            });
-                            ctx.beginPath();
-                            ctx.arc(bossX + s.offsetX, bossY + s.offsetY, 10, 0, Math.PI * 2);
-                            ctx.fill();
-                        });
-                    }
-                } else {
-                    ctx.font = "40px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText(currentBoss === "dasha" ? "🧝‍♀️" : "👑", bossX, bossY + 10);
-                }
-
-                let barWidth = 220;
-                let barHeight = 12;
-                let barX = W / 2 - barWidth / 2;
-                let barY = 20;
-
-                ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-                ctx.fillRect(barX, barY, barWidth, barHeight);
-
-                let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
-                ctx.fillStyle = (currentBoss === "dasha") ? "#00d2ff" : "#ff3333";
-                ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
-
-                ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 2;
-                ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-                ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 12px Arial";
-                ctx.textAlign = "center";
-                let bossTitleName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
-                ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
-            }
-
-            for (let f = flyingFists.length - 1; f >= 0; f--) {
-                let ff = flyingFists[f];
-                let angle = Math.atan2(bossY - ff.y, bossX - ff.x);
-                ff.x += Math.cos(angle) * ff.speed;
-                ff.y += Math.sin(angle) * ff.speed;
-
-                ctx.font = "26px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText("✊", ff.x, ff.y);
-
-                if (Math.hypot(bossX - ff.x, bossY - ff.y) < 25) {
-                    bossHp -= 10;
-                    flyingFists.splice(f, 1);
-                }
-            }
-
-            for (let f = flyingWhiteDrops.length - 1; f >= 0; f--) {
-                let fd = flyingWhiteDrops[f];
-                let angle = Math.atan2(bossY - fd.y, bossX - fd.x);
-                fd.x += Math.cos(angle) * fd.speed;
-                fd.y += Math.sin(angle) * fd.speed;
-
-                ctx.save();
-                ctx.translate(fd.x, fd.y);
-                ctx.rotate(angle + Math.PI / 2);
-                ctx.beginPath();
-                ctx.moveTo(0, -10);
-                ctx.bezierCurveTo(7, -2, 7, 8, 0, 10);
-                ctx.bezierCurveTo(-7, 8, -7, -2, 0, -10);
-                ctx.fillStyle = "#ffffff";
-                ctx.shadowColor = "#ffffff";
-                ctx.shadowBlur = 8;
-                ctx.fill();
-                ctx.restore();
-
-                if (Math.hypot(bossX - fd.x, bossY - fd.y) < 25) {
-                    bossHp = Math.max(0, bossHp - 10);
-                    
-                    bossWhiteSplats.push({
-                        offsetX: Math.random() * 32 - 16,
-                        offsetY: Math.random() * 32 - 16,
-                        blobs: Array.from({length: 4}, () => ({
-                            dx: Math.random() * 24 - 12,
-                            dy: Math.random() * 24 - 12,
-                            r: 5 + Math.random() * 7
-                        })),
-                        expiresAt: now + 2000
-                    });
-
-                    flyingWhiteDrops.splice(f, 1);
                 }
             }
 
@@ -941,158 +833,56 @@
             }
             const speedMultiplier = globalSpeedMul;
 
-            // ЭФФЕКТ ЗАТЕМНЕНИЯ ЭКРАНА ДЛЯ ДАШИ (когда HP < 300 и HP >= 200)
-            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
-                let cycleElapsed = (now - dashaActiveStartTime) % 8000; // 8 секунд цикл
-                let darknessAlpha = 0;
+            for (let f = flyingFists.length - 1; f >= 0; f--) {
+                let ff = flyingFists[f];
+                let angle = Math.atan2(bossY - ff.y, bossX - ff.x);
+                ff.x += Math.cos(angle) * ff.speed;
+                ff.y += Math.sin(angle) * ff.speed;
 
-                if (cycleElapsed < 3000) {
-                    // Первые 3 сек: плавное затемнение от 0 до 1
-                    darknessAlpha = cycleElapsed / 3000;
-                } else if (cycleElapsed < 5000) {
-                    // Следующие 2 сек (с 3 по 5 сек): полностью темно (alpha = 1)
-                    darknessAlpha = 1.0;
-                } else {
-                    // Последние 3 сек (с 5 по 8 сек): плавное рассветление от 1 до 0
-                    darknessAlpha = 1.0 - ((cycleElapsed - 5000) / 3000);
-                }
-
-                ctx.save();
-                ctx.fillStyle = `rgba(0, 0, 0, ${darknessAlpha})`;
-                ctx.fillRect(0, 0, W, H);
-                ctx.restore();
-            }
-
-            // ИНТЕРФЕЙС
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 15px Arial";
-            ctx.textAlign = "left";
-            ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
-            ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
-
-            let statusY = 75;
-            if (isInvincible) {
-                ctx.fillStyle = "#ffcc00";
-                ctx.fillText("⛩ Непробиваемость!", 12, statusY);
-                statusY += 18;
-            }
-            if (hasShield && !isInvincible) {
-                ctx.fillStyle = "#00d2ff";
-                ctx.fillText("🛡 Щит активен!", 12, statusY);
-                statusY += 18;
-            }
-            if (hasHelmet && !isInvincible) {
-                ctx.fillStyle = "#ff9900";
-                ctx.fillText("🪖 Каска активна!", 12, statusY);
-                statusY += 18;
-            }
-            if (hasFanActive) {
-                ctx.fillStyle = "#00ffcc";
-                ctx.fillText("🪭 Веер активен!", 12, statusY);
-                statusY += 18;
-            }
-            if (isEggSlowed) {
-                ctx.fillStyle = "#99ffff";
-                ctx.fillText("❄️ Яйцо замедлено!", 12, statusY);
-            }
-
-            const renderPlayerX = Math.round(player.x);
-            const renderPlayerY = Math.round(player.y);
-
-            if (eggImg.complete && eggImg.naturalWidth !== 0) {
-                let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
-                let drawH = 50; 
-                let drawW = drawH * imgAspect; 
-                let renderX = Math.round(renderPlayerX - drawW / 2);
-                let renderY = Math.round(renderPlayerY - drawH / 2);
-                ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
-            } else {
-                ctx.font = "40px Arial";
+                ctx.font = "26px Arial";
                 ctx.textAlign = "center";
-                ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
-            }
+                ctx.fillText("✊", ff.x, ff.y);
 
-            if (isInvincible) {
-                ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
-                ctx.strokeStyle = "#ffcc00";
-                ctx.lineWidth = 5;
-                ctx.stroke();
-            }
-            if (hasShield) {
-                ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 12, 0, Math.PI * 2);
-                ctx.strokeStyle = "#00d2ff";
-                ctx.lineWidth = 4;
-                ctx.stroke();
-            }
-            if (hasHelmet) {
-                ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 15, 0, Math.PI * 2);
-                ctx.strokeStyle = "#ff9900";
-                ctx.lineWidth = 4;
-                ctx.stroke();
-            }
-            if (hasFanActive) {
-                ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 20, 0, Math.PI * 2);
-                ctx.strokeStyle = "#00ffcc";
-                ctx.lineWidth = 3;
-                ctx.stroke();
-            }
-
-            if (fanWindAnimation && now - fanWindAnimation.startTime < 800) {
-                let progress = (now - fanWindAnimation.startTime) / 800;
-                ctx.save();
-                ctx.strokeStyle = "rgba(0, 255, 204, " + (1 - progress) + ")";
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, progress * 220, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.restore();
-            } else {
-                fanWindAnimation = null;
-            }
-
-            if (bossState === "active" && currentBoss === "rita") {
-                if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
-                    activeWaterStreams.push({
-                        x: bossX, 
-                        width: 24, 
-                        warningTime: now + 1000, 
-                        activeUntil: now + 2000  
-                    });
+                if (Math.hypot(bossX - ff.x, bossY - ff.y) < 25) {
+                    bossHp -= 10;
+                    flyingFists.splice(f, 1);
                 }
+            }
 
-                for (let s = activeWaterStreams.length - 1; s >= 0; s--) {
-                    let stream = activeWaterStreams[s];
-                    if (now < stream.warningTime) {
-                        stream.x = bossX;
-                        ctx.strokeStyle = "#ffdd00";
-                        ctx.lineWidth = 3;
-                        ctx.setLineDash([8, 6]);
-                        ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, H);
-                        ctx.setLineDash([]);
-                    } else if (now < stream.activeUntil) {
-                        ctx.fillStyle = "rgba(255, 220, 50, 0.35)";
-                        ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, H);
+            for (let f = flyingWhiteDrops.length - 1; f >= 0; f--) {
+                let fd = flyingWhiteDrops[f];
+                let angle = Math.atan2(bossY - fd.y, bossX - fd.x);
+                fd.x += Math.cos(angle) * fd.speed;
+                fd.y += Math.sin(angle) * fd.speed;
 
-                        if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
-                            if (!isInvincible) {
-                                if (hasShield) {
-                                    hasShield = false;
-                                    activeWaterStreams.splice(s, 1);
-                                    continue;
-                                } else {
-                                    showGameOver();
-                                    requestAnimationFrame(gameLoop);
-                                    return;
-                                }
-                            }
-                        }
-                    } else {
-                        activeWaterStreams.splice(s, 1);
-                    }
+                ctx.save();
+                ctx.translate(fd.x, fd.y);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.beginPath();
+                ctx.moveTo(0, -10);
+                ctx.bezierCurveTo(7, -2, 7, 8, 0, 10);
+                ctx.bezierCurveTo(-7, 8, -7, -2, 0, -10);
+                ctx.fillStyle = "#ffffff";
+                ctx.shadowColor = "#ffffff";
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.restore();
+
+                if (Math.hypot(bossX - fd.x, bossY - fd.y) < 25) {
+                    bossHp = Math.max(0, bossHp - 10);
+                    
+                    bossWhiteSplats.push({
+                        offsetX: Math.random() * 32 - 16,
+                        offsetY: Math.random() * 32 - 16,
+                        blobs: Array.from({length: 4}, () => ({
+                            dx: Math.random() * 24 - 12,
+                            dy: Math.random() * 24 - 12,
+                            r: 5 + Math.random() * 7
+                        })),
+                        expiresAt: now + 2000
+                    });
+
+                    flyingWhiteDrops.splice(f, 1);
                 }
             }
 
@@ -1412,6 +1202,218 @@
                         mlEarned += 0.015; 
                     }
                     items.splice(i, 1);
+                }
+            }
+
+            // ЭФФЕКТ ЗАТЕМНЕНИЯ СЛЕПОЙ ФАЗЫ (Накладывается поверх летящих предметов, но ПОД боссом и игроком)
+            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
+                let cycleElapsed = (now - dashaActiveStartTime) % 8000; // Полный цикл 8 секунд
+                let darknessAlpha = 0;
+
+                if (cycleElapsed < 3000) {
+                    // 3 сек: плавное затемнение 0 -> 1
+                    darknessAlpha = cycleElapsed / 3000;
+                } else if (cycleElapsed < 5000) {
+                    // 2 сек: абсолютная темнота (1.0), ничего из предметов не видно
+                    darknessAlpha = 1.0;
+                } else {
+                    // 3 сек: плавное прояснение 1 -> 0
+                    darknessAlpha = 1.0 - ((cycleElapsed - 5000) / 3000);
+                }
+
+                ctx.save();
+                ctx.fillStyle = `rgba(15, 23, 33, ${darknessAlpha})`;
+                ctx.fillRect(0, 0, W, H);
+                ctx.restore();
+            }
+
+            // ОТРИСОВКА БОССА (Рисуется ПОВЕРХ затемнения, поэтому он всегда виден)
+            if (bossState === "active") {
+                let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
+                if (activeImg.complete && activeImg.naturalWidth !== 0) {
+                    ctx.drawImage(activeImg, bossX - 28, bossY - 28, 56, 56);
+                    
+                    if (currentBoss === "rita" && bossHp < 100) {
+                        ctx.fillStyle = "rgba(100, 50, 160, 0.8)";
+                        ctx.beginPath();
+                        ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2);
+                        ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    if (currentBoss === "dasha") {
+                        bossWhiteSplats = bossWhiteSplats.filter(s => now < s.expiresAt);
+                        bossWhiteSplats.forEach(s => {
+                            ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+                            s.blobs.forEach(b => {
+                                ctx.beginPath();
+                                ctx.arc(bossX + s.offsetX + b.dx, bossY + s.offsetY + b.dy, b.r, 0, Math.PI * 2);
+                                ctx.fill();
+                            });
+                            ctx.beginPath();
+                            ctx.arc(bossX + s.offsetX, bossY + s.offsetY, 10, 0, Math.PI * 2);
+                            ctx.fill();
+                        });
+                    }
+                } else {
+                    ctx.font = "40px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText(currentBoss === "dasha" ? "🧝‍♀️" : "👑", bossX, bossY + 10);
+                }
+
+                let barWidth = 220;
+                let barHeight = 12;
+                let barX = W / 2 - barWidth / 2;
+                let barY = 20;
+
+                ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
+                ctx.fillStyle = (currentBoss === "dasha") ? "#00d2ff" : "#ff3333";
+                ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
+
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 12px Arial";
+                ctx.textAlign = "center";
+                let bossTitleName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
+                ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
+            }
+
+            // ИНТЕРФЕЙС И ЯЙЦО (Отрисовываются ПОВЕРХ затемнения)
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 15px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
+            ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
+
+            let statusY = 75;
+            if (isInvincible) {
+                ctx.fillStyle = "#ffcc00";
+                ctx.fillText("⛩ Непробиваемость!", 12, statusY);
+                statusY += 18;
+            }
+            if (hasShield && !isInvincible) {
+                ctx.fillStyle = "#00d2ff";
+                ctx.fillText("🛡 Щит активен!", 12, statusY);
+                statusY += 18;
+            }
+            if (hasHelmet && !isInvincible) {
+                ctx.fillStyle = "#ff9900";
+                ctx.fillText("🪖 Каска активна!", 12, statusY);
+                statusY += 18;
+            }
+            if (hasFanActive) {
+                ctx.fillStyle = "#00ffcc";
+                ctx.fillText("🪭 Веер активен!", 12, statusY);
+                statusY += 18;
+            }
+            if (isEggSlowed) {
+                ctx.fillStyle = "#99ffff";
+                ctx.fillText("❄️ Яйцо замедлено!", 12, statusY);
+            }
+
+            const renderPlayerX = Math.round(player.x);
+            const renderPlayerY = Math.round(player.y);
+
+            if (eggImg.complete && eggImg.naturalWidth !== 0) {
+                let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
+                let drawH = 50; 
+                let drawW = drawH * imgAspect; 
+                let renderX = Math.round(renderPlayerX - drawW / 2);
+                let renderY = Math.round(renderPlayerY - drawH / 2);
+                ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
+            } else {
+                ctx.font = "40px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
+            }
+
+            if (isInvincible) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
+                ctx.strokeStyle = "#ffcc00";
+                ctx.lineWidth = 5;
+                ctx.stroke();
+            }
+            if (hasShield) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 12, 0, Math.PI * 2);
+                ctx.strokeStyle = "#00d2ff";
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+            if (hasHelmet) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 15, 0, Math.PI * 2);
+                ctx.strokeStyle = "#ff9900";
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+            if (hasFanActive) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 20, 0, Math.PI * 2);
+                ctx.strokeStyle = "#00ffcc";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            if (fanWindAnimation && now - fanWindAnimation.startTime < 800) {
+                let progress = (now - fanWindAnimation.startTime) / 800;
+                ctx.save();
+                ctx.strokeStyle = "rgba(0, 255, 204, " + (1 - progress) + ")";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, progress * 220, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            } else {
+                fanWindAnimation = null;
+            }
+
+            if (bossState === "active" && currentBoss === "rita") {
+                if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
+                    activeWaterStreams.push({
+                        x: bossX, 
+                        width: 24, 
+                        warningTime: now + 1000, 
+                        activeUntil: now + 2000  
+                    });
+                }
+
+                for (let s = activeWaterStreams.length - 1; s >= 0; s--) {
+                    let stream = activeWaterStreams[s];
+                    if (now < stream.warningTime) {
+                        stream.x = bossX;
+                        ctx.strokeStyle = "#ffdd00";
+                        ctx.lineWidth = 3;
+                        ctx.setLineDash([8, 6]);
+                        ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, H);
+                        ctx.setLineDash([]);
+                    } else if (now < stream.activeUntil) {
+                        ctx.fillStyle = "rgba(255, 220, 50, 0.35)";
+                        ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, H);
+
+                        if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
+                            if (!isInvincible) {
+                                if (hasShield) {
+                                    hasShield = false;
+                                    activeWaterStreams.splice(s, 1);
+                                    continue;
+                                } else {
+                                    showGameOver();
+                                    requestAnimationFrame(gameLoop);
+                                    return;
+                                }
+                            }
+                        }
+                    } else {
+                        activeWaterStreams.splice(s, 1);
+                    }
                 }
             }
 
