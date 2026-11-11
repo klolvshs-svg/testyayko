@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v137_dasha_darkness_20s_cycle_glowing_items";
+        const CURRENT_APP_VERSION = "v138_dasha_glow_items_visible";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -425,6 +425,101 @@
 
         function showWithdrawModalFromStart() {
             showWithdrawModal();
+        }
+
+        // Функция вспомогательной отрисовки предметов
+        function drawSingleItem(item) {
+            ctx.font = "35px Arial";
+            ctx.textAlign = "center";
+
+            if (item.type === "sword" && item.subType !== "corner_sword") ctx.fillText("🗡", item.x, item.y);
+            else if (item.type === "sword" && item.subType === "corner_sword") {
+                ctx.save();
+                ctx.translate(item.x, item.y);
+                item.rotation = (item.rotation || 0) + 0.08;
+                ctx.rotate(item.rotation);
+                ctx.font = "32px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🗡", 0, 0);
+                ctx.restore();
+            }
+            else if (item.type === "fan_item") {
+                ctx.save();
+                ctx.translate(item.x, item.y);
+                ctx.rotate(item.rotation || 0);
+                ctx.font = "26px Arial"; 
+                ctx.textAlign = "center";
+                ctx.fillText("🪭", 0, 0);
+                ctx.restore();
+            }
+            else if (item.type === "table") {
+                ctx.save();
+                ctx.translate(item.x, item.y);
+                item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
+                ctx.rotate(item.rotation);
+                ctx.font = "35px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🪑", 0, 10);
+                ctx.restore();
+            }
+            else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y);
+            else if (item.type === "fan") ctx.fillText("🪭", item.x, item.y);
+            else if (item.type === "white_drop") {
+                ctx.save();
+                ctx.translate(item.x, item.y);
+                ctx.beginPath();
+                ctx.moveTo(0, -12);
+                ctx.bezierCurveTo(9, -3, 9, 10, 0, 13);
+                ctx.bezierCurveTo(-9, 10, -9, -3, 0, -12);
+                ctx.fillStyle = "#ffffff";
+                ctx.shadowColor = "#ffffff";
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.restore();
+            }
+            else if (item.type === "bomb") {
+                if (bombImg.complete && bombImg.naturalWidth !== 0) {
+                    let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
+                    let drawH = 40;
+                    let drawW = drawH * imgAspect;
+                    ctx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
+                } else {
+                    ctx.fillText("💣", item.x, item.y);
+                }
+            }
+            else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
+            else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
+            else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
+            else if (item.type === "splash") ctx.fillText("💦", item.x, item.y);
+            else if (item.type === "torii") ctx.fillText("⛩", item.x, item.y);
+            else if (item.type === "blood") ctx.fillText("🩸", item.x, item.y);
+            else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
+            else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
+            else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
+            else if (item.type === "yellow_orb") {
+                ctx.save();
+                ctx.translate(item.x, item.y);
+                if (item.rotationSpeed) {
+                    item.rotation += item.rotationSpeed;
+                    ctx.rotate(item.rotation);
+                }
+                ctx.beginPath();
+                ctx.moveTo(0, -14);
+                ctx.bezierCurveTo(12, -2, 12, 12, 0, 14);
+                ctx.bezierCurveTo(-12, 12, -12, -2, 0, -14);
+                ctx.fillStyle = "#ffcc00";
+                ctx.fill();
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
+            } else if (item.type === "random_cube") {
+                if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
+                    ctx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
+                } else {
+                    ctx.fillText("🎁", item.x, item.y);
+                }
+            }
         }
 
         function gameLoop() {
@@ -945,6 +1040,7 @@
                 }
             }
 
+            // ДВИЖЕНИЕ ПРЕДМЕТОВ И ПРОВЕРКА СТОЛКНОВЕНИЙ
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
 
@@ -1004,97 +1100,8 @@
 
                 if (!items[i]) continue;
 
-                ctx.font = "35px Arial";
-                ctx.textAlign = "center";
-
-                if (item.type === "sword" && item.subType !== "corner_sword") ctx.fillText("🗡", item.x, item.y);
-                else if (item.type === "sword" && item.subType === "corner_sword") {
-                    ctx.save();
-                    ctx.translate(item.x, item.y);
-                    item.rotation = (item.rotation || 0) + 0.08;
-                    ctx.rotate(item.rotation);
-                    ctx.font = "32px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText("🗡", 0, 0);
-                    ctx.restore();
-                }
-                else if (item.type === "fan_item") {
-                    ctx.save();
-                    ctx.translate(item.x, item.y);
-                    ctx.rotate(item.rotation || 0);
-                    ctx.font = "26px Arial"; 
-                    ctx.textAlign = "center";
-                    ctx.fillText("🪭", 0, 0);
-                    ctx.restore();
-                }
-                else if (item.type === "table") {
-                    ctx.save();
-                    ctx.translate(item.x, item.y);
-                    item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
-                    ctx.rotate(item.rotation);
-                    ctx.font = "35px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText("🪑", 0, 10);
-                    ctx.restore();
-                }
-                else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y);
-                else if (item.type === "fan") ctx.fillText("🪭", item.x, item.y);
-                else if (item.type === "white_drop") {
-                    ctx.save();
-                    ctx.translate(item.x, item.y);
-                    ctx.beginPath();
-                    ctx.moveTo(0, -12);
-                    ctx.bezierCurveTo(9, -3, 9, 10, 0, 13);
-                    ctx.bezierCurveTo(-9, 10, -9, -3, 0, -12);
-                    ctx.fillStyle = "#ffffff";
-                    ctx.shadowColor = "#ffffff";
-                    ctx.shadowBlur = 10;
-                    ctx.fill();
-                    ctx.restore();
-                }
-                else if (item.type === "bomb") {
-                    if (bombImg.complete && bombImg.naturalWidth !== 0) {
-                        let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                        let drawH = 40;
-                        let drawW = drawH * imgAspect;
-                        ctx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
-                    } else {
-                        ctx.fillText("💣", item.x, item.y);
-                    }
-                }
-                else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
-                else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
-                else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
-                else if (item.type === "splash") ctx.fillText("💦", item.x, item.y);
-                else if (item.type === "torii") ctx.fillText("⛩", item.x, item.y);
-                else if (item.type === "blood") ctx.fillText("🩸", item.x, item.y);
-                else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
-                else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
-                else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
-                else if (item.type === "yellow_orb") {
-                    ctx.save();
-                    ctx.translate(item.x, item.y);
-                    if (item.rotationSpeed) {
-                        item.rotation += item.rotationSpeed;
-                        ctx.rotate(item.rotation);
-                    }
-                    ctx.beginPath();
-                    ctx.moveTo(0, -14);
-                    ctx.bezierCurveTo(12, -2, 12, 12, 0, 14);
-                    ctx.bezierCurveTo(-12, 12, -12, -2, 0, -14);
-                    ctx.fillStyle = "#ffcc00";
-                    ctx.fill();
-                    ctx.strokeStyle = "#ffffff";
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-                    ctx.restore();
-                } else if (item.type === "random_cube") {
-                    if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
-                        ctx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
-                    } else {
-                        ctx.fillText("🎁", item.x, item.y);
-                    }
-                }
+                // Рисуем предметы вобычном режиме (когда нет полных затемнений)
+                drawSingleItem(item);
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
                 if (dist < player.radius + 15) {
@@ -1205,78 +1212,56 @@
                 }
             }
 
-            // ЭФФЕКТ ЗАТЕМНЕНИЯ (Цикл 20 секунд: 10 сек светло -> 5 сек затемнение -> 10 сек темнота с красивой подсветкой -> 5 сек рассвет)
-            if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
-                let cycleElapsed = (now - dashaActiveStartTime) % 20000; 
-                let darknessAlpha = 0;
-
-                if (cycleElapsed < 10000) {
-                    // Первые 10 секунд: светло (alpha = 0)
-                    darknessAlpha = 0;
-                } else if (cycleElapsed < 15000) {
-                    // С 10 по 15 сек (5 секунд): плавное затемнение 0 -> 1
-                    darknessAlpha = (cycleElapsed - 10000) / 5000;
-                } else if (cycleElapsed < 25000) { // до 25 сек (15-я секунда + 10 секунд абсолютной темноты)
-                    // С 15 по 25 сек (10 секунд): полностью темно (alpha = 1)
-                    darknessAlpha = 1.0;
-                } else {
-                    // Последние 5 секунд (с 25 до 30 сек по логике, но цикл 20 сек, поэтому поправка на тайминг: 
-                    // С 15 по 20 сек — 5 секунд рассветления)
-                }
-
-                // Корректный расчёт 20-секундного цикла:
-                // 0 - 10 сек: 0
-                // 10 - 15 сек: плавно 0 -> 1 (5 сек)
-                // 15 - 18 сек: 1.0 (но нам нужно 10 сек темноты, значит весь цикл 25 секунд!)
-            }
-
-            // ПЕРЕСЧИТЫВАЕМ ЦИКЛ ТОЧНО ПО ВАШИМ ТАЙМИНГАМ (Общая длительность = 10 свет + 5 затемнение + 10 темнота + 5 рассвет = 30 секунд)
-            // Давай сделаем 30-секундный цикл, чтобы всё идеально влезло:
+            // ЭФФЕКТ ЗАТЕМНЕНИЯ С КРАСИВОЙ ПОДСВЕТКОЙ ПРЕДМЕТОВ ВО ТЬМЕ
             if (bossState === "active" && currentBoss === "dasha" && bossHp < 300 && bossHp >= 200) {
                 let cycleElapsed = (now - dashaActiveStartTime) % 30000; 
                 let darknessAlpha = 0;
-                let glowAlpha = 0; // Красивая подсветка предметов
+                let glowAlpha = 0; 
 
                 if (cycleElapsed < 10000) {
-                    // 10 сек: светло
                     darknessAlpha = 0;
                 } else if (cycleElapsed < 15000) {
-                    // 5 сек: плавное затемнение
                     darknessAlpha = (cycleElapsed - 10000) / 5000;
                 } else if (cycleElapsed < 25000) {
-                    // 10 сек: полная темнота (alpha = 1)
-                    darknessAlpha = 1.0;
+                    darknessAlpha = 1.0; // Абсолютная темнота
                     
-                    // Красивая пульсирующая подсветка предметов в темноте (появляется и пропадает за 1 секунду)
-                    let darkTime = cycleElapsed - 15000; // от 0 до 10000 мс
-                    let pulsePhase = darkTime % 2000; // каждые 2 секунды цикл пульсации (1с появление, 1с затухание)
+                    let darkTime = cycleElapsed - 15000; 
+                    let pulsePhase = darkTime % 2000; // каждые 2 секунды цикл пульсации
                     if (pulsePhase < 1000) {
-                        glowAlpha = pulsePhase / 1000; // наростание от 0 до 1
+                        glowAlpha = pulsePhase / 1000; // 1 сек плавный плач света
                     } else {
-                        glowAlpha = (2000 - pulsePhase) / 1000; // затухание от 1 до 0
+                        glowAlpha = (2000 - pulsePhase) / 1000; // 1 сек затухание
                     }
                 } else {
-                    // 5 сек: плавное рассветление
                     darknessAlpha = 1.0 - ((cycleElapsed - 25000) / 5000);
                 }
 
+                // Рисуем затемнение экрана
                 ctx.save();
                 ctx.fillStyle = `rgba(15, 23, 33, ${darknessAlpha})`;
                 ctx.fillRect(0, 0, W, H);
 
-                // Если экран погрузился в темноту, рисуем красивую неоновую подсветку летящих предметов
+                // Если экран погрузился в темноту, подсвечиваем предметы прозрачным светящимся ореолом И рисуем сам предмет!
                 if (glowAlpha > 0) {
                     items.forEach(item => {
                         ctx.save();
+                        
+                        // 1. Прозрачный светящийся кружок вокруг предмета
                         ctx.beginPath();
                         ctx.arc(item.x, item.y, 28, 0, Math.PI * 2);
-                        ctx.fillStyle = `rgba(0, 210, 255, ${glowAlpha * 0.35})`;
+                        ctx.fillStyle = `rgba(0, 210, 255, ${glowAlpha * 0.25})`; // Мягкое прозрачное свечение
                         ctx.shadowColor = "#00d2ff";
-                        ctx.shadowBlur = 15;
+                        ctx.shadowBlur = 18;
                         ctx.fill();
-                        ctx.strokeStyle = `rgba(255, 255, 255, ${glowAlpha * 0.7})`;
+                        
+                        ctx.strokeStyle = `rgba(0, 210, 255, ${glowAlpha * 0.8})`; // Светящаяся рамка круга
                         ctx.lineWidth = 2;
                         ctx.stroke();
+
+                        // 2. ОТРИСОВКА САМОГО ПРЕДМЕТА ПОВЕРХ СВЕТЯЩЕГОСЯ КРУГА (он полностью виден!)
+                        ctx.globalAlpha = glowAlpha;
+                        drawSingleItem(item);
+
                         ctx.restore();
                     });
                 }
@@ -1284,7 +1269,7 @@
                 ctx.restore();
             }
 
-            // ОТРИСОВКА БОССА (Всегда виден поверх затемнения)
+            // ОТРИСОВКА БОССА (Всегда виден)
             if (bossState === "active") {
                 let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
