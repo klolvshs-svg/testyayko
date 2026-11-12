@@ -227,7 +227,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v158_item_and_light_disappear_fully";
+        const CURRENT_APP_VERSION = "v159_faster_flicker_sync";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1068,7 +1068,7 @@
             // ПРОВЕРКА ФАЗЫ БОССА ДАШИ И ЕЁ ЗДОРОВЬЯ (< 300)
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
             
-            // Расчет цикла: 15 секунд мигания + 5 секунд ровного лунного свечения (всего 20 секунд цикл)
+            // Расчет цикла: 15 секунд ускоренного мигания + 5 секунд ровного лунного свечения (всего 20 секунд цикл)
             let isFlickerPhaseActive = false;
             let isSteadyGlowActive = false;
             
@@ -1078,7 +1078,7 @@
                 }
                 let cycleTime = (now - dashaPhaseStartTime) % 20000;
                 if (cycleTime < 15000) {
-                    isFlickerPhaseActive = true; // 15 сек мигания
+                    isFlickerPhaseActive = true; // 15 сек ускоренного мигания
                 } else {
                     isSteadyGlowActive = true;   // 5 сек ровного свечения
                 }
@@ -1099,9 +1099,9 @@
                 vaporTransitionStartTime = 0;
             }
 
-            // Единый таймер синхронного мигания для предметов по центру экрана
-            let centerZoneCycle = (now % 1600);
-            let centerVal = Math.sin((centerZoneCycle / 1600) * Math.PI * 2);
+            // Таймеры мигания: центр синхронно (ускоренно на ~0.5 сек быстрее, цикл 1100мс), бока с индивидуальным разбросом
+            let centerZoneCycle = (now % 1100);
+            let centerVal = Math.sin((centerZoneCycle / 1100) * Math.PI * 2);
             let centerZoneAlpha = centerVal > -0.3 ? Math.max(0.0, (centerVal + 0.3) / 1.3) : 0;
 
             // ДВИЖЕНИЕ ПРЕДМЕТОВ И ПРОВЕРКА СТОЛКНОВЕНИЙ
@@ -1164,27 +1164,28 @@
 
                 if (!items[i]) continue;
 
-                // СТРОГО СИНХРОННОЕ ИСЧЕЗНОВЕНИЕ И СВЕЧЕНИЕ ПРЕДМЕТА И СВЕТА ВМЕСТЕ В НОЛЬ
+                // СИНХРОННОЕ УСКОРЕННОЕ МИГАНИЕ С РАЗБРОСОМ ПО БОКАМ И ИСЧЕЗНОВЕНИЕМ В НОЛЬ
                 let renderWithMoon = false;
                 let alpha = 1.0;
 
                 if (isDashaActive && bossHp >= 170) {
                     renderWithMoon = true;
                     if (isSteadyGlowActive) {
-                        alpha = 0.85; // Стабильное ровное свечение
+                        alpha = 0.85; 
                     } else {
                         let centerX = W / 2;
                         let distanceFromCenter = Math.abs(item.x - centerX);
                         if (distanceFromCenter < W * 0.32) {
-                            alpha = centerZoneAlpha;
+                            alpha = centerZoneAlpha; // Центр синхронно
                         } else {
-                            let cycle = (now + (item.flickerOffset || 0)) % 1600;
-                            let val = Math.sin((cycle / 1600) * Math.PI * 2);
+                            // Бока по разному (с уникальным индивидуальным смещением)
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 1100;
+                            let val = Math.sin((sideCycle / 1100) * Math.PI * 2);
                             alpha = val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0;
                         }
                     }
                 } else if (isDashaActive && bossHp < 170) {
-                    // Плавный уход старого света в первые 1.5 сек в абсолютный ноль
+                    // Плавный уход в абсоютный ноль в первые 1.5 сек
                     let vaporOutP = vaporTransitionStartTime > 0 ? Math.max(0, 1.0 - (now - vaporTransitionStartTime) / 1500) : 0;
                     
                     if (vaporOutP > 0 && !item.shouldFlicker) {
@@ -1194,16 +1195,22 @@
                         if (distanceFromCenter < W * 0.32) {
                             alpha = centerZoneAlpha * vaporOutP;
                         } else {
-                            let cycle = (now + (item.flickerOffset || 0)) % 1600;
-                            let val = Math.sin((cycle / 1600) * Math.PI * 2);
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 1100;
+                            let val = Math.sin((sideCycle / 1100) * Math.PI * 2);
                             alpha = (val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0) * vaporOutP;
                         }
                     } else if (item.shouldFlicker) {
-                        // После испарения мигают ТОЛЬКО 35% предметов со светом (исчезая в ноль)
+                        // После испарения мигают ТОЛЬКО 35% предметов (ускоренно и с разбросом по бокам)
                         renderWithMoon = true;
-                        let cycle = (now + (item.flickerOffset || 0)) % 1600;
-                        let val = Math.sin((cycle / 1600) * Math.PI * 2);
-                        alpha = val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0;
+                        let centerX = W / 2;
+                        let distanceFromCenter = Math.abs(item.x - centerX);
+                        if (distanceFromCenter < W * 0.32) {
+                            alpha = centerZoneAlpha;
+                        } else {
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 1100;
+                            let val = Math.sin((sideCycle / 1100) * Math.PI * 2);
+                            alpha = val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0;
+                        }
                         
                         let vaporInP = vaporTransitionStartTime > 0 ? Math.min(1, (now - vaporTransitionStartTime) / 1500) : 1;
                         alpha *= vaporInP;
@@ -1222,12 +1229,11 @@
                     ctx.fillStyle = moonGlow;
                     ctx.fill();
 
-                    // ПРЕДМЕТ И СВЕТ ИСЧЕЗАЮТ ВМЕСТЕ ДО ИДЕАЛЬНОГО НУЛЯ
+                    // ПРЕДМЕТ И СВЕТ ИСЧЕЗАЮТ ВМЕСТЕ ДО НУЛЯ
                     ctx.globalAlpha = alpha;
                     drawSingleItem(item);
                     ctx.restore();
                 } else if (!renderWithMoon || alpha <= 0.005) {
-                    // Если это обычный предмет без лунного света или он сейчас полностью исчез в темноте
                     if (!renderWithMoon) {
                         drawSingleItem(item);
                     }
