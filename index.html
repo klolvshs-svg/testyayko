@@ -83,7 +83,6 @@
             border-radius: 2px;
             display: block;
         }
-        /* Красная точка на бургере при новых заявках или непрочитанных чатах */
         #burgerRedBadge {
             position: absolute;
             top: 6px;
@@ -117,7 +116,6 @@
             left: 0;
         }
 
-        /* Контейнер для кастомных падающих элементов в панели */
         #drawerCanvasContainer {
             position: absolute;
             top: 0;
@@ -218,8 +216,8 @@
             color: white;
             border: none;
             width: 100%;
-            margin-top: auto;
-            margin-bottom: 10px;
+            margin-top: 15px;
+            margin-bottom: 15px;
             font-size: 14px;
             padding: 9px;
             border-radius: 10px;
@@ -299,6 +297,12 @@
             overflow-y: auto;
         }
 
+        /* Увеличенная высота панели чата с прокруткой и отступом до кнопки вых */
+        #chatSectionPanel {
+            max-height: 380px !important;
+            height: 360px !important;
+        }
+
         .user-result-card {
             width: 100%;
             background: rgba(25, 35, 48, 0.8);
@@ -368,7 +372,7 @@
 
         .chat-messages-box {
             width: 100%;
-            height: 130px;
+            height: 250px;
             background: rgba(0,0,0,0.3);
             border-radius: 6px;
             padding: 6px;
@@ -386,6 +390,15 @@
             border-radius: 6px;
             max-width: 85%;
             word-break: break-word;
+            position: relative;
+            padding-bottom: 14px;
+        }
+        .chat-msg-status {
+            position: absolute;
+            bottom: 1px;
+            right: 6px;
+            font-size: 8px;
+            color: #b0e0e6;
         }
         .chat-msg.me {
             background: #248bda;
@@ -566,14 +579,14 @@
                                 <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()" style="flex-shrink:0;">✕ Назад</button>
                             </div>
                             <div id="chatMessagesBox" class="chat-messages-box"></div>
-                            <div style="display:flex; width:100%; gap:4px;">
-                                <input type="text" id="chatMessageInput" class="drawer-input" style="margin:0; font-size:12px; padding:6px;" placeholder="Сообщение..." />
+                            <div style="display:flex; width:100%; gap:4px; align-items:center;">
+                                <input type="text" id="chatMessageInput" class="drawer-input" style="margin:0; font-size:12px; padding:6px;" placeholder="Сообщение..." oninput="onMyTypingInput()" />
                                 <button class="btn-mini-action btn-mini-success" onclick="sendChatMessage()">➤</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ С ВЫБОРОМ ФАЙЛА АВАТАРКИ -->
+                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник">
@@ -678,6 +691,7 @@
         let activeChatFriendUid = null;
         let unsubscribeChat = null;
         let unsubscribePartnerStatus = null;
+        let typingTimeout = null;
 
         async function isNicknameAvailable(nickname) {
             const cleanNick = nickname.trim().toLowerCase();
@@ -715,6 +729,7 @@
                     balance_ml: 0,
                     friends: [],
                     friendRequests: [],
+                    inGame: false,
                     lastActive: serverTimestamp(),
                     createdAt: new Date()
                 });
@@ -723,11 +738,7 @@
                 localStorage.setItem("egg_total_ml_bank", "0.0");
                 alert("Аккаунт успешно создан!");
             } catch (error) {
-                if (error.code === 'auth/email-already-in-use') {
-                    alert("Такой ник уже занят!");
-                } else {
-                    alert("Ошибка: " + error.message);
-                }
+                alert("Ошибка создания аккаунта: " + error.message);
             }
         };
 
@@ -743,7 +754,19 @@
 
             try {
                 const fakeEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
-                await signInWithEmailAndPassword(auth, fakeEmail, password);
+                const userCredential = await signInWithEmailAndPassword(auth, fakeEmail, password);
+                
+                // Проверка: действительно ли этот ник совпадает с сохраненным в документе пользователя
+                const userDocSnap = await getDoc(doc(db, "users", userCredential.user.uid));
+                if (userDocSnap.exists()) {
+                    const actualNick = (userDocSnap.data().username || "").trim().toLowerCase();
+                    if (actualNick !== cleanUsername) {
+                        await signOut(auth);
+                        alert(`❌ Этот ник изменен на "${userDocSnap.data().username}". Вход по старому нику невозможен!`);
+                        return;
+                    }
+                }
+
                 alert("Вход выполнен успешно!");
             } catch (error) {
                 alert("Неверный ник или пароль!");
@@ -754,6 +777,9 @@
             const confirmed = confirm("Вы уверены, что хотите выйти из аккаунта?");
             if (confirmed) {
                 try {
+                    if (currentUid) {
+                        await updateDoc(doc(db, "users", currentUid), { inGame: false });
+                    }
                     if (unsubscribeUserDoc) unsubscribeUserDoc();
                     if (unsubscribeChat) unsubscribeChat();
                     if (unsubscribePartnerStatus) unsubscribePartnerStatus();
@@ -841,20 +867,24 @@
             }
         };
 
-        async function updateHeartbeat() {
+        async function updateHeartbeat(inGameStatus = false) {
             if (!currentUid) return;
             const now = Date.now();
-            if (now - lastHeartbeatTime > 10000) {
+            if (now - lastHeartbeatTime > 10000 || inGameStatus) {
                 lastHeartbeatTime = now;
                 try {
                     await updateDoc(doc(db, "users", currentUid), {
-                        lastActive: serverTimestamp()
+                        lastActive: serverTimestamp(),
+                        inGame: inGameStatus
                     });
                 } catch (e) {}
             }
         }
 
-        setInterval(updateHeartbeat, 10000);
+        setInterval(() => {
+            const inGame = (gameStarted && !isPaused && !gameOver);
+            updateHeartbeat(inGame);
+        }, 10000);
 
         onAuthStateChanged(auth, async (user) => {
             const loggedOutView = document.getElementById("drawerLoggedOut");
@@ -895,7 +925,7 @@
                     }
                 });
 
-                updateHeartbeat();
+                updateHeartbeat(false);
             } else {
                 currentUid = null;
                 currentUserData = null;
@@ -1042,7 +1072,7 @@
                     const ava = data.avatarUrl || "https://via.placeholder.com/70";
                     const balance = (data.balance_ml || 0).toFixed(3);
                     const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
-                    const statusText = formatLastActive(lastActiveTime);
+                    const statusText = formatStatusText(lastActiveTime, data.inGame);
 
                     const isAlreadyFriend = currentUserData.friends && currentUserData.friends.includes(targetUid);
                     const targetRequests = data.friendRequests || [];
@@ -1181,7 +1211,7 @@
                     const ava = data.avatarUrl || "https://via.placeholder.com/70";
                     const balance = (data.balance_ml || 0).toFixed(3);
                     const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
-                    const statusText = formatLastActive(lastActiveTime);
+                    const statusText = formatStatusText(lastActiveTime, data.inGame);
 
                     html += `
                         <div class="user-result-card">
@@ -1223,7 +1253,6 @@
                     const nick = data.username || "Игрок";
                     const ava = data.avatarUrl || "https://via.placeholder.com/70";
 
-                    // Проверяем наличие непрочитанных от этого друга
                     const chatId = [currentUid, friendUid].sort().join("_");
                     const chatSnap = await getDoc(doc(db, "chats", chatId));
                     let hasUnreadHere = false;
@@ -1286,7 +1315,18 @@
                 if (docSnap.exists()) {
                     const pData = docSnap.data();
                     const lastActiveTime = pData.lastActive ? pData.lastActive.toMillis() : 0;
-                    document.getElementById("chatWithStatus").innerText = formatLastActive(lastActiveTime);
+                    
+                    // Проверяем статус печатает ли собеседник
+                    const typingMap = pData.typingInChats || {};
+                    const isTyping = typingMap[currentUid] === true;
+
+                    if (isTyping) {
+                        document.getElementById("chatWithStatus").innerText = "печатает...";
+                        document.getElementById("chatWithStatus").style.color = "#00ffcc";
+                    } else {
+                        document.getElementById("chatWithStatus").innerText = formatStatusText(lastActiveTime, pData.inGame);
+                        document.getElementById("chatWithStatus").style.color = "#a5d6a7";
+                    }
                 }
             });
 
@@ -1324,7 +1364,16 @@
                 let html = "";
                 messages.forEach(msg => {
                     const isMe = (msg.sender === currentUid);
-                    html += `<div class="chat-msg ${isMe ? 'me' : 'partner'}">${msg.text}</div>`;
+                    let readStatusText = "";
+                    if (isMe) {
+                        readStatusText = msg.read ? "✓✓ Просмотрено" : "✓";
+                    }
+                    html += `
+                        <div class="chat-msg ${isMe ? 'me' : 'partner'}">
+                            ${msg.text}
+                            ${isMe ? `<div class="chat-msg-status">${readStatusText}</div>` : ''}
+                        </div>
+                    `;
                 });
                 box.innerHTML = html;
                 box.scrollTop = box.scrollHeight;
@@ -1339,11 +1388,35 @@
             document.getElementById("friendsSectionPanel").style.display = "flex";
         };
 
+        window.onMyTypingInput = async function() {
+            if (!activeChatFriendUid || !currentUid) return;
+            const myRef = doc(db, "users", currentUid);
+            try {
+                await updateDoc(myRef, {
+                    [`typingInChats.${activeChatFriendUid}`]: true
+                });
+
+                if (typingTimeout) clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(async () => {
+                    await updateDoc(myRef, {
+                        [`typingInChats.${activeChatFriendUid}`]: false
+                    });
+                }, 2000);
+            } catch (e) {}
+        };
+
         window.sendChatMessage = async function() {
             if (!activeChatFriendUid || !currentUid) return;
             const input = document.getElementById("chatMessageInput");
             const text = input.value.trim();
             if (!text) return;
+
+            // сбрасываем статус печати
+            try {
+                await updateDoc(doc(db, "users", currentUid), {
+                    [`typingInChats.${activeChatFriendUid}`]: false
+                });
+            } catch (e) {}
 
             const chatId = [currentUid, activeChatFriendUid].sort().join("_");
             const chatRef = doc(db, "chats", chatId);
@@ -1367,7 +1440,8 @@
             } catch (e) {}
         };
 
-        function formatLastActive(timestamp) {
+        function formatStatusText(timestamp, inGame) {
+            if (inGame) return "Играет в Спаси кожицу";
             if (!timestamp) return "Не в сети";
             const diffSec = Math.floor((Date.now() - timestamp) / 1000);
             if (diffSec < 120) return "В сети";
@@ -1398,7 +1472,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v173_final_fixes";
+        const CURRENT_APP_VERSION = "v174_exact_requirements";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
