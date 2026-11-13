@@ -126,19 +126,18 @@
             box-sizing: border-box;
         }
 
-        /* Аватарка заглушка (поднята выше) */
+        /* Аватарка заглушка без рамки */
         .drawer-avatar-wrap {
             width: 80px;
             height: 80px;
             border-radius: 50%;
             background: rgba(36, 139, 218, 0.2);
-            border: 2px solid #00d2ff;
             display: flex;
             justify-content: center;
             align-items: center;
             margin-top: 10px;
             margin-bottom: 8px;
-            box-shadow: 0 0 15px rgba(0,210,255,0.3);
+            box-shadow: 0 0 15px rgba(0,210,255,0.2);
         }
         .drawer-avatar-icon {
             font-size: 40px;
@@ -343,7 +342,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v161_profile_drawer_upgraded";
+        const CURRENT_APP_VERSION = "v162_profile_drawer_straight";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -456,18 +455,16 @@
             });
         }
 
-        // Декор внутри выдвижной панели профиля (+30% элементов, частые бомбы с текстурой, вращение)
+        // Декор внутри выдвижной панели профиля (палть медленно, ровно, бомбы реже)
         let drawerDecorItems = [];
         for (let i = 0; i < 13; i++) {
-            // Увеличиваем шанс выпадения бомбы (bomb)
-            const typesPool = ["bomb", "bomb", "sword", "table", "shield", "helmet", "drop1", "fan", "bomb"];
+            // Бомбы встречаются реже, преобладают остальные предметы
+            const typesPool = ["sword", "table", "shield", "helmet", "drop1", "fan", "bomb", "snow"];
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
-                speed: 0.8 + Math.random() * 1.2,
-                type: typesPool[Math.floor(Math.random() * typesPool.length)],
-                rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.07 // Более активное вращение вокруг себя
+                speed: 0.5 + Math.random() * 0.7, // Медленное падение
+                type: typesPool[Math.floor(Math.random() * typesPool.length)]
             });
         }
 
@@ -605,46 +602,17 @@
             targetCtx.font = isLarge ? "44px Arial" : "35px Arial";
             targetCtx.textAlign = "center";
 
-            if (item.type === "sword" && item.subType !== "corner_sword") targetCtx.fillText("🗡", item.x, item.y);
-            else if (item.type === "sword" && item.subType === "corner_sword") {
-                targetCtx.save();
-                targetCtx.translate(item.x, item.y);
-                item.rotation = (item.rotation || 0) + 0.08;
-                targetCtx.rotate(item.rotation);
-                targetCtx.font = isLarge ? "40px Arial" : "32px Arial";
-                targetCtx.textAlign = "center";
-                targetCtx.fillText("🗡", 0, 0);
-                targetCtx.restore();
-            }
-            else if (item.type === "fan_item") {
-                targetCtx.save();
-                targetCtx.translate(item.x, item.y);
-                targetCtx.rotate(item.rotation || 0);
-                targetCtx.font = isLarge ? "34px Arial" : "26px Arial"; 
-                targetCtx.textAlign = "center";
-                targetCtx.fillText("🪭", 0, 0);
-                targetCtx.restore();
-            }
-            else if (item.type === "table") {
-                targetCtx.save();
-                targetCtx.translate(item.x, item.y);
-                item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
-                targetCtx.rotate(item.rotation);
-                targetCtx.font = isLarge ? "44px Arial" : "35px Arial";
-                targetCtx.textAlign = "center";
-                targetCtx.fillText("🪑", 0, 10);
-                targetCtx.restore();
-            }
-            else if (item.type === "barricade") targetCtx.fillText("🛢️", item.x, item.y);
+            if (item.type === "sword") targetCtx.fillText("🗡", item.x, item.y);
+            else if (item.type === "table") targetCtx.fillText("🪑", item.x, item.y);
             else if (item.type === "fan") targetCtx.fillText("🪭", item.x, item.y);
             else if (item.type === "bomb") {
                 if (bombImg.complete && bombImg.naturalWidth !== 0) {
                     let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
                     let drawH = isLarge ? 46 : 40;
                     let drawW = drawH * imgAspect;
-                    targetCtx.drawImage(bombImg, Math.round(-drawW / 2), Math.round(-drawH / 2), drawW, drawH);
+                    targetCtx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
                 } else {
-                    targetCtx.fillText("💣", 0, 0);
+                    targetCtx.fillText("💣", item.x, item.y);
                 }
             }
             else if (item.type === "shield") targetCtx.fillText("🛡", item.x, item.y);
@@ -652,7 +620,7 @@
             else if (item.type === "drop1") targetCtx.fillText("💧", item.x, item.y);
             else if (item.type === "snow") targetCtx.fillText("❄️", item.x, item.y);
             else {
-                targetCtx.fillText("🗡", 0, 0);
+                targetCtx.fillText("🗡", item.x, item.y);
             }
         }
 
@@ -702,21 +670,15 @@
                     ctx.restore();
                 });
 
-                // Отрисовка анимации внутри выдвижной панели профиля с вращением вокруг себя
+                // Отрисовка анимации внутри выдвижной панели профиля (ровное медленное падение без вращения)
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
-                    item.y += item.speed; 
-                    item.rotation += item.rotSpeed; // Крутятся вокруг себя
+                    item.y += item.speed; // Медленно вниз
                     if (item.y > drawerH + 50) {
                         item.y = -50;
                         item.x = Math.random() * drawerW;
                     }
-
-                    drawerCtx.save();
-                    drawerCtx.translate(item.x, item.y);
-                    drawerCtx.rotate(item.rotation);
                     drawSingleItem(item, drawerCtx, true);
-                    drawerCtx.restore();
                 });
 
                 requestAnimationFrame(gameLoop);
