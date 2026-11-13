@@ -139,7 +139,7 @@
             overflow-y: auto;
         }
 
-        /* Верхняя область аватарки со значком-уведомлением слева сверху */
+        /* Блок аватарки с красным кружком-уведомлением слева сверху */
         .drawer-avatar-container {
             position: relative;
             margin-top: 5px;
@@ -162,7 +162,6 @@
             height: 100%;
             object-fit: cover;
         }
-        /* Круглая кнопка-уведомление поверх аватарки слева */
         #avatarBadgeBtn {
             position: absolute;
             top: -2px;
@@ -197,7 +196,6 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
-        /* Кнопка изменения профиля (желтая под авой) */
         .btn-edit-profile {
             background: #ffeb3b;
             color: #000;
@@ -215,7 +213,6 @@
         }
         .btn-edit-profile:active { transform: scale(0.96); }
 
-        /* Красная кнопка выхода внизу */
         .btn-logout-custom {
             background: #f44336;
             color: white;
@@ -234,7 +231,6 @@
         }
         .btn-logout-custom:active { transform: scale(0.96); background: #d32f2f; }
 
-        /* Поля ввода и кнопки в шторке */
         .drawer-input {
             width: 100%;
             padding: 10px;
@@ -266,7 +262,27 @@
         }
         .btn-drawer-custom:active { transform: scale(0.96); background: rgba(15, 55, 85, 0.9); }
 
-        /* Панели, открывающиеся прямо под конкретной кнопкой */
+        /* Обертка для кнопки с красным индикатором уведомлений чата */
+        .btn-with-badge-wrap {
+            position: relative;
+            width: 100%;
+            margin: 5px 0;
+            z-index: 25;
+        }
+        .chat-red-dot {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 12px;
+            height: 12px;
+            background: #f44336;
+            border-radius: 50%;
+            display: none;
+            border: 2px solid #18222d;
+            z-index: 26;
+            animation: pulseBadge 1.5s infinite;
+        }
+
         .drawer-section-panel {
             width: 100%;
             background: rgba(10, 15, 22, 0.95);
@@ -339,7 +355,6 @@
         .btn-mini-success { background: #28a745; }
         .btn-mini-gray { background: #555; color: #ccc; cursor: default; }
 
-        /* Чат с игроком */
         .chat-messages-box {
             width: 100%;
             height: 130px;
@@ -391,7 +406,6 @@
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
-        /* Кнопка паузы в углу */
         #pauseBtn {
             position: absolute;
             top: 15px;
@@ -448,15 +462,12 @@
 <body>
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Кнопка паузы в углу -->
     <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
         <div class="pause-icon"><span></span><span></span></div>
         <div class="play-icon"></div>
     </button>
 
-    <!-- Главный стартовый экран -->
     <div id="startScreen">
-        <!-- Кнопка с тремя полосками в левом верхнем углу -->
         <button id="menuBurgerBtn" onclick="toggleProfileDrawer(event)">
             <span></span>
             <span></span>
@@ -464,14 +475,12 @@
             <div id="burgerRedBadge"></div>
         </button>
 
-        <!-- Выдвижная панель профиля слева -->
         <div id="profileDrawer" onclick="event.stopPropagation()">
-            <!-- Холст для падающих предметов в панели -->
             <canvas id="drawerCanvasContainer"></canvas>
             
             <div class="drawer-content">
                 
-                <!-- СОСТОЯНИЕ 1: ЕСЛИ НЕ АВТОРИЗОВАН -->
+                <!-- СОСТОЯНИЕ 1: ГОСТЬ -->
                 <div id="drawerLoggedOut" style="width: 100%; margin-top: 20px;">
                     <div class="drawer-avatar-wrap" style="margin: 0 auto 10px auto;">
                         <div class="drawer-avatar-icon" style="font-size: 36px;">👤</div>
@@ -485,10 +494,9 @@
                     <button class="btn-drawer-custom" onclick="handleLogin()">Войти</button>
                 </div>
 
-                <!-- СОСТОЯНИЕ 2: ЕСЛИ АВТОРИЗОВАН -->
+                <!-- СОСТОЯНИЕ 2: АВТОРИЗОВАН -->
                 <div id="drawerLoggedIn" style="width: 100%; display: none; margin-top: 5px; flex-direction: column; align-items: center; height: 100%;">
                     
-                    <!-- Блок аватарки с красным кружком-уведомлением слева сверху -->
                     <div class="drawer-avatar-container">
                         <button id="avatarBadgeBtn" onclick="toggleRequestsPanel()">!</button>
                         <div class="drawer-avatar-wrap">
@@ -499,50 +507,55 @@
                     <div id="profileViewMode" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
                         <div id="userDisplayNick" class="drawer-username">Игрок</div>
                         
-                        <!-- Кнопка изменить под авой -->
                         <button class="btn-edit-profile" onclick="toggleEditMode(true)">ИЗМЕНИТЬ</button>
 
                         <div style="font-size: 13px; color: #a5d6a7; margin-top: 2px; margin-bottom: 10px;">
                             Баланс: <span id="drawerBalance">0</span> мл
                         </div>
 
-                        <!-- Кнопка Найти игроков -->
+                        <!-- Кнопка Найти -->
                         <button class="btn-drawer-custom" onclick="toggleSearchPanel()">🔍 Найти игроков</button>
-                        <!-- ПАНЕЛЬ ПОИСКА (открывается прямо под кнопкой) -->
                         <div id="searchSectionPanel" class="drawer-section-panel">
                             <input type="text" id="playerSearchInput" class="drawer-input" placeholder="Введите ник..." oninput="onSearchInputChanged(this.value)" />
                             <div id="searchResultsContainer" style="width: 100%;"></div>
                         </div>
 
-                        <!-- Кнопка Заявки в друзья -->
+                        <!-- Кнопка Заявки -->
                         <button id="btnRequestsMenu" class="btn-drawer-custom" onclick="toggleRequestsPanel()">👥 Заявки в друзья</button>
-                        <!-- ПАНЕЛЬ ЗАЯВОК (под кнопкой) -->
                         <div id="requestsSectionPanel" class="drawer-section-panel">
                             <div id="requestsResultsContainer" style="width: 100%;"></div>
                         </div>
 
                         <!-- Кнопка Друзья -->
                         <button class="btn-drawer-custom" onclick="toggleFriendsPanel()">👫 Друзья</button>
-                        <!-- ПАНЕЛЬ ДРУЗЕЙ (под кнопкой) -->
                         <div id="friendsSectionPanel" class="drawer-section-panel">
                             <div id="friendsResultsContainer" style="width: 100%;"></div>
                         </div>
 
-                        <!-- ПАНЕЛЬ ЧАТА (открывается внутри шторки при выборе друга) -->
+                        <!-- Кнопка Чат с красным индикатором -->
+                        <div class="btn-with-badge-wrap">
+                            <div id="chatRedBadge" class="chat-red-dot"></div>
+                            <button class="btn-drawer-custom" style="margin:0; width:100%;" onclick="toggleChatListPanel()">💬 Чаты</button>
+                        </div>
+                        <div id="chatListSectionPanel" class="drawer-section-panel">
+                            <div id="chatListContainer" style="width: 100%;"></div>
+                        </div>
+
+                        <!-- Окно активного диалога -->
                         <div id="chatSectionPanel" class="drawer-section-panel">
                             <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:5px; align-items:center;">
                                 <span id="chatWithTitle" style="font-size:12px; color:#00d2ff; font-weight:bold;">Чат</span>
-                                <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()">✕ Закрыть</button>
+                                <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()">✕ Назад</button>
                             </div>
                             <div id="chatMessagesBox" class="chat-messages-box"></div>
                             <div style="display:flex; width:100%; gap:4px;">
                                 <input type="text" id="chatMessageInput" class="drawer-input" style="margin:0; font-size:12px; padding:6px;" placeholder="Сообщение..." />
-                                <button class="btn-mini-action btn-mini-success" onclick="sendChatMessage()">Отправить</button>
+                                <button class="btn-mini-action btn-mini-success" onclick="sendChatMessage()">➤</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ В ШТОРКЕ -->
+                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник">
@@ -558,7 +571,6 @@
                         </div>
                     </div>
 
-                    <!-- Красная кнопка выхода внизу -->
                     <button class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
                 </div>
 
@@ -578,7 +590,6 @@
         </div>
     </div>
 
-    <!-- Меню паузы в центре -->
     <div id="pauseScreen" class="modal" style="z-index: 15;">
         <h1 style="font-size: 36px; margin: 0 0 15px 0; color: #00d2ff;">Игра на паузе</h1>
         <div>
@@ -586,7 +597,6 @@
         </div>
     </div>
 
-    <!-- Экран окончания игры -->
     <div id="gameOverScreen" class="modal">
         <h1 style="font-size: 36px; margin: 0;">💀 ИГРА ОКОНЧЕНА</h1>
         <p style="font-size: 18px; color: #aaa;">Заработано за раунд:</p>
@@ -599,7 +609,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно вывода -->
     <div id="withdrawModal" class="modal" style="z-index: 30;">
         <h2>🎁 Вывод миллилитров</h2>
         <p style="color: #aaa; font-size: 14px; max-width: 80%;">
@@ -617,7 +626,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно с кодом -->
     <div id="promoModal" class="modal" style="z-index: 35;">
         <h2>🎉 Код начисления готов!</h2>
         <p style="color: #aaa;">Скопируйте код и отправьте боту командой:</p>
@@ -626,7 +634,6 @@
         <button class="btn" onclick="closePromoModal()">Отлично 👍</button>
     </div>
 
-    <!-- Firebase SDK модули -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -689,7 +696,6 @@
                     balance_ml: 0,
                     friends: [],
                     friendRequests: [],
-                    chats: {},
                     lastActive: serverTimestamp(),
                     createdAt: new Date()
                 });
@@ -735,9 +741,7 @@
                     window.totalBank = 0;
                     localStorage.setItem("egg_total_ml_bank", "0.0");
                     alert("Вы вышли из аккаунта.");
-                } catch (error) {
-                    console.error("Ошибка при выходе:", error);
-                }
+                } catch (error) {}
             }
         };
 
@@ -781,7 +785,7 @@
                 try {
                     await updateEmail(auth.currentUser, newFakeEmail);
                 } catch (err) {
-                    alert("Для смены ника перезайдите в аккаунт (требование безопасности Firebase).");
+                    alert("Для смены ника перезайдите в аккаунт.");
                     return;
                 }
             }
@@ -845,7 +849,6 @@
             }
         }
 
-        // Отслеживание авторизации и подписка на изменения аккаунта в реальном времени
         onAuthStateChanged(auth, async (user) => {
             const loggedOutView = document.getElementById("drawerLoggedOut");
             const loggedInView = document.getElementById("drawerLoggedIn");
@@ -861,13 +864,11 @@
                     withdrawMainBtn.disabled = false;
                     withdrawMainBtn.style.opacity = "1";
                     withdrawMainBtn.style.cursor = "pointer";
-                    withdrawMainBtn.title = "Вывести миллилитры";
                 }
                 if (withdrawGameOverBtn) {
                     withdrawGameOverBtn.disabled = false;
                     withdrawGameOverBtn.style.opacity = "1";
                     withdrawGameOverBtn.style.cursor = "pointer";
-                    withdrawGameOverBtn.title = "Вывести миллилитры";
                 }
 
                 if (unsubscribeUserDoc) unsubscribeUserDoc();
@@ -883,6 +884,7 @@
                             document.getElementById("userAvatarImg").src = currentUserData.avatarUrl;
                         }
                         updateRequestsUI(currentUserData.friendRequests || []);
+                        checkUnreadChats();
                     }
                 });
 
@@ -900,21 +902,19 @@
                 if (withdrawMainBtn) {
                     withdrawMainBtn.disabled = true;
                     withdrawMainBtn.style.opacity = "0.5";
-                    withdrawMainBtn.style.cursor = "not-allowed";
                 }
                 if (withdrawGameOverBtn) {
                     withdrawGameOverBtn.disabled = true;
                     withdrawGameOverBtn.style.opacity = "0.5";
-                    withdrawGameOverBtn.style.cursor = "not-allowed";
                 }
             }
         });
 
-        // Управление панелями под кнопками
         window.closeAllDrawerPanels = function() {
             document.getElementById("searchSectionPanel").style.display = "none";
             document.getElementById("requestsSectionPanel").style.display = "none";
             document.getElementById("friendsSectionPanel").style.display = "none";
+            document.getElementById("chatListSectionPanel").style.display = "none";
             document.getElementById("chatSectionPanel").style.display = "none";
             if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
             activeChatFriendUid = null;
@@ -943,7 +943,14 @@
             if (!isVisible) loadFriendsList();
         }
 
-        // Обновление красных индикаторов (на бургере и на аватарке)
+        window.toggleChatListPanel = function() {
+            const panel = document.getElementById("chatListSectionPanel");
+            const isVisible = panel.style.display === "flex";
+            closeAllDrawerPanels();
+            panel.style.display = isVisible ? "none" : "flex";
+            if (!isVisible) loadChatList();
+        }
+
         function updateRequestsUI(requestsArray) {
             const count = requestsArray ? requestsArray.length : 0;
             const burgerBadge = document.getElementById("burgerRedBadge");
@@ -964,7 +971,32 @@
             }
         }
 
-        // Поиск игроков и проверка статуса отправки заявок
+        async function checkUnreadChats() {
+            if (!currentUid || !currentUserData.friends) return;
+            const redDot = document.getElementById("chatRedBadge");
+            let hasUnread = false;
+
+            for (let friendUid of currentUserData.friends) {
+                const chatId = [currentUid, friendUid].sort().join("_");
+                const chatSnap = await getDoc(doc(db, "chats", chatId));
+                if (chatSnap.exists()) {
+                    const data = chatSnap.data();
+                    const messages = data.messages || [];
+                    const lastMsg = messages[messages.length - 1];
+                    if (lastMsg && lastMsg.sender !== currentUid && !lastMsg.read) {
+                        hasUnread = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasUnread) {
+                redDot.style.display = "block";
+            } else {
+                redDot.style.display = "none";
+            }
+        }
+
         window.onSearchInputChanged = async function(queryText) {
             const container = document.getElementById("searchResultsContainer");
             container.innerHTML = "";
@@ -987,10 +1019,9 @@
 
                 let html = "";
                 for (let docSnap of snapshot.docs) {
-                    const data = docSnap.data();
                     const targetUid = docSnap.id;
-
                     if (targetUid === currentUid) continue;
+                    const data = docSnap.data();
 
                     const nick = data.username || "Игрок";
                     const ava = data.avatarUrl || "https://via.placeholder.com/70";
@@ -999,7 +1030,6 @@
                     const statusText = formatLastActive(lastActiveTime);
 
                     const isAlreadyFriend = currentUserData.friends && currentUserData.friends.includes(targetUid);
-                    // Проверяем, есть ли наш UID в заявках целевого пользователя
                     const targetRequests = data.friendRequests || [];
                     const isRequestSent = targetRequests.includes(currentUid);
 
@@ -1036,6 +1066,7 @@
             if (!currentUid) return;
             try {
                 const targetRef = doc(db, "users", targetUid);
+                // Используем arrayUnion для безопасного добавления в массив заявок без изменения других полей
                 await updateDoc(targetRef, {
                     friendRequests: arrayUnion(currentUid)
                 });
@@ -1116,9 +1147,7 @@
                     friendRequests: arrayRemove(senderUid)
                 });
                 loadIncomingRequests();
-            } catch (e) {
-                alert("Ошибка: " + e.message);
-            }
+            } catch (e) {}
         };
 
         window.loadFriendsList = async function() {
@@ -1152,9 +1181,46 @@
                                 </div>
                             </div>
                             <div style="display:flex; gap:4px;">
-                                <button class="btn-mini-action btn-mini-success" onclick="openChatWith('${friendUid}', '${nick}')">💬</button>
+                                <button class="btn-mini-action btn-mini-success" onclick="openChatWith('${friendUid}', '${nick}')">💬 Чат</button>
                                 <button class="btn-mini-action btn-mini-danger" onclick="removeFriend('${friendUid}')" title="Удалить">🗑</button>
                             </div>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div style="font-size:11px; color:#f44336; padding:5px;">Ошибка загрузки</div>`;
+            }
+        };
+
+        window.loadChatList = async function() {
+            const container = document.getElementById("chatListContainer");
+            container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Загрузка...</div>`;
+
+            if (!currentUid || !currentUserData.friends || currentUserData.friends.length === 0) {
+                container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Нет друзей для общения</div>`;
+                return;
+            }
+
+            try {
+                let html = "";
+                for (let friendUid of currentUserData.friends) {
+                    const friendDoc = await getDoc(doc(db, "users", friendUid));
+                    if (!friendDoc.exists()) continue;
+                    const data = friendDoc.data();
+                    const nick = data.username || "Игрок";
+                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
+
+                    html += `
+                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}')" style="cursor:pointer;">
+                            <div class="user-result-info">
+                                <img src="${ava}" class="user-result-ava">
+                                <div>
+                                    <div class="user-result-name">${nick}</div>
+                                    <div class="user-result-meta">Нажмите, чтобы открыть чат</div>
+                                </div>
+                            </div>
+                            <button class="btn-mini-action btn-mini-success">💬</button>
                         </div>
                     `;
                 }
@@ -1176,15 +1242,13 @@
                 await updateDoc(friendRef, { friends: arrayRemove(currentUid) });
 
                 loadFriendsList();
-            } catch (e) {
-                alert("Ошибка: " + e.message);
-            }
+            } catch (e) {}
         };
 
-        // Чат между игроками
-        window.openChatWith = function(friendUid, friendNick) {
+        window.openChatWith = async function(friendUid, friendNick) {
             activeChatFriendUid = friendUid;
             document.getElementById("friendsSectionPanel").style.display = "none";
+            document.getElementById("chatListSectionPanel").style.display = "none";
             document.getElementById("chatWithTitle").innerText = `Чат с ${friendNick}`;
             document.getElementById("chatSectionPanel").style.display = "flex";
 
@@ -1193,13 +1257,28 @@
             const chatId = [currentUid, friendUid].sort().join("_");
             const chatRef = doc(db, "chats", chatId);
 
-            unsubscribeChat = onSnapshot(chatRef, (docSnap) => {
+            unsubscribeChat = onSnapshot(chatRef, async (docSnap) => {
                 const box = document.getElementById("chatMessagesBox");
                 if (!docSnap.exists()) {
                     box.innerHTML = `<div style="color:#777; font-size:11px; text-align:center; margin-top:20px;">Напишите первое сообщение...</div>`;
                     return;
                 }
-                const messages = docSnap.data().messages || [];
+                const data = docSnap.data();
+                const messages = data.messages || [];
+
+                // Помечаем сообщения прочитанными
+                let updated = false;
+                messages.forEach(msg => {
+                    if (msg.sender !== currentUid && !msg.read) {
+                        msg.read = true;
+                        updated = true;
+                    }
+                });
+                if (updated) {
+                    await setDoc(chatRef, { messages: messages }, { merge: true });
+                    checkUnreadChats();
+                }
+
                 let html = "";
                 messages.forEach(msg => {
                     const isMe = (msg.sender === currentUid);
@@ -1236,14 +1315,13 @@
                 messages.push({
                     sender: currentUid,
                     text: text,
+                    read: false,
                     timestamp: Date.now()
                 });
 
                 await setDoc(chatRef, { messages: messages }, { merge: true });
                 input.value = "";
-            } catch (e) {
-                alert("Ошибка отправки: " + e.message);
-            }
+            } catch (e) {}
         };
 
         function formatLastActive(timestamp) {
@@ -1279,7 +1357,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v174_chat_and_dynamic_buttons";
+        const CURRENT_APP_VERSION = "v175_fans_and_fix_perms";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1825,12 +1903,14 @@
                         tableSpawnChance = 0.07; 
                         maxActiveTables = 9;
 
-                        if (Math.random() < 0.0044) {
+                        // ВОЗВРАЩЕНЫ ПАДАЮЩИЕ ВЕЕРА КОГДА У ДАШИ < 150 ХП
+                        if (Math.random() < 0.008) {
                             items.push({
-                                x: player.x,
+                                x: Math.random() * (W - 60) + 30,
                                 y: -30,
-                                vy: 4.5 + Math.random() * 1.5,
-                                vx: 0,
+                                vx: (Math.random() - 0.5) * 1.5,
+                                vy: 3.5 + Math.random() * 1.5,
+                                speed: 4.0,
                                 type: "fan_item",
                                 rotation: 0,
                                 rotationSpeed: 0.03,
