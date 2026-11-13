@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <!-- Запрет кэширования для моментального применения обновлений -->
+    <!-- Запрет кэша -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Спаси Яйцо - Битва с Боссами (Полная версия 3000 строк)</title>
+    <title>Спаси Яйцо - Битва с Боссами</title>
     <style>
         body {
             margin: 0;
@@ -38,6 +38,7 @@
             align-items: center;
             z-index: 10;
         }
+        /* Стартовый экран */
         #startScreen {
             display: flex;
             position: absolute;
@@ -51,6 +52,8 @@
             align-items: center;
             z-index: 20;
         }
+
+        /* Кнопка с тремя полосками в левом верхнем углу главного меню */
         #menuBurgerBtn {
             position: absolute;
             top: 15px;
@@ -98,11 +101,8 @@
             z-index: 31;
             animation: pulseBadge 1.5s infinite;
         }
-        @keyframes pulseBadge {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.12); }
-            100% { transform: scale(1); }
-        }
+
+        /* Выдвижная панель профиля слева */
         #profileDrawer {
             position: absolute;
             top: 0;
@@ -118,7 +118,10 @@
             box-shadow: 5px 0 25px rgba(0,0,0,0.6);
             overflow: hidden;
         }
-        #profileDrawer.open { left: 0; }
+        #profileDrawer.open {
+            left: 0;
+        }
+
         #drawerCanvasContainer {
             position: absolute;
             top: 0;
@@ -128,6 +131,7 @@
             pointer-events: none;
             z-index: 1;
         }
+
         .drawer-content {
             position: relative;
             z-index: 2;
@@ -139,6 +143,7 @@
             box-sizing: border-box;
             overflow-y: auto;
         }
+
         .drawer-avatar-container {
             position: relative;
             margin-top: 5px;
@@ -181,6 +186,12 @@
             z-index: 10;
             animation: pulseBadge 1.5s infinite;
         }
+        @keyframes pulseBadge {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+            100% { transform: scale(1); }
+        }
+
         .drawer-username {
             font-size: 16px;
             font-weight: bold;
@@ -188,6 +199,7 @@
             margin-bottom: 5px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
+
         .btn-edit-profile {
             background: #ffeb3b;
             color: #000;
@@ -203,6 +215,8 @@
             z-index: 25;
             position: relative;
         }
+        .btn-edit-profile:active { transform: scale(0.96); }
+
         .btn-logout-custom {
             background: #f44336;
             color: white;
@@ -219,6 +233,8 @@
             z-index: 25;
             position: relative;
         }
+        .btn-logout-custom:active { transform: scale(0.96); background: #d32f2f; }
+
         .drawer-input {
             width: 100%;
             padding: 10px;
@@ -231,6 +247,7 @@
             font-size: 14px;
             outline: none;
         }
+
         .btn-drawer-custom {
             background: rgba(20, 70, 110, 0.75);
             color: #d0f0ff;
@@ -242,12 +259,39 @@
             border-radius: 10px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            transition: transform 0.1s, background 0.2s;
+            transition: transform 0.1s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
             position: relative;
             z-index: 25;
             font-weight: bold;
         }
         .btn-drawer-custom:active { transform: scale(0.96); background: rgba(15, 55, 85, 0.9); }
+        .btn-drawer-custom.has-unread-glow {
+            background: rgba(244, 67, 54, 0.35);
+            border-color: #f44336;
+            color: #ffffff;
+            box-shadow: 0 0 14px rgba(244, 67, 54, 0.75);
+        }
+
+        .btn-with-badge-wrap {
+            position: relative;
+            width: 100%;
+            margin: 5px 0;
+            z-index: 25;
+        }
+        .chat-red-dot {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 13px;
+            height: 13px;
+            background: #f44336;
+            border-radius: 50%;
+            display: none;
+            border: 2px solid #18222d;
+            z-index: 26;
+            animation: pulseBadge 1.5s infinite;
+        }
+
         .drawer-section-panel {
             width: 100%;
             background: rgba(10, 15, 22, 0.95);
@@ -264,10 +308,12 @@
             max-height: 260px;
             overflow-y: auto;
         }
+
         #chatSectionPanel {
             max-height: 410px !important;
             height: 390px !important;
         }
+
         .user-result-card {
             width: 100%;
             background: rgba(25, 35, 48, 0.8);
@@ -280,6 +326,17 @@
             box-sizing: border-box;
             text-align: left;
             position: relative;
+        }
+        .friend-chat-item-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 10px;
+            height: 10px;
+            background: #f44336;
+            border-radius: 50%;
+            display: none;
+            border: 2px solid #18222d;
         }
         .user-result-info {
             display: flex;
@@ -307,6 +364,7 @@
             font-size: 10px;
             color: #aaa;
         }
+
         .btn-mini-action {
             background: #248bda;
             color: white;
@@ -318,9 +376,11 @@
             cursor: pointer;
             flex-shrink: 0;
         }
+        .btn-mini-action:active { transform: scale(0.95); }
         .btn-mini-danger { background: #f44336; }
         .btn-mini-success { background: #28a745; }
         .btn-mini-gray { background: #555; color: #ccc; cursor: default; }
+
         .chat-messages-box {
             width: 100%;
             height: 270px;
@@ -351,8 +411,17 @@
             font-size: 8px;
             color: #b0e0e6;
         }
-        .chat-msg.me { background: #248bda; color: #fff; align-self: flex-end; }
-        .chat-msg.partner { background: #334155; color: #fff; align-self: flex-start; }
+        .chat-msg.me {
+            background: #248bda;
+            color: #fff;
+            align-self: flex-end;
+        }
+        .chat-msg.partner {
+            background: #334155;
+            color: #fff;
+            align-self: flex-start;
+        }
+
         .btn {
             background: #248bda;
             color: white;
@@ -371,6 +440,7 @@
         .btn:active { transform: scale(0.96); }
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
+        
         #pauseBtn {
             position: absolute;
             top: 15px;
@@ -387,12 +457,16 @@
             align-items: center;
             outline: none;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+            -webkit-tap-highlight-color: transparent;
         }
+        #pauseBtn:active { transform: scale(0.90); }
+
         .pause-icon { display: flex; gap: 4px; }
         .pause-icon span { width: 5px; height: 15px; background-color: #ffffff; border-radius: 2px; display: block; }
         .play-icon { display: none; width: 0; height: 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-left: 14px solid #ffffff; margin-left: 3px; }
         #pauseBtn.paused .pause-icon { display: none; }
         #pauseBtn.paused .play-icon { display: block; }
+
         input[type="number"] {
             padding: 10px;
             font-size: 18px;
@@ -440,7 +514,8 @@
             <canvas id="drawerCanvasContainer"></canvas>
             
             <div class="drawer-content">
-                <!-- ГОСТЬ -->
+                
+                <!-- СОСТОЯНИЕ 1: ГОСТЬ -->
                 <div id="drawerLoggedOut" style="width: 100%; margin-top: 20px;">
                     <div class="drawer-avatar-wrap" style="margin: 0 auto 10px auto;">
                         <div class="drawer-avatar-icon" style="font-size: 36px;">👤</div>
@@ -454,8 +529,9 @@
                     <button class="btn-drawer-custom" onclick="handleLogin()">Войти</button>
                 </div>
 
-                <!-- АВТОРИЗОВАН -->
+                <!-- СОСТОЯНИЕ 2: АВТОРИЗОВАН -->
                 <div id="drawerLoggedIn" style="width: 100%; display: none; margin-top: 5px; flex-direction: column; align-items: center; height: 100%;">
+                    
                     <div class="drawer-avatar-container">
                         <button id="avatarBadgeBtn" onclick="toggleRequestsPanel()">!</button>
                         <div class="drawer-avatar-wrap">
@@ -465,35 +541,42 @@
 
                     <div id="profileViewMode" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
                         <div id="userDisplayNick" class="drawer-username">Игрок</div>
+                        
                         <button class="btn-edit-profile" onclick="toggleEditMode(true)">ИЗМЕНИТЬ</button>
+
                         <div style="font-size: 13px; color: #a5d6a7; margin-top: 2px; margin-bottom: 10px;">
                             Баланс: <span id="drawerBalance">0</span> мл
                         </div>
 
+                        <!-- Кнопка Найти -->
                         <button class="btn-drawer-custom" onclick="toggleSearchPanel()">🔍 Найти игроков</button>
                         <div id="searchSectionPanel" class="drawer-section-panel">
                             <input type="text" id="playerSearchInput" class="drawer-input" placeholder="Введите ник..." oninput="onSearchInputChanged(this.value)" />
                             <div id="searchResultsContainer" style="width: 100%;"></div>
                         </div>
 
+                        <!-- Кнопка Заявки -->
                         <button id="btnRequestsMenu" class="btn-drawer-custom" onclick="toggleRequestsPanel()">👥 Заявки в друзья</button>
                         <div id="requestsSectionPanel" class="drawer-section-panel">
                             <div id="requestsResultsContainer" style="width: 100%;"></div>
                         </div>
 
+                        <!-- Кнопка Друзья -->
                         <button class="btn-drawer-custom" onclick="toggleFriendsPanel()">👫 Друзья</button>
                         <div id="friendsSectionPanel" class="drawer-section-panel">
                             <div id="friendsResultsContainer" style="width: 100%;"></div>
                         </div>
 
-                        <div class="btn-with-badge-wrap" style="position:relative; width:100%; margin:5px 0;">
-                            <div id="chatRedBadge" class="chat-red-dot" style="position:absolute; top:-4px; right:-4px; width:13px; height:13px; background:#f44336; border-radius:50%; display:none; border:2px solid #18222d; z-index:26;"></div>
+                        <!-- Кнопка Чат с красным индикатором -->
+                        <div class="btn-with-badge-wrap">
+                            <div id="chatRedBadge" class="chat-red-dot"></div>
                             <button id="btnChatMenu" class="btn-drawer-custom" style="margin:0; width:100%;" onclick="toggleChatListPanel()">💬 Чаты</button>
                         </div>
                         <div id="chatListSectionPanel" class="drawer-section-panel">
                             <div id="chatListContainer" style="width: 100%;"></div>
                         </div>
 
+                        <!-- Окно активного диалога -->
                         <div id="chatSectionPanel" class="drawer-section-panel">
                             <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:5px; align-items:center; background:rgba(0,0,0,0.2); padding:4px; border-radius:6px;">
                                 <div style="display:flex; align-items:center; gap:6px; overflow:hidden; position:relative;">
@@ -517,7 +600,7 @@
                         </div>
                     </div>
 
-                    <!-- РЕДАКТИРОВАНИЕ -->
+                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник">
@@ -535,6 +618,7 @@
 
                     <button class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
                 </div>
+
             </div>
         </div>
 
@@ -553,7 +637,9 @@
 
     <div id="pauseScreen" class="modal" style="z-index: 15;">
         <h1 style="font-size: 36px; margin: 0 0 15px 0; color: #00d2ff;">Игра на паузе</h1>
-        <div><button class="btn btn-secondary" onclick="returnToMainMenu()">Главное меню</button></div>
+        <div>
+            <button class="btn btn-secondary" onclick="returnToMainMenu()">Главное меню</button>
+        </div>
     </div>
 
     <div id="gameOverScreen" class="modal">
@@ -561,9 +647,10 @@
         <p style="font-size: 18px; color: #aaa;">Заработано за раунд:</p>
         <p style="font-size: 26px; color: #00d2ff; font-weight: bold;" id="roundScoreText">+0.000 мл</p>
         <p style="font-size: 18px; color: #fff;">Общий баланс на сайте: <b id="totalBankText">0.000</b> мл</p>
+        
         <div>
             <button class="btn" onclick="restartGame()">Заново 🔄</button>
-            <button id="withdrawGameOverBtn" class="btn btn-withdraw" onclick="showWithdrawModal()" disabled style="opacity: 0.5; cursor: not-allowed;">Вывести мл 🎁</button>
+            <button id="withdrawGameOverBtn" class="btn btn-withdraw" onclick="showWithdrawModal()" disabled style="opacity: 0.5; cursor: not-allowed;" title="Войдите в аккаунт, чтобы вывести миллилитры">Вывести мл 🎁</button>
         </div>
     </div>
 
@@ -576,6 +663,7 @@
         </p>
         <input type="number" id="withdrawAmount" placeholder="Например: 50" min="1" max="500" step="1">
         <div id="withdrawError" style="color: #ff4d4d; font-size: 14px; display: none; margin-bottom: 5px;"></div>
+        
         <div>
             <button class="btn btn-withdraw" onclick="processWithdraw()">Получить код</button>
             <button class="btn btn-secondary" id="lastCodeBtn" style="display:none;" onclick="showLastGeneratedCode()">Последний код 🔑</button>
@@ -593,8 +681,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDbjOOmFID0DwVfYoOy6jHtNooXBOFvrk",
@@ -619,13 +707,26 @@
         let unsubscribePartnerStatus = null;
         let typingTimeout = null;
 
-        // Жесткая проверка уникальности ника перед регистрацией (1 аккаунт на 1 ник)
-        async function isNicknameAvailable(nickname) {
-            const cleanNick = nickname.trim().toLowerCase();
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("username_lower", "==", cleanNick));
-            const snapshot = await getDocs(q);
-            return snapshot.empty;
+        // Генерация неизменяемого технического email по UID, чтобы смена ника никогда не ломала авторизацию
+        function generateInternalAuthEmail() {
+            const randPart = Math.random().toString(36).substring(2, 10);
+            return `uid_${Date.now()}_${randPart}${FAKE_EMAIL_DOMAIN}`;
+        }
+
+        async function isNicknameAvailable(nickname, excludeUid = null) {
+            try {
+                const cleanNick = nickname.trim().toLowerCase();
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, where("username_lower", "==", cleanNick));
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) return true;
+                if (excludeUid) {
+                    return snapshot.docs.every(d => d.id === excludeUid);
+                }
+                return false;
+            } catch (e) {
+                return true;
+            }
         }
 
         window.handleRegister = async function() {
@@ -640,19 +741,19 @@
 
             const available = await isNicknameAvailable(cleanUsername);
             if (!available) {
-                alert("❌ Этот никнейм уже занят другим игроком!");
+                alert("Этот никнейм уже занят другим игроком!");
                 return;
             }
 
             try {
-                const fakeEmail = cleanUsername.toLowerCase() + FAKE_EMAIL_DOMAIN;
-                const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
+                const internalEmail = generateInternalAuthEmail();
+                const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
                 const user = userCredential.user;
 
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
                     username_lower: cleanUsername.toLowerCase(),
-                    authEmail: fakeEmail,
+                    authEmail: internalEmail,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -667,11 +768,7 @@
                 localStorage.setItem("egg_total_ml_bank", "0.0");
                 alert("Аккаунт успешно создан!");
             } catch (error) {
-                if (error.code === "auth/email-already-in-use") {
-                    alert("Этот никнейм уже занят в базе данных аутентификации!");
-                } else {
-                    alert("Ошибка создания аккаунта: " + error.message);
-                }
+                alert("Ошибка создания аккаунта: " + error.message);
             }
         };
 
@@ -686,11 +783,28 @@
             }
 
             try {
-                const fakeEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
-                await signInWithEmailAndPassword(auth, fakeEmail, password);
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, where("username_lower", "==", cleanUsername));
+                const snapshot = await getDocs(q);
+
+                if (snapshot.empty) {
+                    alert("Неверный ник или пароль!");
+                    return;
+                }
+
+                const userDoc = snapshot.docs[0];
+                const userData = userDoc.data();
+                let loginEmail = userData.authEmail;
+
+                if (!loginEmail) {
+                    loginEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
+                    await updateDoc(doc(db, "users", userDoc.id), { authEmail: loginEmail });
+                }
+
+                await signInWithEmailAndPassword(auth, loginEmail, password);
                 alert("Вход выполнен успешно!");
             } catch (error) {
-                alert("❌ Неверный ник или пароль!");
+                alert("Неверный ник или пароль!");
             }
         };
 
@@ -742,9 +856,9 @@
             const isNickChanged = (newNick.toLowerCase() !== currentUserData.username_lower);
 
             if (isNickChanged) {
-                const available = await isNicknameAvailable(newNick);
+                const available = await isNicknameAvailable(newNick, currentUid);
                 if (!available) {
-                    alert("❌ Этот ник уже занят другим игроком!");
+                    alert("Этот ник уже занят другим игроком!");
                     return;
                 }
             }
@@ -753,17 +867,12 @@
             if (isNickChanged) {
                 updateData.username = newNick;
                 updateData.username_lower = newNick.toLowerCase();
-                updateData.authEmail = newNick.toLowerCase() + FAKE_EMAIL_DOMAIN;
             }
 
             const executeUpdate = async (avatarBase64) => {
                 if (avatarBase64) updateData.avatarUrl = avatarBase64;
 
                 try {
-                    if (isNickChanged && auth.currentUser) {
-                        await updateEmail(auth.currentUser, newNick.toLowerCase() + FAKE_EMAIL_DOMAIN);
-                    }
-
                     await updateDoc(doc(db, "users", currentUid), updateData);
                     
                     if (isNickChanged) {
@@ -777,7 +886,7 @@
                     }
 
                     toggleEditMode(false);
-                    alert("Изменения сохранены! Старый ник полностью освобожден.");
+                    alert("Изменения сохранены! Старый ник полностью освобождён.");
                 } catch (error) {
                     alert("Ошибка обновления: " + error.message);
                 }
@@ -981,10 +1090,15 @@
             }
         }
 
-        setInterval(() => { if (currentUid) checkUnreadChats(); }, 2000);
+        setInterval(() => {
+            if (currentUid) checkUnreadChats();
+        }, 2000);
+
         setInterval(() => {
             const friendsPanel = document.getElementById("friendsSectionPanel");
-            if (friendsPanel && friendsPanel.style.display === "flex") loadFriendsList();
+            if (friendsPanel && friendsPanel.style.display === "flex") {
+                loadFriendsList();
+            }
         }, 1000);
 
         window.onSearchInputChanged = async function(queryText) {
@@ -1046,17 +1160,24 @@
                         </div>
                     `;
                 }
-                container.innerHTML = html;
+
+                container.innerHTML = html || `<div style="font-size:11px; color:#777; padding:5px;">Никого не найдено</div>`;
             } catch (e) {}
         };
 
         window.sendFriendRequest = async function(targetUid) {
             if (!currentUid) return;
             try {
-                await updateDoc(doc(db, "users", targetUid), { friendRequests: arrayUnion(currentUid) });
+                const targetRef = doc(db, "users", targetUid);
+                await updateDoc(targetRef, {
+                    friendRequests: arrayUnion(currentUid)
+                });
                 alert("Заявка в друзья отправлена!");
-                onSearchInputChanged(document.getElementById("playerSearchInput").value);
-            } catch (e) { alert("Ошибка: " + e.message); }
+                const inputVal = document.getElementById("playerSearchInput").value;
+                onSearchInputChanged(inputVal);
+            } catch (e) {
+                alert("Ошибка отправки заявки: " + e.message);
+            }
         };
 
         window.loadIncomingRequests = async function() {
@@ -1074,12 +1195,15 @@
                     const senderDoc = await getDoc(doc(db, "users", senderUid));
                     if (!senderDoc.exists()) continue;
                     const data = senderDoc.data();
+                    const nick = data.username || "Игрок";
+                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
+
                     html += `
                         <div class="user-result-card">
                             <div class="user-result-info">
-                                <img src="${data.avatarUrl || "https://via.placeholder.com/70"}" class="user-result-ava">
+                                <img src="${ava}" class="user-result-ava">
                                 <div>
-                                    <div class="user-result-name">${data.username || "Игрок"}</div>
+                                    <div class="user-result-name">${nick}</div>
                                     <div class="user-result-meta">Хочет добавить в друзья</div>
                                 </div>
                             </div>
@@ -1091,22 +1215,39 @@
                     `;
                 }
                 container.innerHTML = html;
-            } catch (e) {}
+            } catch (e) {
+                container.innerHTML = `<div style="font-size:11px; color:#f44336; padding:5px;">Ошибка загрузки</div>`;
+            }
         };
 
         window.acceptFriendRequest = async function(senderUid) {
             if (!currentUid) return;
             try {
-                await updateDoc(doc(db, "users", currentUid), { friends: arrayUnion(senderUid), friendRequests: arrayRemove(senderUid) });
-                await updateDoc(doc(db, "users", senderUid), { friends: arrayUnion(currentUid) });
+                const myRef = doc(db, "users", currentUid);
+                const senderRef = doc(db, "users", senderUid);
+
+                await updateDoc(myRef, {
+                    friends: arrayUnion(senderUid),
+                    friendRequests: arrayRemove(senderUid)
+                });
+                await updateDoc(senderRef, {
+                    friends: arrayUnion(currentUid)
+                });
+
                 loadIncomingRequests();
-            } catch (e) {}
+                alert("Заявка принята!");
+            } catch (e) {
+                alert("Ошибка: " + e.message);
+            }
         };
 
         window.rejectFriendRequest = async function(senderUid) {
             if (!currentUid) return;
             try {
-                await updateDoc(doc(db, "users", currentUid), { friendRequests: arrayRemove(senderUid) });
+                const myRef = doc(db, "users", currentUid);
+                await updateDoc(myRef, {
+                    friendRequests: arrayRemove(senderUid)
+                });
                 loadIncomingRequests();
             } catch (e) {}
         };
@@ -1126,20 +1267,25 @@
                     const friendDoc = await getDoc(doc(db, "users", friendUid));
                     if (!friendDoc.exists()) continue;
                     const data = friendDoc.data();
-                    const statusObj = formatStatusObj(data.lastActive?.toMillis() || 0, data.inGame, data.gameStartTime?.toMillis() || 0);
+                    const nick = data.username || "Игрок";
+                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
+                    const balance = (data.balance_ml || 0).toFixed(3);
+                    const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
+                    const gameStartTime = data.gameStartTime ? data.gameStartTime.toMillis() : 0;
+                    const statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime);
 
                     html += `
                         <div class="user-result-card">
                             <div class="user-result-info">
-                                <img src="${data.avatarUrl || "https://via.placeholder.com/70"}" class="user-result-ava">
+                                <img src="${ava}" class="user-result-ava">
                                 <div>
-                                    <div class="user-result-name">${data.username || "Игрок"}</div>
-                                    <div class="user-result-meta">💧 ${(data.balance_ml || 0).toFixed(3)} мл | <span style="color:${statusObj.color}">${statusObj.text}</span></div>
+                                    <div class="user-result-name">${nick}</div>
+                                    <div class="user-result-meta">💧 ${balance} мл | <span style="color:${statusObj.color}">${statusObj.text}</span></div>
                                 </div>
                             </div>
                             <div style="display:flex; gap:4px;">
-                                <button class="btn-mini-action btn-mini-success" onclick="openChatWith('${friendUid}', '${data.username}', '${data.avatarUrl}')">💬 Чат</button>
-                                <button class="btn-mini-action btn-mini-danger" onclick="removeFriend('${friendUid}')">🗑</button>
+                                <button class="btn-mini-action btn-mini-success" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')">💬 Чат</button>
+                                <button class="btn-mini-action btn-mini-danger" onclick="removeFriend('${friendUid}')" title="Удалить">🗑</button>
                             </div>
                         </div>
                     `;
@@ -1163,17 +1309,25 @@
                     const friendDoc = await getDoc(doc(db, "users", friendUid));
                     if (!friendDoc.exists()) continue;
                     const data = friendDoc.data();
+                    const nick = data.username || "Игрок";
+                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
+
                     const chatId = [currentUid, friendUid].sort().join("_");
                     const chatSnap = await getDoc(doc(db, "chats", chatId));
-                    let hasUnreadHere = chatSnap.exists() && (chatSnap.data().messages || []).some(m => m.sender !== currentUid && !m.read);
+                    let hasUnreadHere = false;
+                    if (chatSnap.exists()) {
+                        const msgs = chatSnap.data().messages || [];
+                        hasUnreadHere = msgs.some(m => m.sender !== currentUid && !m.read);
+                    }
 
                     html += `
-                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${data.username}', '${data.avatarUrl}')" style="cursor:pointer; ${hasUnreadHere ? 'border:1px solid #f44336;' : ''}">
+                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')" style="cursor:pointer; ${hasUnreadHere ? 'border:1px solid #f44336;' : ''}">
+                            <div class="friend-chat-item-badge" id="friend_badge_${friendUid}" style="display:${hasUnreadHere ? 'block' : 'none'};"></div>
                             <div class="user-result-info">
-                                <img src="${data.avatarUrl || "https://via.placeholder.com/70"}" class="user-result-ava">
+                                <img src="${ava}" class="user-result-ava">
                                 <div>
-                                    <div class="user-result-name">${data.username || "Игрок"}</div>
-                                    <div class="user-result-meta">${hasUnreadHere ? '<span style="color:#ff5252; font-weight:bold;">Новое сообщение!</span>' : 'Нажмите для чата'}</div>
+                                    <div class="user-result-name">${nick}</div>
+                                    <div class="user-result-meta">${hasUnreadHere ? '<span style="color:#ff5252; font-weight:bold;">Новое сообщение!</span>' : 'Нажмите, чтобы открыть чат'}</div>
                                 </div>
                             </div>
                             <button class="btn-mini-action ${hasUnreadHere ? 'btn-mini-danger' : 'btn-mini-success'}">💬</button>
@@ -1181,14 +1335,22 @@
                     `;
                 }
                 container.innerHTML = html;
-            } catch (e) {}
+            } catch (e) {
+                container.innerHTML = `<div style="font-size:11px; color:#f44336; padding:5px;">Ошибка загрузки</div>`;
+            }
         };
 
         window.removeFriend = async function(friendUid) {
-            if (!confirm("Удалить из друзей?")) return;
+            const confirmed = confirm("Удалить из друзей?");
+            if (!confirmed) return;
+
             try {
-                await updateDoc(doc(db, "users", currentUid), { friends: arrayRemove(friendUid) });
-                await updateDoc(doc(db, "users", friendUid), { friends: arrayRemove(currentUid) });
+                const myRef = doc(db, "users", currentUid);
+                const friendRef = doc(db, "users", friendUid);
+
+                await updateDoc(myRef, { friends: arrayRemove(friendUid) });
+                await updateDoc(friendRef, { friends: arrayRemove(currentUid) });
+
                 loadFriendsList();
             } catch (e) {}
         };
@@ -1197,49 +1359,95 @@
             activeChatFriendUid = friendUid;
             document.getElementById("friendsSectionPanel").style.display = "none";
             document.getElementById("chatListSectionPanel").style.display = "none";
+            
             document.getElementById("chatWithTitle").innerText = friendNick;
             document.getElementById("activeChatAvatar").src = friendAvatar || "https://via.placeholder.com/30";
+            document.getElementById("chatWithStatus").innerText = "Загрузка...";
+            document.getElementById("activeChatRedDot").style.display = "none";
             document.getElementById("chatSectionPanel").style.display = "flex";
 
             const isFriend = currentUserData.friends && currentUserData.friends.includes(friendUid);
-            document.getElementById("chatInputArea").style.display = isFriend ? "flex" : "none";
-            document.getElementById("chatNotFriendWarning").style.display = isFriend ? "none" : "block";
+            const chatInputArea = document.getElementById("chatInputArea");
+            const chatWarning = document.getElementById("chatNotFriendWarning");
+
+            if (isFriend) {
+                chatInputArea.style.display = "flex";
+                chatWarning.style.display = "none";
+            } else {
+                chatInputArea.style.display = "none";
+                chatWarning.style.display = "block";
+            }
 
             if (unsubscribeChat) unsubscribeChat();
             if (unsubscribePartnerStatus) unsubscribePartnerStatus();
 
-            unsubscribePartnerStatus = onSnapshot(doc(db, "users", friendUid), (docSnap) => {
+            const partnerRef = doc(db, "users", friendUid);
+            unsubscribePartnerStatus = onSnapshot(partnerRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const pData = docSnap.data();
-                    const statusObj = formatStatusObj(pData.lastActive?.toMillis() || 0, pData.inGame, pData.gameStartTime?.toMillis() || 0);
-                    document.getElementById("chatWithStatus").innerText = statusObj.text;
-                    document.getElementById("chatWithStatus").style.color = statusObj.color;
+                    const lastActiveTime = pData.lastActive ? pData.lastActive.toMillis() : 0;
+                    const gameStartTime = pData.gameStartTime ? pData.gameStartTime.toMillis() : 0;
+                    
+                    const typingMap = pData.typingInChats || {};
+                    const isTyping = typingMap[currentUid] === true;
+
+                    if (isTyping) {
+                        document.getElementById("chatWithStatus").innerText = "печатает...";
+                        document.getElementById("chatWithStatus").style.color = "#00ffcc";
+                    } else {
+                        const statusObj = formatStatusObj(lastActiveTime, pData.inGame, gameStartTime);
+                        document.getElementById("chatWithStatus").innerText = statusObj.text;
+                        document.getElementById("chatWithStatus").style.color = statusObj.color;
+                    }
                 }
             });
 
             const chatId = [currentUid, friendUid].sort().join("_");
-            unsubscribeChat = onSnapshot(doc(db, "chats", chatId), async (docSnap) => {
+            const chatRef = doc(db, "chats", chatId);
+
+            unsubscribeChat = onSnapshot(chatRef, async (docSnap) => {
                 const box = document.getElementById("chatMessagesBox");
                 if (!docSnap.exists()) {
                     box.innerHTML = `<div style="color:#777; font-size:11px; text-align:center; margin-top:20px;">Напишите первое сообщение...</div>`;
                     return;
                 }
-                const messages = docSnap.data().messages || [];
+                const data = docSnap.data();
+                const messages = data.messages || [];
+
+                let hasUnread = messages.some(m => m.sender !== currentUid && !m.read);
+                if (hasUnread) {
+                    document.getElementById("activeChatRedDot").style.display = "block";
+                } else {
+                    document.getElementById("activeChatRedDot").style.display = "none";
+                }
+
                 let updated = false;
                 messages.forEach(msg => {
-                    if (msg.sender !== currentUid && !msg.read) { msg.read = true; updated = true; }
+                    if (msg.sender !== currentUid && !msg.read) {
+                        msg.read = true;
+                        updated = true;
+                    }
                 });
                 if (updated) {
-                    await setDoc(doc(db, "chats", chatId), { messages }, { merge: true });
+                    await setDoc(chatRef, { messages: messages }, { merge: true });
                     checkUnreadChats();
                 }
 
-                box.innerHTML = messages.map(msg => `
-                    <div class="chat-msg ${msg.sender === currentUid ? 'me' : 'partner'}">
-                        ${msg.text}
-                        ${msg.sender === currentUid ? `<div class="chat-msg-status">${msg.read ? '✓✓ Просмотрено' : '✓'}</div>` : ''}
-                    </div>
-                `).join("");
+                let html = "";
+                messages.forEach(msg => {
+                    const isMe = (msg.sender === currentUid);
+                    let readStatusText = "";
+                    if (isMe) {
+                        readStatusText = msg.read ? "✓✓ Просмотрено" : "✓";
+                    }
+                    html += `
+                        <div class="chat-msg ${isMe ? 'me' : 'partner'}">
+                            ${msg.text}
+                            ${isMe ? `<div class="chat-msg-status">${readStatusText}</div>` : ''}
+                        </div>
+                    `;
+                });
+                box.innerHTML = html;
                 box.scrollTop = box.scrollHeight;
             });
         };
@@ -1254,67 +1462,104 @@
 
         window.onMyTypingInput = async function() {
             if (!activeChatFriendUid || !currentUid) return;
+            const myRef = doc(db, "users", currentUid);
             try {
-                await updateDoc(doc(db, "users", currentUid), { [`typingInChats.${activeChatFriendUid}`]: true });
+                await updateDoc(myRef, {
+                    [`typingInChats.${activeChatFriendUid}`]: true
+                });
+
                 if (typingTimeout) clearTimeout(typingTimeout);
                 typingTimeout = setTimeout(async () => {
-                    await updateDoc(doc(db, "users", currentUid), { [`typingInChats.${activeChatFriendUid}`]: false });
+                    await updateDoc(myRef, {
+                        [`typingInChats.${activeChatFriendUid}`]: false
+                    });
                 }, 2000);
             } catch (e) {}
         };
 
         window.sendChatMessage = async function() {
             if (!activeChatFriendUid || !currentUid) return;
+            
+            if (!currentUserData.friends || !currentUserData.friends.includes(activeChatFriendUid)) {
+                alert("Нельзя писать пользователям, которых нет в друзьях!");
+                return;
+            }
+
             const input = document.getElementById("chatMessageInput");
             const text = input.value.trim();
             if (!text) return;
 
+            try {
+                await updateDoc(doc(db, "users", currentUid), {
+                    [`typingInChats.${activeChatFriendUid}`]: false
+                });
+            } catch (e) {}
+
             const chatId = [currentUid, activeChatFriendUid].sort().join("_");
             const chatRef = doc(db, "chats", chatId);
+
             try {
                 const chatSnap = await getDoc(chatRef);
-                let messages = chatSnap.exists() ? (chatSnap.data().messages || []) : [];
-                messages.push({ sender: currentUid, text, read: false, timestamp: Date.now() });
-                await setDoc(chatRef, { messages }, { merge: true });
+                let messages = [];
+                if (chatSnap.exists()) {
+                    messages = chatSnap.data().messages || [];
+                }
+
+                messages.push({
+                    sender: currentUid,
+                    text: text,
+                    read: false,
+                    timestamp: Date.now()
+                });
+
+                await setDoc(chatRef, { messages: messages }, { merge: true });
                 input.value = "";
             } catch (e) {}
         };
 
         function formatStatusObj(timestamp, inGame, gameStartTime) {
             if (inGame) {
-                let diffSec = gameStartTime ? Math.max(0, Math.floor((Date.now() - gameStartTime) / 1000)) : 0;
+                let diffSec = 0;
+                if (gameStartTime) {
+                    diffSec = Math.floor((Date.now() - gameStartTime) / 1000);
+                    if (diffSec < 0) diffSec = 0;
+                }
                 const mins = Math.floor(diffSec / 60).toString().padStart(2, '0');
                 const secs = (diffSec % 60).toString().padStart(2, '0');
                 return { text: `Играет [${mins}:${secs}]`, color: "#a5d6a7" };
             }
+
             if (!timestamp) return { text: "Не в сети", color: "#888888" };
             const diffSec = Math.floor((Date.now() - timestamp) / 1000);
             if (diffSec < 120) return { text: "В сети", color: "#a5d6a7" };
             if (diffSec < 3600) return { text: `Был в сети ${Math.floor(diffSec / 60)} мин. назад`, color: "#888888" };
+            if (diffSec < 86400) return { text: `Был в сети ${Math.floor(diffSec / 3600)} ч. назад`, color: "#888888" };
             return { text: "Был в сети давно", color: "#888888" };
         }
 
         window.addServerMilliliters = async function(amount) {
             if (!currentUid) return;
-            try { await updateDoc(doc(db, "users", currentUid), { balance_ml: increment(amount) }); } catch (e) {}
+            const userRef = doc(db, "users", currentUid);
+            try {
+                await updateDoc(userRef, {
+                    balance_ml: increment(amount)
+                });
+            } catch (err) {}
         };
 
         window.subtractServerMilliliters = async function(amount) {
             if (!currentUid) return;
-            try { await updateDoc(doc(db, "users", currentUid), { balance_ml: increment(-amount) }); } catch (e) {}
+            const userRef = doc(db, "users", currentUid);
+            try {
+                await updateDoc(userRef, {
+                    balance_ml: increment(-amount)
+                });
+            } catch (err) {}
         };
-
-        // Экстренный сброс статуса игры при выходе со страницы / закрытии вкладки
-        window.addEventListener("pagehide", () => {
-            if (currentUid && gameStarted) {
-                navigator.sendBeacon = navigator.sendBeacon || function() {};
-                updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null }).catch(() => {});
-            }
-        });
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v182_full_original_3k";
+        const CURRENT_APP_VERSION = "v179_full_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1356,6 +1601,7 @@
         let hasHelmet = false;
         let fanExpiresAt = 0; 
 
+        // Переменные игрового таймера
         let gameElapsedMs = 0;
         let lastFrameTime = 0;
 
@@ -1396,21 +1642,32 @@
         let dashaPhaseStartTime = 0;
         let vaporTransitionStartTime = 0;
 
-        const dashaImg = new Image(); dashaImg.src = "bosses/dashaboss.webp";
-        const ritaImg = new Image(); ritaImg.src = "bosses/ritaboss.webp";
-        const cubeImg = new Image(); cubeImg.src = "items/cubik.webp";
-        const eggImg = new Image(); eggImg.src = "ball/mainball.png";
-        const bombImg = new Image(); bombImg.src = "item/batyabomb.png";
+        const dashaImg = new Image();
+        dashaImg.src = "bosses/dashaboss.webp";
+
+        const ritaImg = new Image();
+        ritaImg.src = "bosses/ritaboss.webp";
+
+        const cubeImg = new Image();
+        cubeImg.src = "items/cubik.webp";
+
+        const eggImg = new Image();
+        eggImg.src = "ball/mainball.png";
+
+        const bombImg = new Image();
+        bombImg.src = "item/batyabomb.png";
 
         let items = [];
         let spawnTimer = 0;
 
         let menuDecorItems = [];
         for (let i = 0; i < 10; i++) {
+            const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"];
             menuDecorItems.push({
-                x: Math.random() * W, y: Math.random() * H,
+                x: Math.random() * W,
+                y: Math.random() * H,
                 speed: 1.2 + Math.random() * 2.0,
-                type: ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"][Math.floor(Math.random() * 8)],
+                type: typesPool[Math.floor(Math.random() * typesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
                 rotSpeed: (Math.random() - 0.5) * 0.03
             });
@@ -1418,15 +1675,18 @@
 
         let drawerDecorItems = [];
         for (let i = 0; i < 6; i++) {
+            const typesPool = ["sword", "helmet", "bomb", "drop1", "shield"];
             drawerDecorItems.push({
-                x: Math.random() * drawerW, y: Math.random() * drawerH,
+                x: Math.random() * drawerW,
+                y: Math.random() * drawerH,
                 speed: 1.2 + Math.random() * 2.0,
-                type: ["sword", "helmet", "bomb", "drop1", "shield"][Math.floor(Math.random() * 5)],
+                type: typesPool[Math.floor(Math.random() * typesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
                 rotSpeed: (Math.random() - 0.5) * 0.03
             });
         }
 
+        // Форматирование таймера ММ:СС
         function formatGameTimer(ms) {
             const totalSeconds = Math.floor(ms / 1000);
             const mins = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
@@ -1434,26 +1694,56 @@
             return `${mins}:${secs}`;
         }
 
+        // Отрисовка таймера и имени босса в HUD
         function drawGameTimerAndBossHUD() {
             if (!gameStarted || gameOver) return;
+
             let timerLabel = `⏱ ${formatGameTimer(gameElapsedMs)}`;
-            if ((bossState === "intro" || bossState === "active") && currentBoss !== null) {
-                timerLabel += `  |  👑 Босс: ${currentBoss === "dasha" ? "ДАША" : "РИТА"}`;
+            let isBossFight = (bossState === "intro" || bossState === "active") && currentBoss !== null;
+
+            if (isBossFight) {
+                let bName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
+                timerLabel += `  |  👑 Босс: ${bName}`;
             }
+
             ctx.save();
             ctx.font = "bold 14px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
             ctx.textAlign = "left";
-            ctx.fillStyle = currentBoss ? "#00d2ff" : "#a5d6a7";
+            ctx.fillStyle = isBossFight ? "#00d2ff" : "#a5d6a7";
             ctx.fillText(timerLabel, 12, 72);
             ctx.restore();
         }
+
+        // Моментальный сброс сессии при закрытии вкладки
+        function handleInstantTabExit() {
+            if (gameStarted && !gameOver && currentUid) {
+                gameStarted = false;
+                gameOver = true;
+                isPaused = false;
+                gameElapsedMs = 0;
+                currentBoss = null;
+                bossState = "normal";
+                localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
+                
+                try {
+                    const dbRef = doc(db, "users", currentUid);
+                    updateDoc(dbRef, { inGame: false, gameStartTime: null }).catch(() => {});
+                } catch(e) {}
+            }
+        }
+
+        window.addEventListener("pagehide", handleInstantTabExit);
+        window.addEventListener("beforeunload", handleInstantTabExit);
 
         function toggleProfileDrawer(e) {
             if (e) e.stopPropagation();
             isDrawerOpen = !isDrawerOpen;
             const drawer = document.getElementById("profileDrawer");
-            if (isDrawerOpen) drawer.classList.add("open");
-            else drawer.classList.remove("open");
+            if (isDrawerOpen) {
+                drawer.classList.add("open");
+            } else {
+                drawer.classList.remove("open");
+            }
         }
 
         window.addEventListener("click", (e) => {
@@ -1534,7 +1824,10 @@
         }
 
         function togglePause(e) {
-            if (e) { e.stopPropagation(); e.preventDefault(); }
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
             if (!gameStarted || gameOver || bossState === "intro") return;
             isPaused = !isPaused;
             const pauseScreen = document.getElementById("pauseScreen");
@@ -1553,10 +1846,13 @@
         function returnToMainMenu() {
             if (mlEarned > 0) {
                 window.totalBank += mlEarned;
-                if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(mlEarned);
+                if (typeof window.addServerMilliliters === "function") {
+                    window.addServerMilliliters(mlEarned);
+                }
                 localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
                 mlEarned = 0.0;
             }
+
             isPaused = false;
             gameStarted = false;
             gameOver = false;
@@ -1570,7 +1866,9 @@
             document.getElementById("startScreen").style.display = "flex";
         }
 
-        function showWithdrawModalFromStart() { showWithdrawModal(); }
+        function showWithdrawModalFromStart() {
+            showWithdrawModal();
+        }
 
         function drawSingleItem(item, customCtx) {
             let targetCtx = customCtx || ctx;
@@ -1584,23 +1882,30 @@
                 item.rotation = (item.rotation || 0) + 0.08;
                 targetCtx.rotate(item.rotation);
                 targetCtx.font = "32px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                targetCtx.textAlign = "center";
                 targetCtx.fillText("🗡", 0, 0);
                 targetCtx.restore();
-            } else if (item.type === "fan_item") {
+            }
+            else if (item.type === "fan_item") {
                 targetCtx.save();
                 targetCtx.translate(item.x, item.y);
                 item.rotate(item.rotation || 0);
-                targetCtx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                targetCtx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; 
+                targetCtx.textAlign = "center";
                 targetCtx.fillText("🪭", 0, 0);
                 targetCtx.restore();
-            } else if (item.type === "table") {
+            }
+            else if (item.type === "table") {
                 targetCtx.save();
                 targetCtx.translate(item.x, item.y);
                 item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
                 targetCtx.rotate(item.rotation);
+                targetCtx.font = "35px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                targetCtx.textAlign = "center";
                 targetCtx.fillText("🪑", 0, 10);
                 targetCtx.restore();
-            } else if (item.type === "barricade") targetCtx.fillText("🛢️", item.x, item.y);
+            }
+            else if (item.type === "barricade") targetCtx.fillText("🛢️", item.x, item.y);
             else if (item.type === "fan") targetCtx.fillText("🪭", item.x, item.y);
             else if (item.type === "white_drop") {
                 targetCtx.save();
@@ -1612,13 +1917,18 @@
                 targetCtx.fillStyle = "#ffffff";
                 targetCtx.fill();
                 targetCtx.restore();
-            } else if (item.type === "bomb") {
+            }
+            else if (item.type === "bomb") {
                 if (bombImg.complete && bombImg.naturalWidth !== 0) {
                     let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
                     let drawH = customCtx ? 46 : 40;
-                    targetCtx.drawImage(bombImg, Math.round(item.x - (drawH * imgAspect) / 2), Math.round(item.y - drawH / 2), drawH * imgAspect, drawH);
-                } else { targetCtx.fillText("💣", item.x, item.y); }
-            } else if (item.type === "shield") targetCtx.fillText("🛡", item.x, item.y);
+                    let drawW = drawH * imgAspect;
+                    targetCtx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
+                } else {
+                    targetCtx.fillText("💣", item.x, item.y);
+                }
+            }
+            else if (item.type === "shield") targetCtx.fillText("🛡", item.x, item.y);
             else if (item.type === "helmet") targetCtx.fillText("🪖", item.x, item.y);
             else if (item.type === "drop1") targetCtx.fillText("💧", item.x, item.y);
             else if (item.type === "splash") targetCtx.fillText("💦", item.x, item.y);
@@ -1630,7 +1940,10 @@
             else if (item.type === "yellow_orb") {
                 targetCtx.save();
                 targetCtx.translate(item.x, item.y);
-                if (item.rotationSpeed) { item.rotation += item.rotationSpeed; targetCtx.rotate(item.rotation); }
+                if (item.rotationSpeed) {
+                    item.rotation += item.rotationSpeed;
+                    targetCtx.rotate(item.rotation);
+                }
                 targetCtx.beginPath();
                 targetCtx.moveTo(0, -14);
                 targetCtx.bezierCurveTo(12, -2, 12, 12, 0, 14);
@@ -1644,8 +1957,12 @@
             } else if (item.type === "random_cube") {
                 if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
                     targetCtx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
-                } else { targetCtx.fillText("🎁", item.x, item.y); }
-            } else { targetCtx.fillText("🗡", item.x, item.y); }
+                } else {
+                    targetCtx.fillText("🎁", item.x, item.y);
+                }
+            } else {
+                targetCtx.fillText("🗡", item.x, item.y);
+            }
         }
 
         function gameLoop() {
@@ -1659,25 +1976,64 @@
 
             if (!gameStarted) {
                 menuDecorItems.forEach(item => {
-                    item.y += item.speed; item.rotation += item.rotSpeed;
-                    if (item.y > H + 40) { item.y = -40; item.x = Math.random() * W; }
+                    item.y += item.speed;
+                    item.rotation += item.rotSpeed;
+                    if (item.y > H + 40) {
+                        item.y = -40;
+                        item.x = Math.random() * W;
+                    }
+
                     ctx.save();
                     ctx.translate(item.x, item.y);
                     ctx.rotate(item.rotation);
-                    drawSingleItem(item);
+
+                    if (item.type === "bomb") {
+                        if (bombImg.complete && bombImg.naturalWidth !== 0) {
+                            let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
+                            let drawH = 36;
+                            let drawW = drawH * imgAspect;
+                            ctx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
+                        } else {
+                            ctx.font = "32px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                            ctx.textAlign = "center";
+                            ctx.fillText("💣", 0, 0);
+                        }
+                    } else {
+                        ctx.font = "32px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                        ctx.textAlign = "center";
+                        let symbol = "🗡";
+                        if (item.type === "table") symbol = "🪑";
+                        else if (item.type === "shield") symbol = "🛡";
+                        else if (item.type === "helmet") symbol = "🪖";
+                        else if (item.type === "drop1") symbol = "💧";
+                        else if (item.type === "fan") symbol = "🪭";
+                        else if (item.type === "snow") symbol = "❄️";
+                        ctx.fillText(symbol, 0, 0);
+                    }
                     ctx.restore();
                 });
 
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
-                    item.y += item.speed; item.rotation += item.rotSpeed;
-                    if (item.y > drawerH + 50) { item.y = -50; item.x = Math.random() * drawerW; }
+                    item.y += item.speed; 
+                    item.rotation += item.rotSpeed; 
+                    if (item.y > drawerH + 50) {
+                        item.y = -50;
+                        item.x = Math.random() * drawerW;
+                    }
+
                     drawerCtx.save();
                     drawerCtx.translate(item.x, item.y);
                     drawerCtx.rotate(item.rotation);
-                    let tx = item.x, ty = item.y; item.x = 0; item.y = 0;
+                    
+                    let tempX = item.x;
+                    let tempY = item.y;
+                    item.x = 0;
+                    item.y = 0;
                     drawSingleItem(item, drawerCtx);
-                    item.x = tx; item.y = ty;
+                    item.x = tempX;
+                    item.y = tempY;
+
                     drawerCtx.restore();
                 });
 
@@ -1693,13 +2049,19 @@
                 ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
                 drawGameTimerAndBossHUD();
 
+                const renderPlayerX = Math.round(player.x);
+                const renderPlayerY = Math.round(player.y);
                 if (eggImg.complete && eggImg.naturalWidth !== 0) {
-                    let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight;
-                    ctx.drawImage(eggImg, Math.round(player.x - (50 * imgAspect) / 2), Math.round(player.y - 25), 50 * imgAspect, 50);
+                    let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
+                    let drawH = 50; 
+                    let drawW = drawH * imgAspect; 
+                    let renderX = Math.round(renderPlayerX - drawW / 2);
+                    let renderY = Math.round(renderPlayerY - drawH / 2);
+                    ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
                 } else {
                     ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                     ctx.textAlign = "center";
-                    ctx.fillText("🥚", player.x, player.y + 15);
+                    ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
                 }
                 requestAnimationFrame(gameLoop);
                 return;
@@ -1710,6 +2072,7 @@
                 return;
             }
 
+            // Таймер тикает непрерывно во время активной игры
             gameElapsedMs += Math.min(deltaMs, 200);
 
             const isInvincible = now < invincibleUntil;
@@ -1717,8 +2080,11 @@
             const hasFanActive = now < fanExpiresAt; 
 
             if (bossState !== "intro" && bossState !== "victory") {
-                if (isEggSlowed) player.x += (targetX - player.x) * 0.10; 
-                else player.x = targetX; 
+                if (isEggSlowed) {
+                    player.x += (targetX - player.x) * 0.10; 
+                } else {
+                    player.x = targetX; 
+                }
             }
             player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
 
@@ -1727,7 +2093,9 @@
                 currentBoss = "dasha";
                 bossState = "intro";
                 introTimer = now;
-                bossMaxHp = 500; bossHp = 500; bossX = W / 2; 
+                bossMaxHp = 500;
+                bossHp = 500; 
+                bossX = W / 2; 
             }
 
             if (mlEarned >= 10.0 && dashaDefeated && !ritaTriggered) {
@@ -1735,13 +2103,22 @@
                 currentBoss = "rita";
                 bossState = "intro";
                 introTimer = now;
-                bossMaxHp = 200; bossHp = 200; bossX = W / 2; 
+                bossMaxHp = 200;
+                bossHp = 200; 
+                bossX = W / 2; 
             }
 
             let currentWholeMl = Math.floor(mlEarned);
             if (currentWholeMl > lastCubeMilestone && bossState !== "intro" && bossState !== "victory") {
                 lastCubeMilestone = currentWholeMl;
-                items.push({ x: Math.random() * (W - 60) + 30, y: -30, speed: 4, type: "random_cube", flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 });
+                items.push({
+                    x: Math.random() * (W - 60) + 30,
+                    y: -30,
+                    speed: 4,
+                    type: "random_cube",
+                    flickerOffset: Math.random() * 20000,
+                    shouldFlicker: Math.random() < 0.35
+                });
             }
 
             if (bossState === "active") {
@@ -1750,69 +2127,167 @@
 
                 if (currentBoss === "dasha") {
                     if (Math.random() < 0.007) {
-                        items.push({ x: Math.random() * (W - 50) + 25, y: -30, speed: 4.5, type: "white_drop", flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 });
+                        items.push({
+                            x: Math.random() * (W - 50) + 25,
+                            y: -30,
+                            speed: 4.5,
+                            type: "white_drop",
+                            flickerOffset: Math.random() * 20000,
+                            shouldFlicker: Math.random() < 0.35
+                        });
                     }
 
                     let activeTables = items.filter(it => it.type === "table" || it.type === "sword").length;
                     let tableSpawnChance = (bossHp > 400) ? 0.024 : 0.0168; 
-                    let maxActiveTables = 3;
+                    let maxActiveTables = (bossHp > 400) ? 3 : 3;
 
                     if (bossHp <= 400 && bossHp >= 150) {
                         if (Math.random() < 0.012) {
                             let fromLeft = Math.random() < 0.5;
                             let cornerItemType = Math.random() < 0.60 ? "table" : "sword";
                             items.push({
-                                x: fromLeft ? 20 : W - 20, y: 50 + Math.random() * 100,
+                                x: fromLeft ? 20 : W - 20,
+                                y: 50 + Math.random() * 100,
                                 vx: fromLeft ? (2.5 + Math.random() * 1.5) : -(2.5 + Math.random() * 1.5),
-                                vy: 1.2 + Math.random() * 1.2, rotation: 0, rotationSpeed: 0.05,
-                                type: cornerItemType, subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35
+                                vy: 1.2 + Math.random() * 1.2,
+                                rotation: 0,
+                                rotationSpeed: 0.05,
+                                type: cornerItemType,
+                                subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
+                                flickerOffset: Math.random() * 20000,
+                                shouldFlicker: Math.random() < 0.35
                             });
                         }
                     }
 
                     if (bossHp < 150) {
-                        tableSpawnChance = 0.07; maxActiveTables = 9;
+                        tableSpawnChance = 0.07; 
+                        maxActiveTables = 9;
+
                         if (Math.random() < 0.008) {
-                            items.push({ x: Math.random() * (W - 60) + 30, y: -30, vx: (Math.random() - 0.5) * 1.5, vy: 3.5 + Math.random() * 1.5, speed: 4.0, type: "fan_item", rotation: 0, rotationSpeed: 0.03, flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 });
+                            items.push({
+                                x: Math.random() * (W - 60) + 30,
+                                y: -30,
+                                vx: (Math.random() - 0.5) * 1.5,
+                                vy: 3.5 + Math.random() * 1.5,
+                                speed: 4.0,
+                                type: "fan_item",
+                                rotation: 0,
+                                rotationSpeed: 0.03,
+                                flickerOffset: Math.random() * 20000,
+                                shouldFlicker: Math.random() < 0.35
+                            });
                         }
+
                         if (Math.random() < 0.055) {
                             let spawnMode = Math.random();
                             let fromLeft = Math.random() < 0.5;
                             let cornerItemType = Math.random() < 0.55 ? "table" : "sword";
-                            let spawnX = spawnMode < 0.6 ? (fromLeft ? 20 : W - 20) : W / 2 + (Math.random() - 0.5) * (W * 0.5);
-                            let spawnVx = spawnMode < 0.6 ? (fromLeft ? (3.5 + Math.random() * 2.5) : -(3.5 + Math.random() * 2.5)) : (Math.random() - 0.5) * 2.0;
+                            let spawnX, spawnVx, spawnVy;
+                            if (spawnMode < 0.6) {
+                                spawnX = fromLeft ? 20 : W - 20;
+                                spawnVx = fromLeft ? (3.5 + Math.random() * 2.5) : -(3.5 + Math.random() * 2.5);
+                                spawnVy = 1.5 + Math.random() * 1.5;
+                            } else {
+                                spawnX = W / 2 + (Math.random() - 0.5) * (W * 0.5);
+                                spawnVx = (Math.random() - 0.5) * 2.0;
+                                spawnVy = 3.5 + Math.random() * 2.0;
+                            }
+
                             items.push({
-                                x: spawnX, y: 50 + Math.random() * 100, vx: spawnVx, vy: 1.5 + Math.random() * 1.5,
-                                rotation: 0, rotationSpeed: 0.07, type: cornerItemType, subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35
+                                x: spawnX,
+                                y: 50 + Math.random() * 100,
+                                vx: spawnVx,
+                                vy: spawnVy,
+                                rotation: 0,
+                                rotationSpeed: 0.07,
+                                type: cornerItemType,
+                                subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
+                                flickerOffset: Math.random() * 20000,
+                                shouldFlicker: Math.random() < 0.35
                             });
                         }
                     }
 
                     if (activeTables < maxActiveTables && Math.random() < tableSpawnChance) {
-                        items.push({ x: Math.random() * (W - 60) + 30, y: -30, vx: (Math.random() - 0.5) * 1.2, vy: 3.0 + Math.random() * 1.0, rotation: 0, rotationSpeed: 0.05, type: "table", subType: "drop", flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 });
+                        items.push({
+                            x: Math.random() * (W - 60) + 30,
+                            y: -30,
+                            vx: (Math.random() - 0.5) * 1.2,
+                            vy: 3.0 + Math.random() * 1.0,
+                            rotation: 0,
+                            rotationSpeed: 0.05,
+                            type: "table",
+                            subType: "drop",
+                            flickerOffset: Math.random() * 20000,
+                            shouldFlicker: Math.random() < 0.35
+                        });
                     }
 
                     if (Math.random() < 0.0025 && bossHp >= 150) {
                         let startBarX = Math.random() * (W - 200) + 100;
                         [-45, 0, 45].forEach(offset => {
-                            items.push({ x: Math.max(30, Math.min(W - 30, startBarX + offset)), y: -30, speed: 3.8, type: "barricade", flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 });
+                            items.push({
+                                x: Math.max(30, Math.min(W - 30, startBarX + offset)),
+                                y: -30,
+                                speed: 3.8,
+                                type: "barricade",
+                                flickerOffset: Math.random() * 20000,
+                                shouldFlicker: Math.random() < 0.35
+                            });
                         });
                     }
                 }
 
-                if (currentBoss === "rita" && bossHp < 100) {
-                    if (!bossDropsStarted) {
-                        bossDropsStarted = true; lastBossDropTime = now; bossDropStep = 0;
-                        [-2.2, 2.2].forEach(vx => items.push({ x: bossX, y: bossY + 20, vx, speed: 5.0, rotation: 0, rotationSpeed: vx > 0 ? 0.06 : -0.06, type: "yellow_orb", flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 }));
-                    } else if (now - lastBossDropTime >= 2000) {
-                        lastBossDropTime = now;
-                        bossDropStep = (bossDropStep + 1) % 2;
-                        if (bossDropStep === 1) {
-                            items.push({ x: bossX, y: bossY + 20, vx: 0, speed: 5.0, rotation: 0, rotationSpeed: 0.06, type: "yellow_orb", flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 });
-                        } else {
-                            [-2.2, 2.2].forEach(vx => items.push({ x: bossX, y: bossY + 20, vx, speed: 5.0, rotation: 0, rotationSpeed: vx > 0 ? 0.06 : -0.06, type: "yellow_orb", flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 }));
+                if (currentBoss === "rita") {
+                    if (bossHp < 100) {
+                        if (!bossDropsStarted) {
+                            bossDropsStarted = true;
+                            lastBossDropTime = now;
+                            bossDropStep = 0; 
+                            [-2.2, 2.2].forEach(vx => {
+                                items.push({
+                                    x: bossX,
+                                    y: bossY + 20,
+                                    vx: vx,
+                                    speed: 5.0,
+                                    rotation: 0,
+                                    rotationSpeed: (vx > 0 ? 0.06 : -0.06),
+                                    type: "yellow_orb",
+                                    flickerOffset: Math.random() * 20000,
+                                    shouldFlicker: Math.random() < 0.35
+                                });
+                            });
+                        } else if (now - lastBossDropTime >= 2000) {
+                            lastBossDropTime = now;
+                            bossDropStep = (bossDropStep + 1) % 2;
+
+                            if (bossDropStep === 1) {
+                                items.push({
+                                    x: bossX,
+                                    y: bossY + 20,
+                                    vx: 0,
+                                    speed: 5.0,
+                                    rotation: 0,
+                                    rotationSpeed: 0.06,
+                                    type: "yellow_orb",
+                                    flickerOffset: Math.random() * 20000,
+                                    shouldFlicker: Math.random() < 0.35
+                                });
+                            } else {
+                                [-2.2, 2.2].forEach(vx => {
+                                    items.push({
+                                        x: bossX,
+                                        y: bossY + 20,
+                                        vx: vx,
+                                        speed: 5.0,
+                                        rotation: (vx > 0 ? 0.06 : -0.06),
+                                        type: "yellow_orb",
+                                        flickerOffset: Math.random() * 20000,
+                                        shouldFlicker: Math.random() < 0.35
+                                    });
+                                });
+                            }
                         }
                     }
                 }
@@ -1821,219 +2296,513 @@
             if (bossState === "intro") {
                 let introPassed = now - introTimer;
                 let introDuration = 4500; 
+
                 let progress = Math.min(1, introPassed / 1500);
                 let easeProgress = progress * (2 - progress); 
                 let currentIntroY = -50 + (bossY - (-50)) * easeProgress;
                 let scaleAnim = 0.3 + 0.7 * easeProgress;
+
+                let introX = W / 2;
                 let introImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
 
                 ctx.save();
                 ctx.globalAlpha = Math.min(1, introPassed / 400);
+
                 if (introImg.complete && introImg.naturalWidth !== 0) {
-                    ctx.drawImage(introImg, W / 2 - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
+                    ctx.drawImage(introImg, introX - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
                 } else {
                     ctx.font = `${Math.floor(40 * scaleAnim)}px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif`;
                     ctx.textAlign = "center";
-                    ctx.fillText("👑", W / 2, currentIntroY + 10);
+                    ctx.fillText("👑", introX, currentIntroY + 10);
                 }
 
                 if (introPassed >= 1500) {
                     let barProgress = Math.min(1, (introPassed - 1500) / 1000);
-                    let barWidth = 220, barHeight = 12, barX = W / 2 - 110, barY = 20;
+                    let barWidth = 220;
+                    let barHeight = 12;
+                    let barX = W / 2 - barWidth / 2;
+                    let barY = 20;
+
+                    ctx.save();
                     ctx.globalAlpha = barProgress;
-                    ctx.fillStyle = "rgba(255, 255, 255, 0.2)"; ctx.fillRect(barX, barY, barWidth, barHeight);
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                    let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
                     ctx.fillStyle = (currentBoss === "dasha") ? "#00d2ff" : "#ff3333";
-                    ctx.fillRect(barX, barY, Math.max(0, (bossHp / bossMaxHp) * barWidth), barHeight);
-                    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.strokeRect(barX, barY, barWidth, barHeight);
-                    ctx.fillStyle = "#ffffff"; ctx.font = "bold 12px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
-                    ctx.fillText(`БОСС ${currentBoss === "dasha" ? "ДАША" : "РИТА"}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
+                    ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
+
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                    ctx.fillStyle = "#ffffff";
+                    ctx.font = "bold 12px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                    ctx.textAlign = "center";
+                    let bName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
+                    ctx.fillText(`БОСС ${bName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
+                    ctx.restore();
                 }
+
                 ctx.restore();
 
                 if (introPassed >= introDuration) {
-                    bossState = "active"; bossX = W / 2; bossDropsStarted = false; dashaPhaseStartTime = now; vaporTransitionStartTime = 0;
+                    bossState = "active";
+                    bossX = W / 2; 
+                    bossDropsStarted = false; 
+                    dashaPhaseStartTime = now;
+                    vaporTransitionStartTime = 0;
                 }
             }
 
             if (bossState === "victory") {
                 let victoryPassed = now - victoryTimer;
-                let scale = victoryPassed < 800 ? 0.4 + (victoryPassed / 800) * 0.6 : 1.0;
-                let opacity = victoryPassed > 2700 ? Math.max(0, 1.0 - (victoryPassed - 2700) / 800) : 1.0;
+                let victoryDuration = 3500; 
+
+                items.forEach(item => { item.speed = 20; });
+                activeWaterStreams = []; 
+                flyingFists = [];
+                flyingWhiteDrops = [];
+                bossWhiteSplats = [];
+
+                let scale = 1.0;
+                let opacity = 1.0;
+
+                if (victoryPassed < 800) {
+                    scale = 0.4 + (victoryPassed / 800) * 0.6;
+                } else if (victoryPassed > 2700) {
+                    let outP = (victoryPassed - 2700) / 800;
+                    scale = 1.0 - outP * 0.3;
+                    opacity = 1.0 - outP;
+                }
 
                 ctx.save();
-                ctx.globalAlpha = opacity;
-                ctx.fillStyle = "#00ff88"; ctx.strokeStyle = "#003311"; ctx.lineWidth = 4;
+                ctx.globalAlpha = Math.max(0, opacity);
+                ctx.fillStyle = "#00ff88";
+                ctx.strokeStyle = "#003311";
+                ctx.lineWidth = 4;
                 ctx.font = `bold ${Math.floor(38 * scale)}px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif`;
                 ctx.textAlign = "center";
                 ctx.strokeText("+5.000 мл ПОБЕДА!", W / 2, H / 2 - 20);
                 ctx.fillText("+5.000 мл ПОБЕДА!", W / 2, H / 2 - 20);
+                
+                let defeatedName = (currentBoss === "dasha") ? "Даша" : "Рита";
                 ctx.font = `bold 22px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif`;
                 ctx.fillStyle = "#ffffff";
-                ctx.fillText(`Босс ${currentBoss === "dasha" ? "Даша" : "Рита"} повержена!`, W / 2, H / 2 + 30);
+                ctx.fillText(`Босс ${defeatedName} повержена!`, W / 2, H / 2 + 30);
                 ctx.restore();
 
-                if (victoryPassed >= 3500) {
+                if (victoryPassed >= victoryDuration) {
                     if (currentBoss === "dasha") dashaDefeated = true;
                     else if (currentBoss === "rita") ritaDefeated = true;
-                    bossState = "normal"; currentBoss = null;
+                    bossState = "normal"; 
                 }
             }
 
             if (bossState === "active" && bossHp <= 0) {
-                bossState = "victory"; victoryTimer = now;
-                mlEarned += 5.0; window.totalBank += 5.0;
-                if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(5.0);
+                bossState = "victory";
+                victoryTimer = now;
+                mlEarned += 5.0; 
+                window.totalBank += 5.0;
+                if (typeof window.addServerMilliliters === "function") {
+                    window.addServerMilliliters(5.0);
+                }
                 localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
             }
 
-            let globalSpeedMul = (1 + Math.floor(mlEarned / 10) * 0.08) * (currentBoss === "dasha" && bossState === "active" && bossHp < 150 ? 0.65 : 1.0);
+            let globalSpeedMul = 1 + Math.floor(mlEarned / 10) * 0.08;
+            if (currentBoss === "dasha" && bossState === "active" && bossHp < 150) {
+                globalSpeedMul *= 0.65; 
+            }
+            const speedMultiplier = globalSpeedMul;
 
             for (let f = flyingFists.length - 1; f >= 0; f--) {
                 let ff = flyingFists[f];
                 let angle = Math.atan2(bossY - ff.y, bossX - ff.x);
-                ff.x += Math.cos(angle) * ff.speed; ff.y += Math.sin(angle) * ff.speed;
-                ctx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; ctx.textAlign = "center"; ctx.fillText("✊", ff.x, ff.y);
-                if (Math.hypot(bossX - ff.x, bossY - ff.y) < 25) { bossHp -= 10; flyingFists.splice(f, 1); }
+                ff.x += Math.cos(angle) * ff.speed;
+                ff.y += Math.sin(angle) * ff.speed;
+
+                ctx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("✊", ff.x, ff.y);
+
+                if (Math.hypot(bossX - ff.x, bossY - ff.y) < 25) {
+                    bossHp -= 10;
+                    flyingFists.splice(f, 1);
+                }
             }
 
             for (let f = flyingWhiteDrops.length - 1; f >= 0; f--) {
                 let fd = flyingWhiteDrops[f];
                 let angle = Math.atan2(bossY - fd.y, bossX - fd.x);
-                fd.x += Math.cos(angle) * fd.speed; fd.y += Math.sin(angle) * fd.speed;
-                ctx.save(); ctx.translate(fd.x, fd.y); ctx.rotate(angle + Math.PI / 2);
-                ctx.beginPath(); ctx.moveTo(0, -10); ctx.bezierCurveTo(7, -2, 7, 8, 0, 10); ctx.bezierCurveTo(-7, 8, -7, -2, 0, -10);
-                ctx.fillStyle = "#ffffff"; ctx.fill(); ctx.restore();
+                fd.x += Math.cos(angle) * fd.speed;
+                fd.y += Math.sin(angle) * fd.speed;
+
+                ctx.save();
+                ctx.translate(fd.x, fd.y);
+                ctx.rotate(angle + Math.PI / 2);
+                ctx.beginPath();
+                ctx.moveTo(0, -10);
+                ctx.bezierCurveTo(7, -2, 7, 8, 0, 10);
+                ctx.bezierCurveTo(-7, 8, -7, -2, 0, -10);
+                ctx.fillStyle = "#ffffff";
+                ctx.fill();
+                ctx.restore();
+
                 if (Math.hypot(bossX - fd.x, bossY - fd.y) < 25) {
                     bossHp = Math.max(0, bossHp - 10);
-                    bossWhiteSplats.push({ offsetX: Math.random() * 32 - 16, offsetY: Math.random() * 32 - 16, blobs: Array.from({length: 4}, () => ({ dx: Math.random() * 24 - 12, dy: Math.random() * 24 - 12, r: 5 + Math.random() * 7 })), expiresAt: now + 2000 });
+                    bossWhiteSplats.push({
+                        offsetX: Math.random() * 32 - 16,
+                        offsetY: Math.random() * 32 - 16,
+                        blobs: Array.from({length: 4}, () => ({
+                            dx: Math.random() * 24 - 12,
+                            dy: Math.random() * 24 - 12,
+                            r: 5 + Math.random() * 7
+                        })),
+                        expiresAt: now + 2000
+                    });
                     flyingWhiteDrops.splice(f, 1);
                 }
             }
 
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
-                let baseInterval = Math.max(9, Math.floor(22 / globalSpeedMul));
-                if (spawnTimer % ((bossState === "active") ? baseInterval + 14 : baseInterval) === 0 && !(currentBoss === "dasha" && bossState === "active" && bossHp < 150)) {
-                    let type = "sword", rand = Math.random();
+                let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
+                let currentSpawnInterval = (bossState === "active") ? baseInterval + 14 : baseInterval;
+
+                if (spawnTimer % currentSpawnInterval === 0 && !(currentBoss === "dasha" && bossState === "active" && bossHp < 150)) {
+                    let type = "sword";
+                    const rand = Math.random();
+
                     if (bossState === "active" && currentBoss === "rita") {
-                        type = rand < 0.38 ? "boss_fist" : (rand < 0.45 && !hasShield ? "shield" : (rand < 0.52 ? "drop1" : (rand < 0.62 ? "bomb" : "sword")));
+                        if (rand < 0.38) type = "boss_fist"; 
+                        else if (rand >= 0.38 && rand < 0.45 && !hasShield) type = "shield";
+                        else if (rand >= 0.45 && rand < 0.52) type = "drop1";
+                        else if (rand >= 0.52 && rand < 0.62) type = "bomb";
+                        else type = "sword";
                     } else if (bossState === "active" && currentBoss === "dasha") {
-                        type = !hasShield && rand < 0.08 ? "shield" : (rand < 0.35 ? "bomb" : (rand < 0.45 ? "drop1" : "sword"));
+                        if (!hasShield && rand < 0.08) type = "shield";
+                        else if (rand >= 0.08 && rand < 0.35) type = "bomb";
+                        else if (rand >= 0.35 && rand < 0.45) type = "drop1";
+                        else type = "sword";
                     } else {
-                        type = mlEarned >= 15.0 && rand < 0.008 ? "egg20" : (mlEarned >= 14.0 && rand < 0.016 ? "blood" : (mlEarned >= 8.0 && rand < 0.036 ? "torii" : (mlEarned >= 5.0 && rand < 0.061 ? "drop1" : (mlEarned >= 6.0 && rand < 0.14 ? "splash" : (mlEarned >= 12.0 && rand < 0.30 ? "snow" : (mlEarned >= 2.0 && !hasHelmet && rand < 0.35 ? "helmet" : (mlEarned >= 3.0 && !hasShield && rand < 0.43 ? "shield" : (mlEarned >= 1.0 && rand < 0.75 ? "bomb" : "sword"))))))));
+                        if (mlEarned >= 15.0 && rand < 0.008) type = "egg20"; 
+                        else if (mlEarned >= 14.0 && rand >= 0.008 && rand < 0.016) type = "blood"; 
+                        else if (mlEarned >= 8.0 && rand >= 0.016 && rand < 0.036) type = "torii"; 
+                        else if (mlEarned >= 5.0 && rand >= 0.036 && rand < 0.061) type = "drop1"; 
+                        else if (mlEarned >= 6.0 && rand >= 0.061 && rand < 0.14) type = "splash"; 
+                        else if (mlEarned >= 12.0 && rand >= 0.14 && rand < (mlEarned >= 15.0 ? 0.30 : 0.22)) type = "snow"; 
+                        else if (mlEarned >= 2.0 && !hasHelmet && rand >= 0.30 && rand < 0.35) type = "helmet";
+                        else if (mlEarned >= 3.0 && !hasShield && rand >= 0.35 && rand < 0.43) type = "shield";
+                        else if (mlEarned >= 1.0 && rand >= 0.43 && rand < 0.75) type = "bomb"; 
+                        else type = "sword";
                     }
-                    items.push({ x: Math.random() * (W - 60) + 30, y: -30, vx: 0, vy: (4 + Math.random() * 3) * globalSpeedMul, speed: (4 + Math.random() * 3) * globalSpeedMul, type, flickerOffset: Math.random() * 20000, shouldFlicker: Math.random() < 0.35 });
+
+                    items.push({
+                        x: Math.random() * (W - 60) + 30,
+                        y: -30,
+                        vx: 0,
+                        vy: 4 + Math.random() * 3,
+                        speed: (4 + Math.random() * 3) * speedMultiplier,
+                        type: type,
+                        flickerOffset: Math.random() * 20000,
+                        shouldFlicker: Math.random() < 0.35
+                    });
                 }
             }
 
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
-            let centerZoneCycle = (now % 20000), centerZoneAlpha = 0.0;
+            
+            // Лунный цикл мигания у Даши: 15 секунд угасания и 5 секунд лунного света
+            let centerZoneCycle = (now % 20000);
+            let centerZoneAlpha = 0.0;
             if (centerZoneCycle < 15000) {
-                if (centerZoneCycle / 15000 < 0.1) centerZoneAlpha = 1.0 - ((centerZoneCycle / 15000) / 0.1);
+                let darkP = centerZoneCycle / 15000;
+                if (darkP < 0.1) {
+                    centerZoneAlpha = 1.0 - (darkP / 0.1);
+                } else {
+                    centerZoneAlpha = 0.0;
+                }
             } else {
                 let lightP = (centerZoneCycle - 15000) / 5000;
-                centerZoneAlpha = lightP < 0.15 ? lightP / 0.15 : (lightP > 0.85 ? 1.0 - ((lightP - 0.85) / 0.15) : 1.0);
+                if (lightP < 0.15) {
+                    centerZoneAlpha = lightP / 0.15;
+                } else if (lightP > 0.85) {
+                    centerZoneAlpha = 1.0 - ((lightP - 0.85) / 0.15);
+                } else {
+                    centerZoneAlpha = 1.0;
+                }
             }
 
-            let vaporMultiplier = (isDashaActive && bossHp < 170) ? (vaporTransitionStartTime === 0 ? (vaporTransitionStartTime = now, 1.0) : Math.max(0, 1.0 - (now - vaporTransitionStartTime) / 1500)) : (vaporTransitionStartTime = 0, 1.0);
+            let vaporMultiplier = 1.0;
+            if (isDashaActive && bossHp < 170) {
+                if (vaporTransitionStartTime === 0) vaporTransitionStartTime = now;
+                let elapsedVapor = now - vaporTransitionStartTime;
+                vaporMultiplier = Math.max(0, 1.0 - (elapsedVapor / 1500));
+            } else {
+                vaporTransitionStartTime = 0;
+            }
 
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
+
                 if (hasFanActive && (item.type === "table" || item.type === "sword")) {
-                    if (Math.hypot(player.x - item.x, player.y - item.y) < 180) {
+                    let dToPlayer = Math.hypot(player.x - item.x, player.y - item.y);
+                    if (dToPlayer < 180) { 
                         let pushAngle = Math.atan2(item.y - player.y, item.x - player.x);
-                        item.vx = Math.cos(pushAngle) * 11; item.vy = Math.sin(pushAngle) * 11 - 3;
+                        item.vx = Math.cos(pushAngle) * 11;
+                        item.vy = Math.sin(pushAngle) * 11 - 3;
                         fanWindAnimation = { startTime: now };
                     }
                 }
 
-                if (item.type === "fan_item") { item.y += item.vy; item.x += (item.vx || 0); item.rotation = (item.rotation || 0) + 0.04; }
-                else if (item.type === "table" || item.type === "sword") {
+                if (item.type === "fan_item") {
+                    item.y += item.vy;
+                    item.x += (item.vx || 0);
+                    item.rotation = (item.rotation || 0) + 0.04;
+                } else if (item.type === "table" || item.type === "sword") {
                     if (item.subType === "horizontal") {
                         item.x += item.vx;
-                        if (item.x < -60 || item.x > W + 60) { items.splice(i, 1); continue; }
+                        if (item.x < -60 || item.x > W + 60) {
+                            items.splice(i, 1);
+                            continue;
+                        }
                     } else if (item.subType === "corner_chair" || item.subType === "corner_sword") {
-                        item.x += item.vx; item.y += item.vy; item.vy += 0.08;
+                        item.x += item.vx;
+                        item.y += item.vy;
+                        item.vy += 0.08;
                     } else if (item.subType === "trickshot") {
-                        item.x += item.vx; item.y += item.vy;
-                        if (item.x < 30) { item.x = 30; item.vx *= -1; } else if (item.x > W - 30) { item.x = W - 30; item.vx *= -1; }
-                    } else { item.x += (item.vx || 0); item.y += (item.vy || item.speed); }
+                        item.x += item.vx;
+                        item.y += item.vy;
+                        if (item.x < 30) { item.x = 30; item.vx *= -1; }
+                        else if (item.x > W - 30) { item.x = W - 30; item.vx *= -1; }
+                    } else {
+                        item.x += (item.vx || 0);
+                        item.y += (item.vy || item.speed);
+                    }
 
                     for (let j = items.length - 1; j >= 0; j--) {
-                        if (i !== j && items[j].type === "barricade" && Math.hypot(item.x - items[j].x, item.y - items[j].y) < 35) {
-                            items.splice(i, 1); break;
+                        if (i !== j && items[j].type === "barricade") {
+                            let bar = items[j];
+                            if (Math.hypot(item.x - bar.x, item.y - bar.y) < 35) {
+                                items.splice(i, 1);
+                                break;
+                            }
                         }
                     }
-                } else { item.y += (item.speed || item.vy || 4); if (item.vx) item.x += item.vx; }
+                } else {
+                    item.y += (item.speed || item.vy || 4);
+                    if (item.vx) item.x += item.vx;
+                }
 
                 if (!items[i]) continue;
 
-                let renderWithMoon = false, alpha = 1.0;
-                if (isDashaActive) {
+                let renderWithMoon = false;
+                let alpha = 1.0;
+
+                if (isDashaActive && bossHp >= 170) {
                     renderWithMoon = true;
-                    let distanceFromCenter = Math.abs(item.x - (W / 2));
-                    if (distanceFromCenter < W * 0.32) alpha = centerZoneAlpha;
-                    else {
+                    let centerX = W / 2;
+                    let distanceFromCenter = Math.abs(item.x - centerX);
+                    if (distanceFromCenter < W * 0.32) {
+                        alpha = centerZoneAlpha; 
+                    } else {
                         let sideCycle = (now + (item.flickerOffset || 0)) % 20000;
-                        alpha = sideCycle < 15000 ? (sideCycle / 15000 < 0.1 ? 1.0 - ((sideCycle / 15000) / 0.1) : 0.0) : (() => {
-                            let lp = (sideCycle - 15000) / 5000;
-                            return lp < 0.15 ? lp / 0.15 : (lp > 0.85 ? 1.0 - ((lp - 0.85) / 0.15) : 1.0);
-                        })();
+                        if (sideCycle < 15000) {
+                            let darkP = sideCycle / 15000;
+                            if (darkP < 0.1) alpha = 1.0 - (darkP / 0.1);
+                            else alpha = 0.0;
+                        } else {
+                            let lightP = (sideCycle - 15000) / 5000;
+                            if (lightP < 0.15) alpha = lightP / 0.15;
+                            else if (lightP > 0.85) alpha = 1.0 - ((lightP - 0.85) / 0.15);
+                            else alpha = 1.0;
+                        }
                     }
-                    if (bossHp < 170) alpha *= vaporMultiplier;
+                } else if (isDashaActive && bossHp < 170) {
+                    let vaporOutP = vaporTransitionStartTime > 0 ? Math.max(0, 1.0 - (now - vaporTransitionStartTime) / 1500) : 0;
+                    
+                    if (vaporOutP > 0 && !item.shouldFlicker) {
+                        renderWithMoon = true;
+                        let centerX = W / 2;
+                        let distanceFromCenter = Math.abs(item.x - centerX);
+                        if (distanceFromCenter < W * 0.32) {
+                            alpha = centerZoneAlpha * vaporOutP;
+                        } else {
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 20000;
+                            let baseSideAlpha = 0.0;
+                            if (sideCycle < 15000) {
+                                let darkP = sideCycle / 15000;
+                                if (darkP < 0.1) baseSideAlpha = 1.0 - (darkP / 0.1);
+                                else baseSideAlpha = 0.0;
+                            } else {
+                                let lightP = (sideCycle - 15000) / 5000;
+                                if (lightP < 0.15) baseSideAlpha = lightP / 0.15;
+                                else if (lightP > 0.85) baseSideAlpha = 1.0 - ((lightP - 0.85) / 0.15);
+                                else baseSideAlpha = 1.0;
+                            }
+                            alpha = baseSideAlpha * vaporOutP;
+                        }
+                    } else if (item.shouldFlicker) {
+                        renderWithMoon = true;
+                        let centerX = W / 2;
+                        let distanceFromCenter = Math.abs(item.x - centerX);
+                        if (distanceFromCenter < W * 0.32) {
+                            alpha = centerZoneAlpha;
+                        } else {
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 20000;
+                            if (sideCycle < 15000) {
+                                let darkP = sideCycle / 15000;
+                                if (darkP < 0.1) alpha = 1.0 - (darkP / 0.1);
+                                else alpha = 0.0;
+                            } else {
+                                let lightP = (sideCycle - 15000) / 5000;
+                                if (lightP < 0.15) alpha = lightP / 0.15;
+                                else if (lightP > 0.85) alpha = 1.0 - ((lightP - 0.85) / 0.15);
+                                else alpha = 1.0;
+                            }
+                        }
+                    }
                 }
 
                 if (renderWithMoon && alpha > 0.005) {
                     ctx.save();
                     let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 50);
-                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${alpha})`); moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
-                    ctx.beginPath(); ctx.arc(item.x, item.y, 50, 0, Math.PI * 2); ctx.fillStyle = moonGlow; ctx.fill();
-                    ctx.globalAlpha = alpha; drawSingleItem(item); ctx.restore();
-                } else { drawSingleItem(item); }
+                    moonGlow.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+                    moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
-                if (Math.hypot(player.x - item.x, player.y - item.y) < player.radius + 15) {
-                    if (bossState === "intro" || bossState === "victory") { items.splice(i, 1); continue; }
-                    if (item.type === "boss_fist") { flyingFists.push({ x: player.x, y: player.y, speed: 13 }); items.splice(i, 1); continue; }
-                    if (item.type === "white_drop") { flyingWhiteDrops.push({ x: player.x, y: player.y, speed: 14 }); items.splice(i, 1); continue; }
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, 50, 0, Math.PI * 2);
+                    ctx.fillStyle = moonGlow;
+                    ctx.fill();
+
+                    ctx.globalAlpha = alpha;
+                    drawSingleItem(item);
+                    ctx.restore();
+                } else if (!renderWithMoon || alpha <= 0.005) {
+                    if (!renderWithMoon) drawSingleItem(item);
+                }
+
+                const dist = Math.hypot(player.x - item.x, player.y - item.y);
+                if (dist < player.radius + 15) {
+                    if (bossState === "intro" || bossState === "victory") {
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    if (item.type === "boss_fist") {
+                        flyingFists.push({ x: player.x, y: player.y, speed: 13 });
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    if (item.type === "white_drop") {
+                        flyingWhiteDrops.push({ x: player.x, y: player.y, speed: 14 });
+                        items.splice(i, 1);
+                        continue;
+                    }
+
                     if (item.type === "fan" || item.type === "fan_item") {
-                        fanExpiresAt = now + 3000; fanWindAnimation = { startTime: now };
+                        fanExpiresAt = now + 3000; 
+                        fanWindAnimation = { startTime: now };
+                        const pushRadius = 250;
                         items.forEach(it => {
-                            if (it.type === "table" || it.type === "sword" && Math.hypot(player.x - it.x, player.y - it.y) <= 250) {
-                                let pushAngle = Math.atan2(it.y - player.y, it.x - player.x);
-                                it.vx = Math.cos(pushAngle) * 26; it.vy = Math.sin(pushAngle) * 26 - 3;
+                            if (it.type === "table" || it.type === "sword") {
+                                let dToPlayer = Math.hypot(player.x - it.x, player.y - it.y);
+                                if (dToPlayer <= pushRadius) {
+                                    let pushAngle = Math.atan2(it.y - player.y, it.x - player.x);
+                                    let force = 18 + (1 - dToPlayer / pushRadius) * 16;
+                                    it.vx = Math.cos(pushAngle) * force;
+                                    it.vy = Math.sin(pushAngle) * force - 3;
+                                }
                             }
                         });
-                        items.splice(i, 1); continue;
+                        items.splice(i, 1);
+                        continue;
                     }
+
                     if (item.type === "random_cube") {
-                        let re = Math.random();
-                        if (re < 0.33) { mlEarned += 1.0; window.totalBank += 1.0; if (window.addServerMilliliters) window.addServerMilliliters(1.0); }
-                        else if (re < 0.66) hasShield = true;
-                        else eggSlowUntil = Date.now() + 3000;
-                        items.splice(i, 1); continue;
+                        const randEffect = Math.random();
+                        if (randEffect < 0.33) {
+                            mlEarned += 1.0; 
+                            window.totalBank += 1.0;
+                            if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(1.0);
+                        } else if (randEffect < 0.66) {
+                            hasShield = true; 
+                        } else {
+                            eggSlowUntil = Date.now() + 3000; 
+                        }
+                        items.splice(i, 1);
+                        continue;
                     }
-                    if (item.type === "shield") { hasShield = true; items.splice(i, 1); continue; }
-                    if (item.type === "helmet") { hasHelmet = true; items.splice(i, 1); continue; }
-                    if (item.type === "drop1") { mlEarned += 1.0; window.totalBank += 1.0; if (window.addServerMilliliters) window.addServerMilliliters(1.0); items.splice(i, 1); continue; }
-                    if (item.type === "splash") { mlEarned += 0.1; window.totalBank += 0.1; if (window.addServerMilliliters) window.addServerMilliliters(0.1); items.splice(i, 1); continue; }
-                    if (item.type === "torii") { invincibleUntil = Date.now() + 5000; items.splice(i, 1); continue; }
-                    if (item.type === "blood") { mlEarned += 10.0; window.totalBank += 10.0; if (window.addServerMilliliters) window.addServerMilliliters(10.0); items.splice(i, 1); continue; }
-                    if (item.type === "egg20") { mlEarned += 20.0; window.totalBank += 20.0; if (window.addServerMilliliters) window.addServerMilliliters(20.0); items.splice(i, 1); continue; }
-                    if (item.type === "snow") { eggSlowUntil = Date.now() + 3000; items.splice(i, 1); continue; }
 
-                    if (isInvincible) { items.splice(i, 1); continue; }
-                    if ((item.type === "bomb" || item.type === "yellow_orb") && hasHelmet) { hasHelmet = false; items.splice(i, 1); continue; }
-                    if (hasShield) { hasShield = false; items.splice(i, 1); continue; }
+                    if (item.type === "shield") {
+                        hasShield = true;
+                        items.splice(i, 1);
+                        continue;
+                    } else if (item.type === "helmet") {
+                        hasHelmet = true;
+                        items.splice(i, 1);
+                        continue;
+                    } else if (item.type === "drop1") {
+                        mlEarned += 1.0;
+                        window.totalBank += 1.0;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(1.0);
+                        items.splice(i, 1);
+                        continue;
+                    } else if (item.type === "splash") {
+                        mlEarned += 0.1;
+                        window.totalBank += 0.1;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(0.1);
+                        items.splice(i, 1);
+                        continue;
+                    } else if (item.type === "torii") {
+                        invincibleUntil = Date.now() + 5000;
+                        items.splice(i, 1);
+                        continue;
+                    } else if (item.type === "blood") {
+                        mlEarned += 10.0;
+                        window.totalBank += 10.0;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(10.0);
+                        items.splice(i, 1);
+                        continue;
+                    } else if (item.type === "egg20") {
+                        mlEarned += 20.0;
+                        window.totalBank += 20.0;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(20.0);
+                        items.splice(i, 1);
+                        continue;
+                    } else if (item.type === "snow") {
+                        eggSlowUntil = Date.now() + 3000; 
+                        items.splice(i, 1);
+                        continue;
+                    } else {
+                        if (isInvincible) {
+                            items.splice(i, 1);
+                            continue;
+                        } 
+                        if ((item.type === "bomb" || item.type === "yellow_orb") && hasHelmet) {
+                            hasHelmet = false;
+                            items.splice(i, 1);
+                            continue;
+                        }
+                        if (hasShield) {
+                            hasShield = false;
+                            items.splice(i, 1);
+                            continue;
+                        } 
 
-                    showGameOver();
-                    requestAnimationFrame(gameLoop);
-                    return;
+                        showGameOver();
+                        requestAnimationFrame(gameLoop);
+                        return;
+                    }
                 }
 
                 if (item.y > H + 40 || item.x < -100 || item.x > W + 100) {
                     if (item.type === "sword" && bossState !== "victory" && item.subType !== "corner_sword") {
-                        mlEarned += 0.015; window.totalBank += 0.015;
-                        if (window.addServerMilliliters) window.addServerMilliliters(0.015);
+                        mlEarned += 0.015; 
+                        window.totalBank += 0.015;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(0.015);
                     }
                     items.splice(i, 1);
                 }
@@ -2043,79 +2812,188 @@
                 let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
                     ctx.drawImage(activeImg, bossX - 28, bossY - 28, 56, 56);
+                    
                     if (currentBoss === "rita" && bossHp < 100) {
                         ctx.fillStyle = "rgba(100, 50, 160, 0.8)";
-                        ctx.beginPath(); ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2); ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2); ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(bossX - 8, bossY - 2, 7, 0, Math.PI * 2);
+                        ctx.arc(bossX + 9, bossY + 3, 6, 0, Math.PI * 2);
+                        ctx.fill();
                     }
+
                     if (currentBoss === "dasha") {
                         bossWhiteSplats = bossWhiteSplats.filter(s => now < s.expiresAt);
                         bossWhiteSplats.forEach(s => {
                             ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-                            s.blobs.forEach(b => { ctx.beginPath(); ctx.arc(bossX + s.offsetX + b.dx, bossY + s.offsetY + b.dy, b.r, 0, Math.PI * 2); ctx.fill(); });
-                            ctx.beginPath(); ctx.arc(bossX + s.offsetX, bossY + s.offsetY, 10, 0, Math.PI * 2); ctx.fill();
+                            s.blobs.forEach(b => {
+                                ctx.beginPath();
+                                ctx.arc(bossX + s.offsetX + b.dx, bossY + s.offsetY + b.dy, b.r, 0, Math.PI * 2);
+                                ctx.fill();
+                            });
+                            ctx.beginPath();
+                            ctx.arc(bossX + s.offsetX, bossY + s.offsetY, 10, 0, Math.PI * 2);
+                            ctx.fill();
                         });
                     }
                 } else {
-                    ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; ctx.textAlign = "center";
+                    ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                    ctx.textAlign = "center";
                     ctx.fillText(currentBoss === "dasha" ? "🧝‍♀️" : "👑", bossX, bossY + 10);
                 }
 
-                let bw = 220, bh = 12, bx = W / 2 - 110, by = 20;
-                ctx.fillStyle = "rgba(255, 255, 255, 0.2)"; ctx.fillRect(bx, by, bw, bh);
+                let barWidth = 220;
+                let barHeight = 12;
+                let barX = W / 2 - barWidth / 2;
+                let barY = 20;
+
+                ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+
+                let currentHpWidth = (bossHp / bossMaxHp) * barWidth;
                 ctx.fillStyle = (currentBoss === "dasha") ? "#00d2ff" : "#ff3333";
-                ctx.fillRect(bx, by, Math.max(0, (bossHp / bossMaxHp) * bw), bh);
-                ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.strokeRect(bx, by, bw, bh);
-                ctx.fillStyle = "#ffffff"; ctx.font = "bold 12px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; ctx.textAlign = "center";
-                ctx.fillText(`БОСС ${currentBoss === "dasha" ? "ДАША" : "РИТА"}: ${bossHp}/${bossMaxHp}`, W / 2, by - 5);
+                ctx.fillRect(barX, barY, Math.max(0, currentHpWidth), barHeight);
+
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 12px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                ctx.textAlign = "center";
+                let bossTitleName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
+                ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
-            ctx.fillStyle = "#ffffff"; ctx.font = "bold 15px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; ctx.textAlign = "left";
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 15px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+            ctx.textAlign = "left";
             ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
             ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
             drawGameTimerAndBossHUD();
 
             let statusY = 95;
-            if (isInvincible) { ctx.fillStyle = "#ffcc00"; ctx.fillText("⛩ Непробиваемость!", 12, statusY); statusY += 18; }
-            if (hasShield && !isInvincible) { ctx.fillStyle = "#00d2ff"; ctx.fillText("🛡 Щит активен!", 12, statusY); statusY += 18; }
-            if (hasHelmet && !isInvincible) { ctx.fillStyle = "#ff9900"; ctx.fillText("🪖 Каска активна!", 12, statusY); statusY += 18; }
-            if (hasFanActive) { ctx.fillStyle = "#00ffcc"; ctx.fillText("🪭 Веер активен!", 12, statusY); statusY += 18; }
-            if (isEggSlowed) { ctx.fillStyle = "#99ffff"; ctx.fillText("❄️ Яйцо замедлено!", 12, statusY); }
-
-            if (eggImg.complete && eggImg.naturalWidth !== 0) {
-                let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight;
-                ctx.drawImage(eggImg, Math.round(player.x - (50 * imgAspect) / 2), Math.round(player.y - 25), 50 * imgAspect, 50);
-            } else {
-                ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; ctx.textAlign = "center";
-                ctx.fillText("🥚", player.x, player.y + 15);
+            if (isInvincible) {
+                ctx.fillStyle = "#ffcc00";
+                ctx.fillText("⛩ Непробиваемость!", 12, statusY);
+                statusY += 18;
+            }
+            if (hasShield && !isInvincible) {
+                ctx.fillStyle = "#00d2ff";
+                ctx.fillText("🛡 Щит активен!", 12, statusY);
+                statusY += 18;
+            }
+            if (hasHelmet && !isInvincible) {
+                ctx.fillStyle = "#ff9900";
+                ctx.fillText("🪖 Каска активна!", 12, statusY);
+                statusY += 18;
+            }
+            if (hasFanActive) {
+                ctx.fillStyle = "#00ffcc";
+                ctx.fillText("🪭 Веер активен!", 12, statusY);
+                statusY += 18;
+            }
+            if (isEggSlowed) {
+                ctx.fillStyle = "#99ffff";
+                ctx.fillText("❄️ Яйцо замедлено!", 12, statusY);
             }
 
-            if (isInvincible) { ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 18, 0, Math.PI * 2); ctx.strokeStyle = "#ffcc00"; ctx.lineWidth = 5; ctx.stroke(); }
-            if (hasShield) { ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 12, 0, Math.PI * 2); ctx.strokeStyle = "#00d2ff"; ctx.lineWidth = 4; ctx.stroke(); }
-            if (hasHelmet) { ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 15, 0, Math.PI * 2); ctx.strokeStyle = "#ff9900"; ctx.lineWidth = 4; ctx.stroke(); }
-            if (hasFanActive) { ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 20, 0, Math.PI * 2); ctx.strokeStyle = "#00ffcc"; ctx.lineWidth = 3; ctx.stroke(); }
+            const renderPlayerX = Math.round(player.x);
+            const renderPlayerY = Math.round(player.y);
+
+            if (eggImg.complete && eggImg.naturalWidth !== 0) {
+                let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
+                let drawH = 50; 
+                let drawW = drawH * imgAspect; 
+                let renderX = Math.round(renderPlayerX - drawW / 2);
+                let renderY = Math.round(renderPlayerY - drawH / 2);
+                ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
+            } else {
+                ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
+            }
+
+            if (isInvincible) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
+                ctx.strokeStyle = "#ffcc00";
+                ctx.lineWidth = 5;
+                ctx.stroke();
+            }
+            if (hasShield) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 12, 0, Math.PI * 2);
+                ctx.strokeStyle = "#00d2ff";
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+            if (hasHelmet) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 15, 0, Math.PI * 2);
+                ctx.strokeStyle = "#ff9900";
+                ctx.lineWidth = 4;
+                ctx.stroke();
+            }
+            if (hasFanActive) {
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 20, 0, Math.PI * 2);
+                ctx.strokeStyle = "#00ffcc";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
 
             if (fanWindAnimation && now - fanWindAnimation.startTime < 800) {
                 let progress = (now - fanWindAnimation.startTime) / 800;
-                ctx.save(); ctx.strokeStyle = "rgba(0, 255, 204, " + (1 - progress) + ")"; ctx.lineWidth = 4;
-                ctx.beginPath(); ctx.arc(player.x, player.y, progress * 220, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-            } else { fanWindAnimation = null; }
+                ctx.save();
+                ctx.strokeStyle = "rgba(0, 255, 204, " + (1 - progress) + ")";
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(renderPlayerX, renderPlayerY, progress * 220, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            } else {
+                fanWindAnimation = null;
+            }
 
             if (bossState === "active" && currentBoss === "rita") {
                 if (activeWaterStreams.length === 0 && Math.random() < 0.018) {
-                    activeWaterStreams.push({ x: bossX, width: 24, warningTime: now + 1000, activeUntil: now + 2000 });
+                    activeWaterStreams.push({
+                        x: bossX, 
+                        width: 24, 
+                        warningTime: now + 1000, 
+                        activeUntil: now + 2000  
+                    });
                 }
+
                 for (let s = activeWaterStreams.length - 1; s >= 0; s--) {
                     let stream = activeWaterStreams[s];
                     if (now < stream.warningTime) {
-                        stream.x = bossX; ctx.strokeStyle = "#ffdd00"; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
-                        ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, H); ctx.setLineDash([]);
+                        stream.x = bossX;
+                        ctx.strokeStyle = "#ffdd00";
+                        ctx.lineWidth = 3;
+                        ctx.setLineDash([8, 6]);
+                        ctx.strokeRect(stream.x - stream.width / 2, 0, stream.width, H);
+                        ctx.setLineDash([]);
                     } else if (now < stream.activeUntil) {
-                        ctx.fillStyle = "rgba(255, 220, 50, 0.35)"; ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, H);
-                        if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5 && !isInvincible) {
-                            if (hasShield) { hasShield = false; activeWaterStreams.splice(s, 1); continue; }
-                            showGameOver(); requestAnimationFrame(gameLoop); return;
+                        ctx.fillStyle = "rgba(255, 220, 50, 0.35)";
+                        ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, H);
+
+                        if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
+                            if (!isInvincible) {
+                                if (hasShield) {
+                                    hasShield = false;
+                                    activeWaterStreams.splice(s, 1);
+                                    continue;
+                                } else {
+                                    showGameOver();
+                                    requestAnimationFrame(gameLoop);
+                                    return;
+                                }
+                            }
                         }
-                    } else { activeWaterStreams.splice(s, 1); }
+                    } else {
+                        activeWaterStreams.splice(s, 1);
+                    }
                 }
             }
 
@@ -2123,11 +3001,17 @@
         }
 
         function showGameOver() {
-            gameOver = true; currentBoss = null; bossState = "normal";
+            gameOver = true;
+            currentBoss = null;
+            bossState = "normal";
             window.totalBank += mlEarned;
-            if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(mlEarned);
+            if (typeof window.addServerMilliliters === "function") {
+                window.addServerMilliliters(mlEarned);
+            }
             if (currentUid) {
-                updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null }).catch(() => {});
+                try {
+                    updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null }).catch(() => {});
+                } catch(e) {}
             }
             localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
 
@@ -2137,43 +3021,73 @@
             document.getElementById("gameOverScreen").style.display = "flex";
         }
 
-        function restartGame() { startTheGame(); }
+        function restartGame() {
+            startTheGame();
+        }
 
         function showWithdrawModal() {
             document.getElementById("withdrawBalanceText").innerText = Math.floor(window.totalBank);
             document.getElementById("withdrawError").style.display = "none";
             document.getElementById("withdrawAmount").value = "";
-            document.getElementById("lastCodeBtn").style.display = lastPromoCode ? "inline-block" : "none";
+
+            const lastBtn = document.getElementById("lastCodeBtn");
+            if (lastPromoCode) lastBtn.style.display = "inline-block";
+            else lastBtn.style.display = "none";
+
             document.getElementById("withdrawModal").style.display = "flex";
         }
 
-        function closeWithdrawModal() { document.getElementById("withdrawModal").style.display = "none"; }
+        function closeWithdrawModal() {
+            document.getElementById("withdrawModal").style.display = "none";
+        }
 
         function generatePromoCode(amount) {
-            let randHex = Math.floor(1000 + Math.random() * 9000).toString(16).toUpperCase();
-            let saltNum = parseInt(randHex, 16);
-            let checksum = ((amount * 31 + saltNum + 98723) % 65535).toString(16).toUpperCase().padStart(4, '0');
-            return `EGG-${amount.toString(16).toUpperCase().padStart(4, '0')}-${randHex}-${checksum}`;
+            const secretSalt = 98723;
+            const randHex = Math.floor(1000 + Math.random() * 9000).toString(16).toUpperCase();
+            const saltNum = parseInt(randHex, 16);
+            
+            const checksum = ((amount * 31 + saltNum + secretSalt) % 65535).toString(16).toUpperCase().padStart(4, '0');
+            const amountHex = amount.toString(16).toUpperCase().padStart(4, '0');
+            
+            return `EGG-${amountHex}-${randHex}-${checksum}`;
         }
 
         function processWithdraw() {
-            let amountInput = document.getElementById("withdrawAmount").value;
-            let errorDiv = document.getElementById("withdrawError");
-            let val = parseInt(amountInput, 10);
-            if (isNaN(val) || val.toString() !== amountInput.trim() || val < 1 || val > 500) {
-                errorDiv.innerText = "❌ Введите целое число от 1 до 500 мл!"; errorDiv.style.display = "block"; return;
+            const amountInput = document.getElementById("withdrawAmount").value;
+            const errorDiv = document.getElementById("withdrawError");
+            const val = parseInt(amountInput, 10);
+
+            if (isNaN(val) || val.toString() !== amountInput.trim()) {
+                errorDiv.innerText = "❌ Введите целое число!";
+                errorDiv.style.display = "block";
+                return;
             }
+
+            if (val < 1 || val > 500) {
+                errorDiv.innerText = "❌ Сумма должна быть от 1 до 500 мл!";
+                errorDiv.style.display = "block";
+                return;
+            }
+
             if (val > window.totalBank) {
-                errorDiv.innerText = `❌ Недостаточно средств! В банке всего ${window.totalBank.toFixed(3)} мл`; errorDiv.style.display = "block"; return;
+                errorDiv.innerText = `❌ Недостаточно средств! В банке всего ${window.totalBank.toFixed(3)} мл`;
+                errorDiv.style.display = "block";
+                return;
             }
-            let promo = generatePromoCode(val);
+
+            const promo = generatePromoCode(val);
+
             window.totalBank -= val;
-            if (window.subtractServerMilliliters) window.subtractServerMilliliters(val);
+            if (typeof window.subtractServerMilliliters === "function") {
+                window.subtractServerMilliliters(val);
+            }
             lastPromoCode = promo;
             localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
             localStorage.setItem("egg_last_promo_code", promo);
+
             document.getElementById("promoCodeDisplay").innerText = promo;
             document.getElementById("botCommandText").innerText = `/getb ${promo}`;
+
             closeWithdrawModal();
             document.getElementById("promoModal").style.display = "flex";
         }
