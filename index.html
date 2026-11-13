@@ -290,7 +290,7 @@
 
         <!-- Выдвижная панель профиля слева -->
         <div id="profileDrawer" onclick="event.stopPropagation()">
-            <!-- Холст для падающих предметов в панели (только мечи и каски) -->
+            <!-- Холст для падающих предметов в панели -->
             <canvas id="drawerCanvasContainer"></canvas>
             
             <div class="drawer-content">
@@ -368,7 +368,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v168_drawer_swords_helmets";
+        const CURRENT_APP_VERSION = "v169_drawer_mixed_items";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -480,10 +480,10 @@
             });
         }
 
-        // Декор внутри выдвижной панели профиля (ТОЛЬКО мечи и каски)
+        // Декор внутри выдвижной панели профиля (мечи, каски, бомбочки, капли, щиты)
         let drawerDecorItems = [];
-        for (let i = 0; i < 8; i++) {
-            const typesPool = ["sword", "helmet"];
+        for (let i = 0; i < 9; i++) {
+            const typesPool = ["sword", "helmet", "bomb", "drop1", "shield"];
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
@@ -765,7 +765,7 @@
                     ctx.restore();
                 });
 
-                // Отрисовка анимации внутри выдвижной панели профиля (только мечи и каски)
+                // Отрисовка анимации внутри выдвижной панели профиля (мечи, каски, бомбочки, капли, щиты)
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
                     item.y += item.speed; 
