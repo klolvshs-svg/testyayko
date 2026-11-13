@@ -52,6 +52,105 @@
             align-items: center;
             z-index: 20;
         }
+
+        /* Кнопка с тремя полосками в левом верхнем углу главного меню */
+        #menuBurgerBtn {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(24, 34, 45, 0.55);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            cursor: pointer;
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            outline: none;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s;
+        }
+        #menuBurgerBtn:active { transform: scale(0.92); }
+        #menuBurgerBtn span {
+            width: 22px;
+            height: 3px;
+            background-color: #ffffff;
+            border-radius: 2px;
+            display: block;
+        }
+
+        /* Выдвижная панель профиля слева */
+        #profileDrawer {
+            position: absolute;
+            top: 0;
+            left: -320px;
+            width: 300px;
+            height: 100%;
+            background: rgba(15, 23, 33, 0.95);
+            border-right: 2px solid rgba(0, 210, 255, 0.2);
+            z-index: 35;
+            transition: left 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 5px 0 25px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+        #profileDrawer.open {
+            left: 0;
+        }
+
+        /* Контейнер для кастомных падающих элементов в панели */
+        #drawerCanvasContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .drawer-content {
+            position: relative;
+            z-index: 2;
+            padding: 25px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Аватарка заглушка */
+        .drawer-avatar-wrap {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: rgba(36, 139, 218, 0.2);
+            border: 2px solid #00d2ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 0 15px rgba(0,210,255,0.3);
+        }
+        .drawer-avatar-icon {
+            font-size: 45px;
+        }
+        .drawer-username {
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
         .btn {
             background: #248bda;
             color: white;
@@ -118,13 +217,8 @@
             margin-left: 3px;
         }
 
-        /* Переключение состояний иконки */
-        #pauseBtn.paused .pause-icon {
-            display: none;
-        }
-        #pauseBtn.paused .play-icon {
-            display: block;
-        }
+        #pauseBtn.paused .pause-icon { display: none; }
+        #pauseBtn.paused .play-icon { display: block; }
 
         input[type="number"] {
             padding: 10px;
@@ -165,6 +259,30 @@
 
     <!-- Главный стартовый экран -->
     <div id="startScreen">
+        <!-- Кнопка с тремя полосками в левом верхнем углу -->
+        <button id="menuBurgerBtn" onclick="toggleProfileDrawer(event)">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <!-- Выдвижная панель профиля слева -->
+        <div id="profileDrawer" onclick="event.stopPropagation()">
+            <!-- Холст для медленных крупных предметов на фоне панели -->
+            <canvas id="drawerCanvasContainer"></canvas>
+            
+            <div class="drawer-content">
+                <div class="drawer-avatar-wrap">
+                    <div class="drawer-avatar-icon">👤</div>
+                </div>
+                <div class="drawer-username">username</div>
+                
+                <div style="margin-top: auto; width: 100%;">
+                    <button class="btn" style="width: 100%; margin: 0; font-size: 16px; padding: 12px 10px;" onclick="alert('Скоро здесь появится создание аккаунта!')">Создать акк</button>
+                </div>
+            </div>
+        </div>
+
         <div id="menuEggContainer" style="margin-bottom: 15px;">
             <img id="menuEggImg" src="ball/mainball.png" alt="Яйцо" style="width: 70px; height: auto; filter: drop-shadow(0 0 15px rgba(0,210,255,0.5));" onerror="this.style.display='none'; document.getElementById('fallbackEmoji').style.display='block';">
             <div id="fallbackEmoji" style="font-size: 60px; display: none;">🥚</div>
@@ -227,7 +345,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v159_faster_flicker_sync";
+        const CURRENT_APP_VERSION = "v160_profile_drawer_ui";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -249,6 +367,17 @@
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
+        // Настройка холста для панели профиля (крупные и медленные элементы)
+        const drawerCanvas = document.getElementById("drawerCanvasContainer");
+        const drawerCtx = drawerCanvas.getContext("2d");
+        const drawerW = 300;
+        const drawerH = window.innerHeight;
+        drawerCanvas.width = drawerW * dpr;
+        drawerCanvas.height = drawerH * dpr;
+        drawerCanvas.style.width = drawerW + 'px';
+        drawerCanvas.style.height = drawerH + 'px';
+        drawerCtx.scale(dpr, dpr);
+
         let totalBank = parseFloat(localStorage.getItem("egg_total_ml_bank") || "0.0");
         let lastPromoCode = localStorage.getItem("egg_last_promo_code") || "";
         let mlEarned = 0.0;
@@ -264,6 +393,7 @@
         let targetX = W / 2;
 
         let fanWindAnimation = null;
+        let isDrawerOpen = false;
 
         const player = { x: W / 2, y: H - 70, radius: 25 };
 
@@ -314,6 +444,7 @@
         let items = [];
         let spawnTimer = 0;
 
+        // Декор главного меню
         let menuDecorItems = [];
         for (let i = 0; i < 15; i++) {
             const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"];
@@ -326,6 +457,44 @@
                 rotSpeed: (Math.random() - 0.5) * 0.04
             });
         }
+
+        // Декор внутри выдвижной панели профиля (более крупные предметы, медленнее падают)
+        let drawerDecorItems = [];
+        for (let i = 0; i < 8; i++) {
+            const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan"];
+            drawerDecorItems.push({
+                x: Math.random() * drawerW,
+                y: Math.random() * drawerH,
+                speed: 0.8 + Math.random() * 1.2,
+                type: typesPool[Math.floor(Math.random() * typesPool.length)],
+                rotation: Math.random() * Math.PI * 2,
+                rotSpeed: (Math.random() - 0.5) * 0.03
+            });
+        }
+
+        function toggleProfileDrawer(e) {
+            if (e) {
+                e.stopPropagation();
+            }
+            isDrawerOpen = !isDrawerOpen;
+            const drawer = document.getElementById("profileDrawer");
+            if (isDrawerOpen) {
+                drawer.classList.add("open");
+            } else {
+                drawer.classList.remove("open");
+            }
+        }
+
+        // Клик по основному экрану (ГМ) закрывает шторку, если она открыта
+        window.addEventListener("click", (e) => {
+            if (isDrawerOpen && !gameStarted) {
+                const drawer = document.getElementById("profileDrawer");
+                if (!drawer.contains(e.target)) {
+                    isDrawerOpen = false;
+                    drawer.classList.remove("open");
+                }
+            }
+        });
 
         function handleMove(e) {
             if (!gameStarted || isPaused || gameOver || bossState === "intro") return; 
@@ -351,6 +520,8 @@
             gameStarted = true;
             isPaused = false;
             gameOver = false;
+            isDrawerOpen = false;
+            document.getElementById("profileDrawer").classList.remove("open");
             mlEarned = 0.0;
             items = [];
             spawnTimer = 0;
@@ -420,6 +591,8 @@
             isPaused = false;
             gameStarted = false;
             gameOver = false;
+            isDrawerOpen = false;
+            document.getElementById("profileDrawer").classList.remove("open");
             document.getElementById("pauseScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("startScreen").style.display = "flex";
@@ -429,97 +602,59 @@
             showWithdrawModal();
         }
 
-        function drawSingleItem(item) {
-            ctx.font = "35px Arial";
-            ctx.textAlign = "center";
+        function drawSingleItem(item, customCtx, isLarge = false) {
+            let targetCtx = customCtx || ctx;
+            targetCtx.font = isLarge ? "44px Arial" : "35px Arial";
+            targetCtx.textAlign = "center";
 
-            if (item.type === "sword" && item.subType !== "corner_sword") ctx.fillText("🗡", item.x, item.y);
+            if (item.type === "sword" && item.subType !== "corner_sword") targetCtx.fillText("🗡", item.x, item.y);
             else if (item.type === "sword" && item.subType === "corner_sword") {
-                ctx.save();
-                ctx.translate(item.x, item.y);
+                targetCtx.save();
+                targetCtx.translate(item.x, item.y);
                 item.rotation = (item.rotation || 0) + 0.08;
-                ctx.rotate(item.rotation);
-                ctx.font = "32px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText("🗡", 0, 0);
-                ctx.restore();
+                targetCtx.rotate(item.rotation);
+                targetCtx.font = isLarge ? "40px Arial" : "32px Arial";
+                targetCtx.textAlign = "center";
+                targetCtx.fillText("🗡", 0, 0);
+                targetCtx.restore();
             }
             else if (item.type === "fan_item") {
-                ctx.save();
-                ctx.translate(item.x, item.y);
-                ctx.rotate(item.rotation || 0);
-                ctx.font = "26px Arial"; 
-                ctx.textAlign = "center";
-                ctx.fillText("🪭", 0, 0);
-                ctx.restore();
+                targetCtx.save();
+                targetCtx.translate(item.x, item.y);
+                targetCtx.rotate(item.rotation || 0);
+                targetCtx.font = isLarge ? "34px Arial" : "26px Arial"; 
+                targetCtx.textAlign = "center";
+                targetCtx.fillText("🪭", 0, 0);
+                targetCtx.restore();
             }
             else if (item.type === "table") {
-                ctx.save();
-                ctx.translate(item.x, item.y);
+                targetCtx.save();
+                targetCtx.translate(item.x, item.y);
                 item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
-                ctx.rotate(item.rotation);
-                ctx.font = "35px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText("🪑", 0, 10);
-                ctx.restore();
+                targetCtx.rotate(item.rotation);
+                targetCtx.font = isLarge ? "44px Arial" : "35px Arial";
+                targetCtx.textAlign = "center";
+                targetCtx.fillText("🪑", 0, 10);
+                targetCtx.restore();
             }
-            else if (item.type === "barricade") ctx.fillText("🛢️", item.x, item.y);
-            else if (item.type === "fan") ctx.fillText("🪭", item.x, item.y);
-            else if (item.type === "white_drop") {
-                ctx.save();
-                ctx.translate(item.x, item.y);
-                ctx.beginPath();
-                ctx.moveTo(0, -12);
-                ctx.bezierCurveTo(9, -3, 9, 10, 0, 13);
-                ctx.bezierCurveTo(-9, 10, -9, -3, 0, -12);
-                ctx.fillStyle = "#ffffff";
-                ctx.shadowColor = "#ffffff";
-                ctx.shadowBlur = 10;
-                ctx.fill();
-                ctx.restore();
-            }
+            else if (item.type === "barricade") targetCtx.fillText("🛢️", item.x, item.y);
+            else if (item.type === "fan") targetCtx.fillText("🪭", item.x, item.y);
             else if (item.type === "bomb") {
                 if (bombImg.complete && bombImg.naturalWidth !== 0) {
                     let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                    let drawH = 40;
+                    let drawH = isLarge ? 50 : 40;
                     let drawW = drawH * imgAspect;
-                    ctx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
+                    targetCtx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
                 } else {
-                    ctx.fillText("💣", item.x, item.y);
+                    targetCtx.fillText("💣", item.x, item.y);
                 }
             }
-            else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
-            else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
-            else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
-            else if (item.type === "splash") ctx.fillText("💦", item.x, item.y);
-            else if (item.type === "torii") ctx.fillText("⛩", item.x, item.y);
-            else if (item.type === "blood") ctx.fillText("🩸", item.x, item.y);
-            else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
-            else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
-            else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
-            else if (item.type === "yellow_orb") {
-                ctx.save();
-                ctx.translate(item.x, item.y);
-                if (item.rotationSpeed) {
-                    item.rotation += item.rotationSpeed;
-                    ctx.rotate(item.rotation);
-                }
-                ctx.beginPath();
-                ctx.moveTo(0, -14);
-                ctx.bezierCurveTo(12, -2, 12, 12, 0, 14);
-                ctx.bezierCurveTo(-12, 12, -12, -2, 0, -14);
-                ctx.fillStyle = "#ffcc00";
-                ctx.fill();
-                ctx.strokeStyle = "#ffffff";
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-                ctx.restore();
-            } else if (item.type === "random_cube") {
-                if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
-                    ctx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
-                } else {
-                    ctx.fillText("🎁", item.x, item.y);
-                }
+            else if (item.type === "shield") targetCtx.fillText("🛡", item.x, item.y);
+            else if (item.type === "helmet") targetCtx.fillText("🪖", item.x, item.y);
+            else if (item.type === "drop1") targetCtx.fillText("💧", item.x, item.y);
+            else if (item.type === "snow") targetCtx.fillText("❄️", item.x, item.y);
+            else {
+                targetCtx.fillText("🗡", item.x, item.y);
             }
         }
 
@@ -529,6 +664,7 @@
 
             // Главное меню
             if (!gameStarted) {
+                // Анимация падающих предметов на заднем плане главного меню
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
                     item.rotation += item.rotSpeed;
@@ -566,6 +702,24 @@
                     }
 
                     ctx.restore();
+                });
+
+                // Отрисовка анимации внутри выдвижной панели профиля (если она открыта)
+                drawerCtx.clearRect(0, 0, drawerW, drawerH);
+                drawerDecorItems.forEach(item => {
+                    item.y += item.speed; // Медленнее
+                    item.rotation += item.rotSpeed;
+                    if (item.y > drawerH + 50) {
+                        item.y = -50;
+                        item.x = Math.random() * drawerW;
+                    }
+
+                    drawerCtx.save();
+                    drawerCtx.translate(item.x, item.y);
+                    drawerCtx.rotate(item.rotation);
+                    // Крупнее предметы (isLarge = true)
+                    drawSingleItem(item, drawerCtx, true);
+                    drawerCtx.restore();
                 });
 
                 requestAnimationFrame(gameLoop);
@@ -655,7 +809,6 @@
                     bossSpeedX *= -1;
                 }
 
-                // ЭКСКЛЮЗИВ ДАШИ
                 if (currentBoss === "dasha") {
                     if (Math.random() < 0.007) {
                         items.push({
@@ -771,7 +924,6 @@
                     }
                 }
 
-                // ЭКСКЛЮЗИВ РИТЫ
                 if (currentBoss === "rita") {
                     if (bossHp < 100) {
                         if (!bossDropsStarted) {
@@ -1002,7 +1154,6 @@
                 }
             }
 
-            // СПАВН ОБЫЧНЫХ ПРЕДМЕТОВ
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -1065,10 +1216,8 @@
                 }
             }
 
-            // ПРОВЕРКА ФАЗЫ БОССА ДАШИ И ЕЁ ЗДОРОВЬЯ (< 300)
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
             
-            // Расчет цикла: 15 секунд ускоренного мигания + 5 секунд ровного лунного свечения (всего 20 секунд цикл)
             let isFlickerPhaseActive = false;
             let isSteadyGlowActive = false;
             
@@ -1078,15 +1227,14 @@
                 }
                 let cycleTime = (now - dashaPhaseStartTime) % 20000;
                 if (cycleTime < 15000) {
-                    isFlickerPhaseActive = true; // 15 сек ускоренного мигания
+                    isFlickerPhaseActive = true; 
                 } else {
-                    isSteadyGlowActive = true;   // 5 сек ровного свечения
+                    isSteadyGlowActive = true;   
                 }
             } else if (!isDashaActive) {
                 dashaPhaseStartTime = 0;
             }
 
-            // Когда хп становится меньше 170: плавно испаряем свет и предметы за 1.5 секунды
             let vaporMultiplier = 1.0;
             if (isDashaActive && bossHp < 170) {
                 if (vaporTransitionStartTime === 0) {
@@ -1099,12 +1247,10 @@
                 vaporTransitionStartTime = 0;
             }
 
-            // Таймеры мигания: центр синхронно (ускоренно на ~0.5 сек быстрее, цикл 1100мс), бока с индивидуальным разбросом
             let centerZoneCycle = (now % 1100);
             let centerVal = Math.sin((centerZoneCycle / 1100) * Math.PI * 2);
             let centerZoneAlpha = centerVal > -0.3 ? Math.max(0.0, (centerVal + 0.3) / 1.3) : 0;
 
-            // ДВИЖЕНИЕ ПРЕДМЕТОВ И ПРОВЕРКА СТОЛКНОВЕНИЙ
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
 
@@ -1164,7 +1310,6 @@
 
                 if (!items[i]) continue;
 
-                // СИНХРОННОЕ УСКОРЕННОЕ МИГАНИЕ С РАЗБРОСОМ ПО БОКАМ И ИСЧЕЗНОВЕНИЕМ В НОЛЬ
                 let renderWithMoon = false;
                 let alpha = 1.0;
 
@@ -1176,16 +1321,14 @@
                         let centerX = W / 2;
                         let distanceFromCenter = Math.abs(item.x - centerX);
                         if (distanceFromCenter < W * 0.32) {
-                            alpha = centerZoneAlpha; // Центр синхронно
+                            alpha = centerZoneAlpha; 
                         } else {
-                            // Бока по разному (с уникальным индивидуальным смещением)
                             let sideCycle = (now + (item.flickerOffset || 0)) % 1100;
                             let val = Math.sin((sideCycle / 1100) * Math.PI * 2);
                             alpha = val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0;
                         }
                     }
                 } else if (isDashaActive && bossHp < 170) {
-                    // Плавный уход в абсоютный ноль в первые 1.5 сек
                     let vaporOutP = vaporTransitionStartTime > 0 ? Math.max(0, 1.0 - (now - vaporTransitionStartTime) / 1500) : 0;
                     
                     if (vaporOutP > 0 && !item.shouldFlicker) {
@@ -1200,7 +1343,6 @@
                             alpha = (val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0) * vaporOutP;
                         }
                     } else if (item.shouldFlicker) {
-                        // После испарения мигают ТОЛЬКО 35% предметов (ускоренно и с разбросом по бокам)
                         renderWithMoon = true;
                         let centerX = W / 2;
                         let distanceFromCenter = Math.abs(item.x - centerX);
@@ -1229,7 +1371,6 @@
                     ctx.fillStyle = moonGlow;
                     ctx.fill();
 
-                    // ПРЕДМЕТ И СВЕТ ИСЧЕЗАЮТ ВМЕСТЕ ДО НУЛЯ
                     ctx.globalAlpha = alpha;
                     drawSingleItem(item);
                     ctx.restore();
@@ -1348,7 +1489,7 @@
                 }
             }
 
-            // ОТРИСОВКА БОССА (Всегда виден)
+            // Отрисовка босса
             if (bossState === "active") {
                 let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
@@ -1405,7 +1546,7 @@
                 ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
-            // ИНТЕРФЕЙС И ЯЙЦО (Всегда видны)
+            // Интерфейс игры и яйцо
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 15px Arial";
             ctx.textAlign = "left";
