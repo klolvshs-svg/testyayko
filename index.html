@@ -192,6 +192,7 @@
             transform: scale(0.90);
         }
 
+        /* Отрисовка значка паузы */
         .pause-icon {
             display: flex;
             gap: 4px;
@@ -204,6 +205,7 @@
             display: block;
         }
 
+        /* Отрисовка значка play (треугольник) */
         .play-icon {
             display: none;
             width: 0;
@@ -214,8 +216,13 @@
             margin-left: 3px;
         }
 
-        #pauseBtn.paused .pause-icon { display: none; }
-        #pauseBtn.paused .play-icon { display: block; }
+        /* Переключение состояний иконки */
+        #pauseBtn.paused .pause-icon {
+            display: none;
+        }
+        #pauseBtn.paused .play-icon {
+            display: block;
+        }
 
         input[type="number"] {
             padding: 10px;
@@ -342,7 +349,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v164_profile_drawer_rotation_rare";
+        const CURRENT_APP_VERSION = "v167_fixed_gameplay_render";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -441,7 +448,6 @@
         let items = [];
         let spawnTimer = 0;
 
-        // Декор главного меню
         let menuDecorItems = [];
         for (let i = 0; i < 15; i++) {
             const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"];
@@ -455,18 +461,17 @@
             });
         }
 
-        // Декор внутри выдвижной панели профиля (меньше предметов, крутятся вокруг себя, 7% быстрых)
+        // Декор внутри выдвижной панели профиля
         let drawerDecorItems = [];
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 8; i++) {
             const typesPool = ["sword", "table", "shield", "helmet", "drop1", "fan", "bomb", "snow"];
-            let isFast = Math.random() < 0.07; // 7% шанс на быстрый предмет
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
-                speed: isFast ? (2.2 + Math.random() * 1.0) : (0.4 + Math.random() * 0.6), // Медленные по умолчанию, 7% быстрые
+                speed: 1.5 + Math.random() * 2.5,
                 type: typesPool[Math.floor(Math.random() * typesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.05 // Вращение вокруг себя
+                rotSpeed: (Math.random() - 0.5) * 0.04
             });
         }
 
@@ -599,30 +604,100 @@
             showWithdrawModal();
         }
 
-        function drawSingleItem(item, customCtx, isLarge = false) {
+        function drawSingleItem(item, customCtx) {
             let targetCtx = customCtx || ctx;
-            targetCtx.font = isLarge ? "44px Arial" : "35px Arial";
+            targetCtx.font = customCtx ? "44px Arial" : "35px Arial";
             targetCtx.textAlign = "center";
 
-            if (item.type === "sword") targetCtx.fillText("🗡", 0, 0);
-            else if (item.type === "table") targetCtx.fillText("🪑", 0, 0);
-            else if (item.type === "fan") targetCtx.fillText("🪭", 0, 0);
+            if (item.type === "sword" && item.subType !== "corner_sword") targetCtx.fillText("🗡", item.x, item.y);
+            else if (item.type === "sword" && item.subType === "corner_sword") {
+                targetCtx.save();
+                targetCtx.translate(item.x, item.y);
+                item.rotation = (item.rotation || 0) + 0.08;
+                targetCtx.rotate(item.rotation);
+                targetCtx.font = "32px Arial";
+                targetCtx.textAlign = "center";
+                targetCtx.fillText("🗡", 0, 0);
+                targetCtx.restore();
+            }
+            else if (item.type === "fan_item") {
+                targetCtx.save();
+                targetCtx.translate(item.x, item.y);
+                targetCtx.rotate(item.rotation || 0);
+                targetCtx.font = "26px Arial"; 
+                targetCtx.textAlign = "center";
+                targetCtx.fillText("🪭", 0, 0);
+                targetCtx.restore();
+            }
+            else if (item.type === "table") {
+                targetCtx.save();
+                targetCtx.translate(item.x, item.y);
+                item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
+                targetCtx.rotate(item.rotation);
+                targetCtx.font = "35px Arial";
+                targetCtx.textAlign = "center";
+                targetCtx.fillText("🪑", 0, 10);
+                targetCtx.restore();
+            }
+            else if (item.type === "barricade") targetCtx.fillText("🛢️", item.x, item.y);
+            else if (item.type === "fan") targetCtx.fillText("🪭", item.x, item.y);
+            else if (item.type === "white_drop") {
+                targetCtx.save();
+                targetCtx.translate(item.x, item.y);
+                targetCtx.beginPath();
+                targetCtx.moveTo(0, -12);
+                targetCtx.bezierCurveTo(9, -3, 9, 10, 0, 13);
+                targetCtx.bezierCurveTo(-9, 10, -9, -3, 0, -12);
+                targetCtx.fillStyle = "#ffffff";
+                targetCtx.shadowColor = "#ffffff";
+                targetCtx.shadowBlur = 10;
+                targetCtx.fill();
+                targetCtx.restore();
+            }
             else if (item.type === "bomb") {
                 if (bombImg.complete && bombImg.naturalWidth !== 0) {
                     let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                    let drawH = isLarge ? 46 : 40;
+                    let drawH = customCtx ? 46 : 40;
                     let drawW = drawH * imgAspect;
-                    targetCtx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
+                    targetCtx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
                 } else {
-                    targetCtx.fillText("💣", 0, 0);
+                    targetCtx.fillText("💣", item.x, item.y);
                 }
             }
-            else if (item.type === "shield") targetCtx.fillText("🛡", 0, 0);
-            else if (item.type === "helmet") targetCtx.fillText("🪖", 0, 0);
-            else if (item.type === "drop1") targetCtx.fillText("💧", 0, 0);
-            else if (item.type === "snow") targetCtx.fillText("❄️", 0, 0);
-            else {
-                targetCtx.fillText("🗡", 0, 0);
+            else if (item.type === "shield") targetCtx.fillText("🛡", item.x, item.y);
+            else if (item.type === "helmet") targetCtx.fillText("🪖", item.x, item.y);
+            else if (item.type === "drop1") targetCtx.fillText("💧", item.x, item.y);
+            else if (item.type === "splash") targetCtx.fillText("💦", item.x, item.y);
+            else if (item.type === "torii") targetCtx.fillText("⛩", item.x, item.y);
+            else if (item.type === "blood") targetCtx.fillText("🩸", item.x, item.y);
+            else if (item.type === "snow") targetCtx.fillText("❄️", item.x, item.y);
+            else if (item.type === "egg20") targetCtx.fillText("🥚", item.x, item.y);
+            else if (item.type === "boss_fist") targetCtx.fillText("✊", item.x, item.y);
+            else if (item.type === "yellow_orb") {
+                targetCtx.save();
+                targetCtx.translate(item.x, item.y);
+                if (item.rotationSpeed) {
+                    item.rotation += item.rotationSpeed;
+                    targetCtx.rotate(item.rotation);
+                }
+                targetCtx.beginPath();
+                targetCtx.moveTo(0, -14);
+                targetCtx.bezierCurveTo(12, -2, 12, 12, 0, 14);
+                targetCtx.bezierCurveTo(-12, 12, -12, -2, 0, -14);
+                targetCtx.fillStyle = "#ffcc00";
+                targetCtx.fill();
+                targetCtx.strokeStyle = "#ffffff";
+                targetCtx.lineWidth = 1.5;
+                targetCtx.stroke();
+                targetCtx.restore();
+            } else if (item.type === "random_cube") {
+                if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
+                    targetCtx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
+                } else {
+                    targetCtx.fillText("🎁", item.x, item.y);
+                }
+            } else {
+                targetCtx.fillText("🗡", item.x, item.y);
             }
         }
 
@@ -632,7 +707,6 @@
 
             // Главное меню
             if (!gameStarted) {
-                // Анимация падающих предметов на заднем плане главного меню
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
                     item.rotation += item.rotSpeed;
@@ -672,22 +746,28 @@
                     ctx.restore();
                 });
 
-                // Отрисовка анимации внутри панели профиля (меньше предметов, крутятся, 7% быстрых)
+                // Отрисовка анимации внутри выдвижной панели профиля
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
                     item.y += item.speed; 
-                    item.rotation += item.rotSpeed; // Вращение вокруг себя
+                    item.rotation += item.rotSpeed; 
                     if (item.y > drawerH + 50) {
                         item.y = -50;
                         item.x = Math.random() * drawerW;
-                        let isFast = Math.random() < 0.07;
-                        item.speed = isFast ? (2.2 + Math.random() * 1.0) : (0.4 + Math.random() * 0.6);
                     }
 
                     drawerCtx.save();
                     drawerCtx.translate(item.x, item.y);
                     drawerCtx.rotate(item.rotation);
-                    drawSingleItem(item, drawerCtx, true);
+                    
+                    let tempX = item.x;
+                    let tempY = item.y;
+                    item.x = 0;
+                    item.y = 0;
+                    drawSingleItem(item, drawerCtx);
+                    item.x = tempX;
+                    item.y = tempY;
+
                     drawerCtx.restore();
                 });
 
@@ -1123,6 +1203,7 @@
                 }
             }
 
+            // СПАВН ОБЫЧНЫХ ПРЕДМЕТОВ
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -1458,7 +1539,7 @@
                 }
             }
 
-            // Отрисовка босса
+            // ОТРИСОВКА БОССА
             if (bossState === "active") {
                 let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
@@ -1515,7 +1596,7 @@
                 ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
-            // Интерфейс игры и яйцо
+            // ИНТЕРФЕЙС И ЯЙЦО
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 15px Arial";
             ctx.textAlign = "left";
