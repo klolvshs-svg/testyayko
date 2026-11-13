@@ -366,18 +366,31 @@
                     <button class="btn-drawer-custom" onclick="handleLogin()">Войти</button>
                 </div>
 
-                <!-- СОСТОЯНИЕ 2: ЕСЛИ АВТОРИЗОВАН -->
+                <!-- СОСТОЯНИЕ 2: ЕСЛИ АВТОРИЗОВАН (РЕЖИМ ПРОСМОТРА) -->
                 <div id="drawerLoggedIn" style="width: 100%; display: none; margin-top: 10px; flex-direction: column; align-items: center; height: 100%;">
-                    <div class="drawer-avatar-wrap">
-                        <img id="userAvatarImg" src="https://via.placeholder.com/70" alt="Аватар" class="drawer-avatar-img">
-                    </div>
-                    <div id="userDisplayNick" class="drawer-username">Игрок</div>
-                    
-                    <!-- Кнопка изменить под авой (желтая) -->
-                    <button class="btn-edit-profile" onclick="openEditProfile()">ИЗМЕНИТЬ</button>
+                    <div id="profileViewMode" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                        <div class="drawer-avatar-wrap">
+                            <img id="userAvatarImg" src="https://via.placeholder.com/70" alt="Аватар" class="drawer-avatar-img">
+                        </div>
+                        <div id="userDisplayNick" class="drawer-username">Игрок</div>
+                        
+                        <!-- Кнопка изменить под авой (желтая) -->
+                        <button class="btn-edit-profile" onclick="toggleEditMode(true)">ИЗМЕНИТЬ</button>
 
-                    <div style="font-size: 13px; color: #a5d6a7; margin-top: 5px; margin-bottom: 15px;">
-                        Баланс: <span id="drawerBalance">0</span> мл
+                        <div style="font-size: 13px; color: #a5d6a7; margin-top: 5px; margin-bottom: 15px;">
+                            Баланс: <span id="drawerBalance">0</span> мл
+                        </div>
+                    </div>
+
+                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ В ШТОРКЕ (СКРЫТ ПО УМОЛЧАНИЮ) -->
+                    <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
+                        <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
+                        <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник">
+                        <input type="text" id="editAvatarInput" class="drawer-input" placeholder="URL аватарки">
+                        <div style="width: 100%; display: flex; gap: 5px; margin-top: 5px; margin-bottom: 15px;">
+                            <button class="btn-drawer-custom" style="background: #28a745; margin: 0;" onclick="saveProfileChanges()">Сохранить</button>
+                            <button class="btn-drawer-custom" style="background: #6c757d; margin: 0;" onclick="toggleEditMode(false)">Отмена</button>
+                        </div>
                     </div>
 
                     <!-- Красная кнопка выхода внизу -->
@@ -396,7 +409,8 @@
         <p style="font-size: 18px; color: #aaa; margin-bottom: 25px;">Битва с боссами и выживание</p>
         <div style="position: relative; z-index: 25;">
             <button class="btn btn-withdraw" style="font-size: 20px; padding: 16px 36px;" onclick="startTheGame()">Играть ▶</button><br>
-            <button class="btn" onclick="showWithdrawModalFromStart()">Вывести мл 🎁</button>
+            <!-- Кнопка вывода: заблокирована для гостей -->
+            <button id="withdrawMainBtn" class="btn" onclick="showWithdrawModalFromStart()" disabled style="opacity: 0.5; cursor: not-allowed;" title="Войдите в аккаунт, чтобы вывести миллилитры">Вывести мл 🎁</button>
         </div>
     </div>
 
@@ -417,7 +431,8 @@
         
         <div>
             <button class="btn" onclick="restartGame()">Заново 🔄</button>
-            <button class="btn btn-withdraw" onclick="showWithdrawModal()">Вывести мл 🎁</button>
+            <!-- Кнопка вывода: заблокирована для гостей -->
+            <button id="withdrawGameOverBtn" class="btn btn-withdraw" onclick="showWithdrawModal()" disabled style="opacity: 0.5; cursor: not-allowed;" title="Войдите в аккаунт, чтобы вывести миллилитры">Вывести мл 🎁</button>
         </div>
     </div>
 
@@ -451,17 +466,17 @@
     <!-- Firebase SDK модули -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDbjOOmFID0DwVfYoOy6jHtNooXBOFvrk",
-  authDomain: "eggsballsbaze.firebaseapp.com",
-  projectId: "eggsballsbaze",
-  storageBucket: "eggsballsbaze.firebasestorage.app",
-  messagingSenderId: "839614854960",
-  appId: "1:839614854960:web:8f00ed5fd7f1988c28baf5",
-  measurementId: "G-STNC9P6W36"
+            authDomain: "eggsballsbaze.firebaseapp.com",
+            projectId: "eggsballsbaze",
+            storageBucket: "eggsballsbaze.firebasestorage.app",
+            messagingSenderId: "839614854960",
+            appId: "1:839614854960:web:8f00ed5fd7f1988c28baf5",
+            measurementId: "G-STNC9P6W36"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -469,30 +484,53 @@
         const db = getFirestore(app);
         const FAKE_EMAIL_DOMAIN = "@save-the-egg.game";
         let currentUid = null;
+        let currentUserData = null;
+
+        // Функция проверки уникальности ника в базе
+        async function isNicknameAvailable(nickname) {
+            const cleanNick = nickname.trim().toLowerCase();
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("username_lower", "==", cleanNick));
+            const snapshot = await getDocs(q);
+            return snapshot.empty;
+        }
 
         window.handleRegister = async function() {
             const username = document.getElementById("authUsername").value;
             const password = document.getElementById("authPassword").value;
-            const cleanUsername = username.trim().toLowerCase();
+            const cleanUsername = username.trim();
 
             if (!cleanUsername || password.length < 4) {
                 alert("Введите ник и пароль (минимум 4 символа)!");
                 return;
             }
 
+            // Проверка уникальности
+            const available = await isNicknameAvailable(cleanUsername);
+            if (!available) {
+                alert("Этот никнейм уже занят другим игроком!");
+                return;
+            }
+
             try {
-                const fakeEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
+                const fakeEmail = cleanUsername.toLowerCase() + FAKE_EMAIL_DOMAIN;
                 const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
                 const user = userCredential.user;
 
+                // Гостевые сгорают: записываем в базу строго 0 мл
                 await setDoc(doc(db, "users", user.uid), {
-                    username: username.trim(),
+                    username: cleanUsername,
+                    username_lower: cleanUsername.toLowerCase(),
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     createdAt: new Date()
                 });
 
-                alert("Аккаунт успешно создан!");
+                // Обнуляем локальный гостевой банк
+                window.totalBank = 0.0;
+                localStorage.setItem("egg_total_ml_bank", "0.0");
+
+                alert("Аккаунт успешно создан! Гостевой прогресс обнулен, баланс на аккаунте: 0 мл.");
             } catch (error) {
                 if (error.code === 'auth/email-already-in-use') {
                     alert("Такой ник уже занят!");
@@ -533,59 +571,174 @@
             }
         };
 
-        window.openEditProfile = async function() {
-            if (!currentUid) return;
+        // Управление шторкой редактирования профиля
+        window.toggleEditMode = function(isEditing) {
+            const viewMode = document.getElementById("profileViewMode");
+            const editMode = document.getElementById("profileEditMode");
 
-            const newNick = prompt("Введите новый никнейм:");
-            const newAvatar = prompt("Введите прямую ссылку на новую аватарку (картинку):");
-
-            const updateData = {};
-            if (newNick && newNick.trim() !== "") {
-                updateData.username = newNick.trim();
-            }
-            if (newAvatar && newAvatar.trim() !== "") {
-                updateData.avatarUrl = newAvatar.trim();
-            }
-
-            if (Object.keys(updateData).length > 0) {
-                try {
-                    await updateDoc(doc(db, "users", currentUid), updateData);
-                    alert("Профиль успешно обновлен!");
-                    location.reload();
-                } catch (error) {
-                    alert("Ошибка обновления: " + error.message);
-                }
+            if (isEditing && currentUserData) {
+                document.getElementById("editNicknameInput").value = currentUserData.username || "";
+                document.getElementById("editAvatarInput").value = currentUserData.avatarUrl || "";
+                viewMode.style.display = "none";
+                editMode.style.display = "flex";
+            } else {
+                viewMode.style.display = "flex";
+                editMode.style.display = "none";
             }
         };
 
+        window.saveProfileChanges = async function() {
+            if (!currentUid || !currentUserData) return;
+
+            const newNick = document.getElementById("editNicknameInput").value.trim();
+            const newAvatar = document.getElementById("editAvatarInput").value.trim();
+
+            if (!newNick) {
+                alert("Ник не может быть пустым!");
+                return;
+            }
+
+            // Если ник меняется — проверяем его уникальность
+            if (newNick.toLowerCase() !== currentUserData.username_lower) {
+                const available = await isNicknameAvailable(newNick);
+                if (!available) {
+                    alert("Этот ник уже занят другим игроком!");
+                    return;
+                }
+
+                // Меняем email в Auth для входа по новому нику
+                const newFakeEmail = newNick.toLowerCase() + FAKE_EMAIL_DOMAIN;
+                try {
+                    await updateEmail(auth.currentUser, newFakeEmail);
+                } catch (err) {
+                    alert("Для смены ника перезайдите в аккаунт (требование безопасности Firebase).");
+                    return;
+                }
+            }
+
+            const updateData = {
+                username: newNick,
+                username_lower: newNick.toLowerCase()
+            };
+            if (newAvatar) {
+                updateData.avatarUrl = newAvatar;
+            }
+
+            try {
+                await updateDoc(doc(db, "users", currentUid), updateData);
+                currentUserData.username = newNick;
+                currentUserData.username_lower = newNick.toLowerCase();
+                if (newAvatar) currentUserData.avatarUrl = newAvatar;
+
+                document.getElementById("userDisplayNick").innerText = newNick;
+                if (newAvatar) document.getElementById("userAvatarImg").src = newAvatar;
+
+                toggleEditMode(false);
+                alert("Профиль успешно обновлен! Старый ник освобожден.");
+            } catch (error) {
+                alert("Ошибка обновления: " + error.message);
+            }
+        };
+
+        // Отслеживание авторизации
         onAuthStateChanged(auth, async (user) => {
             const loggedOutView = document.getElementById("drawerLoggedOut");
             const loggedInView = document.getElementById("drawerLoggedIn");
+            const withdrawMainBtn = document.getElementById("withdrawMainBtn");
+            const withdrawGameOverBtn = document.getElementById("withdrawGameOverBtn");
 
             if (user) {
                 currentUid = user.uid;
                 loggedOutView.style.display = "none";
                 loggedInView.style.display = "flex";
 
+                // Разблокируем кнопки вывода для вошедших
+                if (withdrawMainBtn) {
+                    withdrawMainBtn.disabled = false;
+                    withdrawMainBtn.style.opacity = "1";
+                    withdrawMainBtn.style.cursor = "pointer";
+                    withdrawMainBtn.title = "Вывести миллилитры";
+                }
+                if (withdrawGameOverBtn) {
+                    withdrawGameOverBtn.disabled = false;
+                    withdrawGameOverBtn.style.opacity = "1";
+                    withdrawGameOverBtn.style.cursor = "pointer";
+                    withdrawGameOverBtn.title = "Вывести миллилитры";
+                }
+
                 const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (userDoc.exists()) {
-                    const data = userDoc.data();
-                    document.getElementById("userDisplayNick").innerText = data.username || "Игрок";
-                    document.getElementById("drawerBalance").innerText = (totalBank + (data.balance_ml || 0)).toFixed(3);
-                    if (data.avatarUrl) {
-                        document.getElementById("userAvatarImg").src = data.avatarUrl;
+                    currentUserData = userDoc.data();
+                    document.getElementById("userDisplayNick").innerText = currentUserData.username || "Игрок";
+                    document.getElementById("drawerBalance").innerText = (currentUserData.balance_ml || 0).toFixed(3);
+                    window.totalBank = currentUserData.balance_ml || 0; // Синхронизируем игровой банк с сервером
+                    if (currentUserData.avatarUrl) {
+                        document.getElementById("userAvatarImg").src = currentUserData.avatarUrl;
                     }
                 }
             } else {
                 currentUid = null;
+                currentUserData = null;
                 loggedOutView.style.display = "block";
                 loggedInView.style.display = "none";
+                toggleEditMode(false);
+
+                // Блокируем кнопки вывода для гостей
+                if (withdrawMainBtn) {
+                    withdrawMainBtn.disabled = true;
+                    withdrawMainBtn.style.opacity = "0.5";
+                    withdrawMainBtn.style.cursor = "not-allowed";
+                    withdrawMainBtn.title = "Войдите в аккаунт, чтобы вывести миллилитры";
+                }
+                if (withdrawGameOverBtn) {
+                    withdrawGameOverBtn.disabled = true;
+                    withdrawGameOverBtn.style.opacity = "0.5";
+                    withdrawGameOverBtn.style.cursor = "not-allowed";
+                    withdrawGameOverBtn.title = "Войдите в аккаунт, чтобы вывести миллилитры";
+                }
             }
         });
+
+        // Экспорт функции начисления очков в серверный Firestore (защита от читов)
+        window.addServerMilliliters = async function(amount) {
+            if (!currentUid) return; // Гостям в базу не пишем
+            const userRef = doc(db, "users", currentUid);
+            try {
+                await updateDoc(userRef, {
+                    balance_ml: increment(amount)
+                });
+                const updatedSnap = await getDoc(userRef);
+                if (updatedSnap.exists()) {
+                    currentUserData.balance_ml = updatedSnap.data().balance_ml;
+                    window.totalBank = currentUserData.balance_ml;
+                    document.getElementById("drawerBalance").innerText = window.totalBank.toFixed(3);
+                }
+            } catch (err) {
+                console.error("Ошибка обновления баланса в базе:", err);
+            }
+        };
+
+        window.subtractServerMilliliters = async function(amount) {
+            if (!currentUid) return;
+            const userRef = doc(db, "users", currentUid);
+            try {
+                await updateDoc(userRef, {
+                    balance_ml: increment(-amount)
+                });
+                const updatedSnap = await getDoc(userRef);
+                if (updatedSnap.exists()) {
+                    currentUserData.balance_ml = updatedSnap.data().balance_ml;
+                    window.totalBank = currentUserData.balance_ml;
+                    document.getElementById("drawerBalance").innerText = window.totalBank.toFixed(3);
+                }
+            } catch (err) {
+                console.error("Ошибка списания баланса в базе:", err);
+            }
+        };
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v170_firebase_auth_fixed";
+        const CURRENT_APP_VERSION = "v171_firebase_auth_secure";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -618,7 +771,7 @@
         drawerCanvas.style.height = drawerH + 'px';
         drawerCtx.scale(dpr, dpr);
 
-        let totalBank = parseFloat(localStorage.getItem("egg_total_ml_bank") || "0.0");
+        window.totalBank = parseFloat(localStorage.getItem("egg_total_ml_bank") || "0.0");
         let lastPromoCode = localStorage.getItem("egg_last_promo_code") || "";
         let mlEarned = 0.0;
         let gameOver = false;
@@ -820,8 +973,11 @@
 
         function returnToMainMenu() {
             if (mlEarned > 0) {
-                totalBank += mlEarned;
-                localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+                window.totalBank += mlEarned;
+                if (typeof window.addServerMilliliters === "function") {
+                    window.addServerMilliliters(mlEarned);
+                }
+                localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
                 mlEarned = 0.0;
             }
 
@@ -1015,7 +1171,7 @@
                 ctx.font = "bold 15px Arial";
                 ctx.textAlign = "left";
                 ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
-                ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
+                ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
 
                 const renderPlayerX = Math.round(player.x);
                 const renderPlayerY = Math.round(player.y);
@@ -1375,8 +1531,11 @@
                 bossState = "victory";
                 victoryTimer = now;
                 mlEarned += 5.0; 
-                totalBank += 5.0;
-                localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+                window.totalBank += 5.0;
+                if (typeof window.addServerMilliliters === "function") {
+                    window.addServerMilliliters(5.0);
+                }
+                localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
             }
 
             let globalSpeedMul = 1 + Math.floor(mlEarned / 10) * 0.08;
@@ -1705,9 +1864,15 @@
 
                     if (item.type === "random_cube") {
                         const randEffect = Math.random();
-                        if (randEffect < 0.33) mlEarned += 1.0; 
-                        else if (randEffect < 0.66) hasShield = true; 
-                        else eggSlowUntil = Date.now() + 3000; 
+                        if (randEffect < 0.33) {
+                            mlEarned += 1.0; 
+                            window.totalBank += 1.0;
+                            if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(1.0);
+                        } else if (randEffect < 0.66) {
+                            hasShield = true; 
+                        } else {
+                            eggSlowUntil = Date.now() + 3000; 
+                        }
                         items.splice(i, 1);
                         continue;
                     }
@@ -1722,10 +1887,14 @@
                         continue;
                     } else if (item.type === "drop1") {
                         mlEarned += 1.0;
+                        window.totalBank += 1.0;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(1.0);
                         items.splice(i, 1);
                         continue;
                     } else if (item.type === "splash") {
                         mlEarned += 0.1;
+                        window.totalBank += 0.1;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(0.1);
                         items.splice(i, 1);
                         continue;
                     } else if (item.type === "torii") {
@@ -1734,10 +1903,14 @@
                         continue;
                     } else if (item.type === "blood") {
                         mlEarned += 10.0;
+                        window.totalBank += 10.0;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(10.0);
                         items.splice(i, 1);
                         continue;
                     } else if (item.type === "egg20") {
                         mlEarned += 20.0;
+                        window.totalBank += 20.0;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(20.0);
                         items.splice(i, 1);
                         continue;
                     } else if (item.type === "snow") {
@@ -1769,6 +1942,8 @@
                 if (item.y > H + 40 || item.x < -100 || item.x > W + 100) {
                     if (item.type === "sword" && bossState !== "victory" && item.subType !== "corner_sword") {
                         mlEarned += 0.015; 
+                        window.totalBank += 0.015;
+                        if (typeof window.addServerMilliliters === "function") window.addServerMilliliters(0.015);
                     }
                     items.splice(i, 1);
                 }
@@ -1836,7 +2011,7 @@
             ctx.font = "bold 15px Arial";
             ctx.textAlign = "left";
             ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
-            ctx.fillText("В банке: " + totalBank.toFixed(3) + " мл 💦", 12, 50);
+            ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
 
             let statusY = 75;
             if (isInvincible) {
@@ -1969,12 +2144,15 @@
 
         function showGameOver() {
             gameOver = true;
-            totalBank += mlEarned;
-            localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+            window.totalBank += mlEarned;
+            if (typeof window.addServerMilliliters === "function") {
+                window.addServerMilliliters(mlEarned);
+            }
+            localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
 
             document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("roundScoreText").innerText = "+" + mlEarned.toFixed(3) + " мл 💦";
-            document.getElementById("totalBankText").innerText = totalBank.toFixed(3);
+            document.getElementById("totalBankText").innerText = window.totalBank.toFixed(3);
             document.getElementById("gameOverScreen").style.display = "flex";
         }
 
@@ -1983,7 +2161,7 @@
         }
 
         function showWithdrawModal() {
-            document.getElementById("withdrawBalanceText").innerText = Math.floor(totalBank);
+            document.getElementById("withdrawBalanceText").innerText = Math.floor(window.totalBank);
             document.getElementById("withdrawError").style.display = "none";
             document.getElementById("withdrawAmount").value = "";
 
@@ -2029,17 +2207,20 @@
                 return;
             }
 
-            if (val > totalBank) {
-                errorDiv.innerText = `❌ Недостаточно средств! В банке всего ${totalBank.toFixed(3)} мл`;
+            if (val > window.totalBank) {
+                errorDiv.innerText = `❌ Недостаточно средств! В банке всего ${window.totalBank.toFixed(3)} мл`;
                 errorDiv.style.display = "block";
                 return;
             }
 
             const promo = generatePromoCode(val);
 
-            totalBank -= val;
+            window.totalBank -= val;
+            if (typeof window.subtractServerMilliliters === "function") {
+                window.subtractServerMilliliters(val);
+            }
             lastPromoCode = promo;
-            localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
+            localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
             localStorage.setItem("egg_last_promo_code", promo);
 
             document.getElementById("promoCodeDisplay").innerText = promo;
@@ -2059,7 +2240,7 @@
 
         function closePromoModal() {
             document.getElementById("promoModal").style.display = "none";
-            document.getElementById("totalBankText").innerText = totalBank.toFixed(3);
+            document.getElementById("totalBankText").innerText = window.totalBank.toFixed(3);
         }
 
         requestAnimationFrame(gameLoop);
