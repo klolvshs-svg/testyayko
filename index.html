@@ -59,7 +59,7 @@
             top: 15px;
             left: 15px;
             background: rgba(24, 34, 45, 0.55);
-            border: none;
+            border: 2px solid transparent;
             width: 44px;
             height: 44px;
             border-radius: 12px;
@@ -73,7 +73,12 @@
             outline: none;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
             -webkit-tap-highlight-color: transparent;
-            transition: transform 0.1s;
+            transition: transform 0.1s, background 0.3s, box-shadow 0.3s, border-color 0.3s;
+        }
+        #menuBurgerBtn.has-unread-glow {
+            background: rgba(244, 67, 54, 0.35);
+            border-color: #f44336;
+            box-shadow: 0 0 15px rgba(244, 67, 54, 0.8);
         }
         #menuBurgerBtn:active { transform: scale(0.92); }
         #menuBurgerBtn span {
@@ -85,15 +90,16 @@
         }
         #burgerRedBadge {
             position: absolute;
-            top: 6px;
-            right: 6px;
-            width: 12px;
-            height: 12px;
+            top: -3px;
+            right: -3px;
+            width: 13px;
+            height: 13px;
             background: #f44336;
             border-radius: 50%;
             display: none;
             border: 2px solid #18222d;
             z-index: 31;
+            animation: pulseBadge 1.5s infinite;
         }
 
         /* Выдвижная панель профиля слева */
@@ -253,12 +259,18 @@
             border-radius: 10px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            transition: transform 0.1s, background 0.2s;
+            transition: transform 0.1s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
             position: relative;
             z-index: 25;
             font-weight: bold;
         }
         .btn-drawer-custom:active { transform: scale(0.96); background: rgba(15, 55, 85, 0.9); }
+        .btn-drawer-custom.has-unread-glow {
+            background: rgba(244, 67, 54, 0.35);
+            border-color: #f44336;
+            color: #ffffff;
+            box-shadow: 0 0 14px rgba(244, 67, 54, 0.75);
+        }
 
         .btn-with-badge-wrap {
             position: relative;
@@ -270,8 +282,8 @@
             position: absolute;
             top: -4px;
             right: -4px;
-            width: 12px;
-            height: 12px;
+            width: 13px;
+            height: 13px;
             background: #f44336;
             border-radius: 50%;
             display: none;
@@ -558,7 +570,7 @@
                         <!-- Кнопка Чат с красным индикатором -->
                         <div class="btn-with-badge-wrap">
                             <div id="chatRedBadge" class="chat-red-dot"></div>
-                            <button class="btn-drawer-custom" style="margin:0; width:100%;" onclick="toggleChatListPanel()">💬 Чаты</button>
+                            <button id="btnChatMenu" class="btn-drawer-custom" style="margin:0; width:100%;" onclick="toggleChatListPanel()">💬 Чаты</button>
                         </div>
                         <div id="chatListSectionPanel" class="drawer-section-panel">
                             <div id="chatListContainer" style="width: 100%;"></div>
@@ -669,7 +681,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -696,11 +708,15 @@
         let typingTimeout = null;
 
         async function isNicknameAvailable(nickname) {
-            const cleanNick = nickname.trim().toLowerCase();
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("username_lower", "==", cleanNick));
-            const snapshot = await getDocs(q);
-            return snapshot.empty;
+            try {
+                const cleanNick = nickname.trim().toLowerCase();
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, where("username_lower", "==", cleanNick));
+                const snapshot = await getDocs(q);
+                return snapshot.empty;
+            } catch (e) {
+                return true;
+            }
         }
 
         window.handleRegister = async function() {
@@ -714,12 +730,6 @@
             }
 
             try {
-                const available = await isNicknameAvailable(cleanUsername);
-                if (!available) {
-                    alert("Этот никнейм уже занят другим игроком!");
-                    return;
-                }
-
                 const fakeEmail = cleanUsername.toLowerCase() + FAKE_EMAIL_DOMAIN;
                 const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
                 const user = userCredential.user;
@@ -727,6 +737,7 @@
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
                     username_lower: cleanUsername.toLowerCase(),
+                    authEmail: fakeEmail,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -741,7 +752,11 @@
                 localStorage.setItem("egg_total_ml_bank", "0.0");
                 alert("Аккаунт успешно создан!");
             } catch (error) {
-                alert("Ошибка создания аккаунта: " + error.message);
+                if (error.code === "auth/email-already-in-use") {
+                    alert("Этот никнейм уже занят другим игроком!");
+                } else {
+                    alert("Ошибка создания аккаунта: " + error.message);
+                }
             }
         };
 
@@ -763,6 +778,10 @@
                 if (userDocSnap.exists()) {
                     const actualNick = (userDocSnap.data().username || "").trim().toLowerCase();
                     if (actualNick !== cleanUsername) {
+                        // Автоматически обновляем привязку email в Firebase Auth к новому нику, чтобы старый ник освободился
+                        try {
+                            await updateEmail(userCredential.user, actualNick + FAKE_EMAIL_DOMAIN);
+                        } catch (e) {}
                         await signOut(auth);
                         alert(`❌ Никнейм этого аккаунта изменен на "${userDocSnap.data().username}". Пожалуйста, войдите под новым ником!`);
                         return;
@@ -834,12 +853,17 @@
             if (isNickChanged) {
                 updateData.username = newNick;
                 updateData.username_lower = newNick.toLowerCase();
+                updateData.authEmail = newNick.toLowerCase() + FAKE_EMAIL_DOMAIN;
             }
 
             const executeUpdate = async (avatarBase64) => {
                 if (avatarBase64) updateData.avatarUrl = avatarBase64;
 
                 try {
+                    if (isNickChanged && auth.currentUser) {
+                        await updateEmail(auth.currentUser, newNick.toLowerCase() + FAKE_EMAIL_DOMAIN);
+                    }
+
                     await updateDoc(doc(db, "users", currentUid), updateData);
                     
                     if (isNickChanged) {
@@ -853,7 +877,7 @@
                     }
 
                     toggleEditMode(false);
-                    alert("Изменения сохранены! Теперь вход по новому нику актуален.");
+                    alert("Изменения сохранены! Старый ник освобождён, теперь вход по новому нику.");
                 } catch (error) {
                     alert("Ошибка обновления: " + error.message);
                 }
@@ -1001,6 +1025,7 @@
         function updateBurgerAndRequestsUI(requestsArray) {
             const count = requestsArray ? requestsArray.length : 0;
             const burgerBadge = document.getElementById("burgerRedBadge");
+            const burgerBtn = document.getElementById("menuBurgerBtn");
             const avatarBadgeBtn = document.getElementById("avatarBadgeBtn");
             const reqMenuBtn = document.getElementById("btnRequestsMenu");
 
@@ -1019,7 +1044,9 @@
         async function checkUnreadChats() {
             if (!currentUid || !currentUserData || !currentUserData.friends) return;
             const redDot = document.getElementById("chatRedBadge");
+            const chatMenuBtn = document.getElementById("btnChatMenu");
             const burgerBadge = document.getElementById("burgerRedBadge");
+            const burgerBtn = document.getElementById("menuBurgerBtn");
             let hasUnread = false;
 
             for (let friendUid of currentUserData.friends) {
@@ -1028,7 +1055,6 @@
                 if (chatSnap.exists()) {
                     const data = chatSnap.data();
                     const messages = data.messages || [];
-                    // Срабатывает сразу с самого первого непрочитанного сообщения
                     const hasUnreadFromThisFriend = messages.some(m => m.sender !== currentUid && !m.read);
                     if (hasUnreadFromThisFriend) {
                         hasUnread = true;
@@ -1039,17 +1065,26 @@
 
             if (hasUnread) {
                 redDot.style.display = "block";
+                if (chatMenuBtn) chatMenuBtn.classList.add("has-unread-glow");
             } else {
                 redDot.style.display = "none";
+                if (chatMenuBtn) chatMenuBtn.classList.remove("has-unread-glow");
             }
 
             const hasRequests = currentUserData.friendRequests && currentUserData.friendRequests.length > 0;
             if (hasUnread || hasRequests) {
                 burgerBadge.style.display = "block";
+                if (burgerBtn) burgerBtn.classList.add("has-unread-glow");
             } else {
                 burgerBadge.style.display = "none";
+                if (burgerBtn) burgerBtn.classList.remove("has-unread-glow");
             }
         }
+
+        // Проверка непрочитанных сообщений в реальном времени каждые 2 секунды
+        setInterval(() => {
+            if (currentUid) checkUnreadChats();
+        }, 2000);
 
         // Авто-обновление таймеров друзей каждую секунду без перезахода
         setInterval(() => {
@@ -1279,16 +1314,16 @@
                     }
 
                     html += `
-                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')" style="cursor:pointer;">
+                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')" style="cursor:pointer; ${hasUnreadHere ? 'border:1px solid #f44336;' : ''}">
                             <div class="friend-chat-item-badge" id="friend_badge_${friendUid}" style="display:${hasUnreadHere ? 'block' : 'none'};"></div>
                             <div class="user-result-info">
                                 <img src="${ava}" class="user-result-ava">
                                 <div>
                                     <div class="user-result-name">${nick}</div>
-                                    <div class="user-result-meta">Нажмите, чтобы открыть чат</div>
+                                    <div class="user-result-meta">${hasUnreadHere ? '<span style="color:#ff5252; font-weight:bold;">Новое сообщение!</span>' : 'Нажмите, чтобы открыть чат'}</div>
                                 </div>
                             </div>
-                            <button class="btn-mini-action btn-mini-success">💬</button>
+                            <button class="btn-mini-action ${hasUnreadHere ? 'btn-mini-danger' : 'btn-mini-success'}">💬</button>
                         </div>
                     `;
                 }
@@ -1517,7 +1552,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v176_optimized";
+        const CURRENT_APP_VERSION = "v177_moon_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1537,7 +1572,7 @@
 
         ctx.scale(dpr, dpr);
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'medium'; // Оптимизировано для высокой производительности
+        ctx.imageSmoothingQuality = 'medium';
 
         const drawerCanvas = document.getElementById("drawerCanvasContainer");
         const drawerCtx = drawerCanvas.getContext("2d");
@@ -1615,7 +1650,7 @@
         let spawnTimer = 0;
 
         let menuDecorItems = [];
-        for (let i = 0; i < 10; i++) { // Уменьшено количество для идеального FPS
+        for (let i = 0; i < 10; i++) {
             const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"];
             menuDecorItems.push({
                 x: Math.random() * W,
@@ -1788,7 +1823,7 @@
             else if (item.type === "fan_item") {
                 targetCtx.save();
                 targetCtx.translate(item.x, item.y);
-                item.rotate(item.rotation || 0);
+                targetCtx.rotate(item.rotation || 0);
                 targetCtx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; 
                 targetCtx.textAlign = "center";
                 targetCtx.fillText("🪭", 0, 0);
@@ -2007,7 +2042,7 @@
                     y: -30,
                     speed: 4,
                     type: "random_cube",
-                    flickerOffset: Math.random() * 2000,
+                    flickerOffset: Math.random() * 20000,
                     shouldFlicker: Math.random() < 0.35
                 });
             }
@@ -2023,7 +2058,7 @@
                             y: -30,
                             speed: 4.5,
                             type: "white_drop",
-                            flickerOffset: Math.random() * 2000,
+                            flickerOffset: Math.random() * 20000,
                             shouldFlicker: Math.random() < 0.35
                         });
                     }
@@ -2045,7 +2080,7 @@
                                 rotationSpeed: 0.05,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                flickerOffset: Math.random() * 2000,
+                                flickerOffset: Math.random() * 20000,
                                 shouldFlicker: Math.random() < 0.35
                             });
                         }
@@ -2065,7 +2100,7 @@
                                 type: "fan_item",
                                 rotation: 0,
                                 rotationSpeed: 0.03,
-                                flickerOffset: Math.random() * 2000,
+                                flickerOffset: Math.random() * 20000,
                                 shouldFlicker: Math.random() < 0.35
                             });
                         }
@@ -2094,7 +2129,7 @@
                                 rotationSpeed: 0.07,
                                 type: cornerItemType,
                                 subType: cornerItemType === "table" ? "corner_chair" : "corner_sword",
-                                flickerOffset: Math.random() * 2000,
+                                flickerOffset: Math.random() * 20000,
                                 shouldFlicker: Math.random() < 0.35
                             });
                         }
@@ -2110,7 +2145,7 @@
                             rotationSpeed: 0.05,
                             type: "table",
                             subType: "drop",
-                            flickerOffset: Math.random() * 2000,
+                            flickerOffset: Math.random() * 20000,
                             shouldFlicker: Math.random() < 0.35
                         });
                     }
@@ -2123,7 +2158,7 @@
                                 y: -30,
                                 speed: 3.8,
                                 type: "barricade",
-                                flickerOffset: Math.random() * 2000,
+                                flickerOffset: Math.random() * 20000,
                                 shouldFlicker: Math.random() < 0.35
                             });
                         });
@@ -2145,7 +2180,7 @@
                                     rotation: 0,
                                     rotationSpeed: (vx > 0 ? 0.06 : -0.06),
                                     type: "yellow_orb",
-                                    flickerOffset: Math.random() * 2000,
+                                    flickerOffset: Math.random() * 20000,
                                     shouldFlicker: Math.random() < 0.35
                                 });
                             });
@@ -2162,7 +2197,7 @@
                                     rotation: 0,
                                     rotationSpeed: 0.06,
                                     type: "yellow_orb",
-                                    flickerOffset: Math.random() * 2000,
+                                    flickerOffset: Math.random() * 20000,
                                     shouldFlicker: Math.random() < 0.35
                                 });
                             } else {
@@ -2174,7 +2209,7 @@
                                         speed: 5.0,
                                         rotation: (vx > 0 ? 0.06 : -0.06),
                                         type: "yellow_orb",
-                                        flickerOffset: Math.random() * 2000,
+                                        flickerOffset: Math.random() * 20000,
                                         shouldFlicker: Math.random() < 0.35
                                     });
                                 });
@@ -2396,7 +2431,7 @@
                         vy: 4 + Math.random() * 3,
                         speed: (4 + Math.random() * 3) * speedMultiplier,
                         type: type,
-                        flickerOffset: Math.random() * 2000,
+                        flickerOffset: Math.random() * 20000,
                         shouldFlicker: Math.random() < 0.35
                     });
                 }
@@ -2404,10 +2439,26 @@
 
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
             
-            // Фикс мигания у Даши: стабильный ритмичный цикл без замедлений
-            let centerZoneCycle = (now % 600);
-            let centerVal = Math.sin((centerZoneCycle / 600) * Math.PI * 2);
-            let centerZoneAlpha = centerVal > 0 ? 1.0 : 0.2;
+            // Оригинальный лунный цикл мигания у Даши: 15 секунд угасания и 5 секунд лунного света (общий цикл 20000 мс)
+            let centerZoneCycle = (now % 20000);
+            let centerZoneAlpha = 0.0;
+            if (centerZoneCycle < 15000) {
+                let darkP = centerZoneCycle / 15000;
+                if (darkP < 0.1) {
+                    centerZoneAlpha = 1.0 - (darkP / 0.1);
+                } else {
+                    centerZoneAlpha = 0.0;
+                }
+            } else {
+                let lightP = (centerZoneCycle - 15000) / 5000;
+                if (lightP < 0.15) {
+                    centerZoneAlpha = lightP / 0.15;
+                } else if (lightP > 0.85) {
+                    centerZoneAlpha = 1.0 - ((lightP - 0.85) / 0.15);
+                } else {
+                    centerZoneAlpha = 1.0;
+                }
+            }
 
             let vaporMultiplier = 1.0;
             if (isDashaActive && bossHp < 170) {
@@ -2482,9 +2533,17 @@
                     if (distanceFromCenter < W * 0.32) {
                         alpha = centerZoneAlpha; 
                     } else {
-                        let sideCycle = (now + (item.flickerOffset || 0)) % 600;
-                        let val = Math.sin((sideCycle / 600) * Math.PI * 2);
-                        alpha = val > 0 ? 1.0 : 0.2;
+                        let sideCycle = (now + (item.flickerOffset || 0)) % 20000;
+                        if (sideCycle < 15000) {
+                            let darkP = sideCycle / 15000;
+                            if (darkP < 0.1) alpha = 1.0 - (darkP / 0.1);
+                            else alpha = 0.0;
+                        } else {
+                            let lightP = (sideCycle - 15000) / 5000;
+                            if (lightP < 0.15) alpha = lightP / 0.15;
+                            else if (lightP > 0.85) alpha = 1.0 - ((lightP - 0.85) / 0.15);
+                            else alpha = 1.0;
+                        }
                     }
                 } else if (isDashaActive && bossHp < 170) {
                     let vaporOutP = vaporTransitionStartTime > 0 ? Math.max(0, 1.0 - (now - vaporTransitionStartTime) / 1500) : 0;
@@ -2496,9 +2555,19 @@
                         if (distanceFromCenter < W * 0.32) {
                             alpha = centerZoneAlpha * vaporOutP;
                         } else {
-                            let sideCycle = (now + (item.flickerOffset || 0)) % 600;
-                            let val = Math.sin((sideCycle / 600) * Math.PI * 2);
-                            alpha = (val > 0 ? 1.0 : 0.2) * vaporOutP;
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 20000;
+                            let baseSideAlpha = 0.0;
+                            if (sideCycle < 15000) {
+                                let darkP = sideCycle / 15000;
+                                if (darkP < 0.1) baseSideAlpha = 1.0 - (darkP / 0.1);
+                                else baseSideAlpha = 0.0;
+                            } else {
+                                let lightP = (sideCycle - 15000) / 5000;
+                                if (lightP < 0.15) baseSideAlpha = lightP / 0.15;
+                                else if (lightP > 0.85) baseSideAlpha = 1.0 - ((lightP - 0.85) / 0.15);
+                                else baseSideAlpha = 1.0;
+                            }
+                            alpha = baseSideAlpha * vaporOutP;
                         }
                     } else if (item.shouldFlicker) {
                         renderWithMoon = true;
@@ -2507,9 +2576,17 @@
                         if (distanceFromCenter < W * 0.32) {
                             alpha = centerZoneAlpha;
                         } else {
-                            let sideCycle = (now + (item.flickerOffset || 0)) % 600;
-                            let val = Math.sin((sideCycle / 600) * Math.PI * 2);
-                            alpha = val > 0 ? 1.0 : 0.2;
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 20000;
+                            if (sideCycle < 15000) {
+                                let darkP = sideCycle / 15000;
+                                if (darkP < 0.1) alpha = 1.0 - (darkP / 0.1);
+                                else alpha = 0.0;
+                            } else {
+                                let lightP = (sideCycle - 15000) / 5000;
+                                if (lightP < 0.15) alpha = lightP / 0.15;
+                                else if (lightP > 0.85) alpha = 1.0 - ((lightP - 0.85) / 0.15);
+                                else alpha = 1.0;
+                            }
                         }
                     }
                 }
