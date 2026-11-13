@@ -83,6 +83,18 @@
             border-radius: 2px;
             display: block;
         }
+        /* Красная точка на бургере при новых заявках */
+        #burgerRedBadge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 12px;
+            height: 12px;
+            background: #f44336;
+            border-radius: 50%;
+            display: none;
+            border: 2px solid #18222d;
+        }
 
         /* Выдвижная панель профиля слева */
         #profileDrawer {
@@ -91,7 +103,7 @@
             left: -320px;
             width: 300px;
             height: 100%;
-            background: rgba(15, 23, 33, 0.95);
+            background: rgba(15, 23, 33, 0.98);
             border-right: 2px solid rgba(0, 210, 255, 0.2);
             z-index: 35;
             transition: left 0.3s cubic-bezier(0.25, 1, 0.5, 1);
@@ -127,6 +139,32 @@
             overflow-y: auto;
         }
 
+        /* Верхняя панелька в шторке для красной кнопки заявок */
+        .drawer-top-bar {
+            width: 100%;
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 5px;
+        }
+        .btn-requests-badge {
+            background: #f44336;
+            color: white;
+            border: none;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: none;
+            box-shadow: 0 2px 8px rgba(244,67,54,0.4);
+            animation: pulseBadge 1.5s infinite;
+        }
+        @keyframes pulseBadge {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
         /* Стили аватара */
         .drawer-avatar-wrap {
             width: 70px;
@@ -136,7 +174,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 10px;
+            margin-top: 5px;
             margin-bottom: 5px;
             box-shadow: 0 0 15px rgba(0,210,255,0.2);
             overflow: hidden;
@@ -166,7 +204,7 @@
             padding: 6px;
             border-radius: 6px;
             cursor: pointer;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             z-index: 25;
             position: relative;
@@ -181,8 +219,8 @@
             width: 100%;
             margin-top: auto;
             margin-bottom: 10px;
-            font-size: 15px;
-            padding: 10px;
+            font-size: 14px;
+            padding: 9px;
             border-radius: 10px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
@@ -211,9 +249,9 @@
             color: #d0f0ff;
             border: 1px solid rgba(0, 210, 255, 0.3);
             width: 100%;
-            margin: 6px 0;
-            font-size: 15px;
-            padding: 10px;
+            margin: 5px 0;
+            font-size: 14px;
+            padding: 9px;
             border-radius: 10px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
@@ -223,6 +261,77 @@
             font-weight: bold;
         }
         .btn-drawer-custom:active { transform: scale(0.96); background: rgba(15, 55, 85, 0.9); }
+
+        /* Выпадающие блоки внутри шторки (поиск, заявки, друзья) */
+        .drawer-section-panel {
+            width: 100%;
+            background: rgba(10, 15, 22, 0.9);
+            border: 1px solid rgba(0, 210, 255, 0.3);
+            border-radius: 10px;
+            padding: 10px;
+            margin-top: 8px;
+            box-sizing: border-box;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 25;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .user-result-card {
+            width: 100%;
+            background: rgba(25, 35, 48, 0.8);
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-sizing: border-box;
+            text-align: left;
+        }
+        .user-result-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow: hidden;
+        }
+        .user-result-ava {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid #00d2ff;
+            flex-shrink: 0;
+        }
+        .user-result-name {
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .user-result-meta {
+            font-size: 10px;
+            color: #aaa;
+        }
+
+        .btn-mini-action {
+            background: #248bda;
+            color: white;
+            border: none;
+            padding: 5px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .btn-mini-action:active { transform: scale(0.95); }
+        .btn-mini-danger { background: #f44336; }
+        .btn-mini-success { background: #28a745; }
 
         .btn {
             background: #248bda;
@@ -262,40 +371,13 @@
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
             -webkit-tap-highlight-color: transparent;
         }
-        #pauseBtn:active { 
-            transform: scale(0.90);
-        }
+        #pauseBtn:active { transform: scale(0.90); }
 
-        /* Отрисовка значка паузы */
-        .pause-icon {
-            display: flex;
-            gap: 4px;
-        }
-        .pause-icon span {
-            width: 5px;
-            height: 15px;
-            background-color: #ffffff;
-            border-radius: 2px;
-            display: block;
-        }
-
-        /* Отрисовка значка play (треугольник) */
-        .play-icon {
-            display: none;
-            width: 0;
-            height: 0;
-            border-top: 8px solid transparent;
-            border-bottom: 8px solid transparent;
-            border-left: 14px solid #ffffff;
-            margin-left: 3px;
-        }
-
-        #pauseBtn.paused .pause-icon {
-            display: none;
-        }
-        #pauseBtn.paused .play-icon {
-            display: block;
-        }
+        .pause-icon { display: flex; gap: 4px; }
+        .pause-icon span { width: 5px; height: 15px; background-color: #ffffff; border-radius: 2px; display: block; }
+        .play-icon { display: none; width: 0; height: 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-left: 14px solid #ffffff; margin-left: 3px; }
+        #pauseBtn.paused .pause-icon { display: none; }
+        #pauseBtn.paused .play-icon { display: block; }
 
         input[type="number"] {
             padding: 10px;
@@ -329,10 +411,7 @@
 
     <!-- Кнопка паузы в углу -->
     <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
-        <div class="pause-icon">
-            <span></span>
-            <span></span>
-        </div>
+        <div class="pause-icon"><span></span><span></span></div>
         <div class="play-icon"></div>
     </button>
 
@@ -343,6 +422,7 @@
             <span></span>
             <span></span>
             <span></span>
+            <div id="burgerRedBadge"></div>
         </button>
 
         <!-- Выдвижная панель профиля слева -->
@@ -367,7 +447,13 @@
                 </div>
 
                 <!-- СОСТОЯНИЕ 2: ЕСЛИ АВТОРИЗОВАН (РЕЖИМ ПРОСМОТРА) -->
-                <div id="drawerLoggedIn" style="width: 100%; display: none; margin-top: 10px; flex-direction: column; align-items: center; height: 100%;">
+                <div id="drawerLoggedIn" style="width: 100%; display: none; margin-top: 5px; flex-direction: column; align-items: center; height: 100%;">
+                    
+                    <!-- Верхняя панелька с красной кнопкой заявок -->
+                    <div class="drawer-top-bar">
+                        <button id="drawerRequestsBtn" class="btn-requests-badge" onclick="toggleRequestsPanel()">👥 Заявки (0)</button>
+                    </div>
+
                     <div id="profileViewMode" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
                         <div class="drawer-avatar-wrap">
                             <img id="userAvatarImg" src="https://via.placeholder.com/70" alt="Аватар" class="drawer-avatar-img">
@@ -377,9 +463,32 @@
                         <!-- Кнопка изменить под авой (желтая) -->
                         <button class="btn-edit-profile" onclick="toggleEditMode(true)">ИЗМЕНИТЬ</button>
 
-                        <div style="font-size: 13px; color: #a5d6a7; margin-top: 5px; margin-bottom: 15px;">
+                        <div style="font-size: 13px; color: #a5d6a7; margin-top: 2px; margin-bottom: 10px;">
                             Баланс: <span id="drawerBalance">0</span> мл
                         </div>
+
+                        <!-- Кнопки Найти и Друзья -->
+                        <button class="btn-drawer-custom" onclick="toggleSearchPanel()">🔍 Найти игроков</button>
+                        <button class="btn-drawer-custom" onclick="toggleFriendsPanel()">👫 Друзья</button>
+                    </div>
+
+                    <!-- ПАНЕЛЬ ПОИСКА ИГРОКОВ -->
+                    <div id="searchSectionPanel" class="drawer-section-panel">
+                        <div style="font-size: 12px; color: #00d2ff; margin-bottom: 5px; font-weight: bold;">Поиск игроков</div>
+                        <input type="text" id="playerSearchInput" class="drawer-input" placeholder="Введите ник..." oninput="onSearchInputChanged(this.value)" />
+                        <div id="searchResultsContainer" style="width: 100%;"></div>
+                    </div>
+
+                    <!-- ПАНЕЛЬ ЗАЯВОК В ДРУЗЬЯ -->
+                    <div id="requestsSectionPanel" class="drawer-section-panel">
+                        <div style="font-size: 12px; color: #f44336; margin-bottom: 5px; font-weight: bold;">Входящие заявки</div>
+                        <div id="requestsResultsContainer" style="width: 100%;"></div>
+                    </div>
+
+                    <!-- ПАНЕЛЬ СПИСКА ДРУЗЕЙ -->
+                    <div id="friendsSectionPanel" class="drawer-section-panel">
+                        <div style="font-size: 12px; color: #28a745; margin-bottom: 5px; font-weight: bold;">Мои друзья</div>
+                        <div id="friendsResultsContainer" style="width: 100%;"></div>
                     </div>
 
                     <!-- РЕЖИМ РЕДАКТИРОВАНИЯ В ШТОРКЕ (СКРЫТ ПО УМОЛЧАНИЮ) -->
@@ -389,11 +498,11 @@
                         
                         <!-- Загрузка аватара из галереи устройства -->
                         <div style="width: 100%; margin-bottom: 8px;">
-                            <label style="font-size: 12px; color: #aaa; display: block; margin-bottom: 3px; text-align: left;">Аватар из галереи:</label>
-                            <input type="file" id="editAvatarFile" accept="image/*" class="drawer-input" style="padding: 6px; font-size: 12px;" />
+                            <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 3px; text-align: left;">Аватар из галереи:</label>
+                            <input type="file" id="editAvatarFile" accept="image/*" class="drawer-input" style="padding: 6px; font-size: 11px;" />
                         </div>
 
-                        <div style="width: 100%; display: flex; gap: 5px; margin-top: 5px; margin-bottom: 15px;">
+                        <div style="width: 100%; display: flex; gap: 5px; margin-top: 5px; margin-bottom: 10px;">
                             <button class="btn-drawer-custom" style="background: #28a745; margin: 0;" onclick="saveProfileChanges()">Сохранить</button>
                             <button class="btn-drawer-custom" style="background: #6c757d; margin: 0;" onclick="toggleEditMode(false)">Отмена</button>
                         </div>
@@ -473,7 +582,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDbjOOmFID0DwVfYoOy6jHtNooXBOFvrk",
@@ -491,8 +600,8 @@
         const FAKE_EMAIL_DOMAIN = "@save-the-egg.game";
         let currentUid = null;
         let currentUserData = null;
+        let lastHeartbeatTime = 0;
 
-        // Функция проверки уникальности ника в базе
         async function isNicknameAvailable(nickname) {
             const cleanNick = nickname.trim().toLowerCase();
             const usersRef = collection(db, "users");
@@ -511,7 +620,6 @@
                 return;
             }
 
-            // Проверка уникальности
             const available = await isNicknameAvailable(cleanUsername);
             if (!available) {
                 alert("Этот никнейм уже занят другим игроком!");
@@ -523,20 +631,21 @@
                 const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
                 const user = userCredential.user;
 
-                // Гостевые сгорают: записываем в базу строго 0 мл
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
                     username_lower: cleanUsername.toLowerCase(),
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
+                    friends: [],
+                    friendRequests: [],
+                    lastActive: serverTimestamp(),
                     createdAt: new Date()
                 });
 
-                // Обнуляем локальный гостевой банк
                 window.totalBank = 0.0;
                 localStorage.setItem("egg_total_ml_bank", "0.0");
 
-                alert("Аккаунт успешно создан! Гостевой прогресс обнулен, баланс на аккаунте: 0 мл.");
+                alert("Аккаунт успешно создан!");
             } catch (error) {
                 if (error.code === 'auth/email-already-in-use') {
                     alert("Такой ник уже занят!");
@@ -570,7 +679,6 @@
             if (confirmed) {
                 try {
                     await signOut(auth);
-                    // Сбрасываем локальный банк при выходе
                     window.totalBank = 0;
                     localStorage.setItem("egg_total_ml_bank", "0.0");
                     alert("Вы вышли из аккаунта.");
@@ -580,14 +688,13 @@
             }
         };
 
-        // Управление шторкой редактирования профиля
         window.toggleEditMode = function(isEditing) {
             const viewMode = document.getElementById("profileViewMode");
             const editMode = document.getElementById("profileEditMode");
 
             if (isEditing && currentUserData) {
                 document.getElementById("editNicknameInput").value = currentUserData.username || "";
-                document.getElementById("editAvatarFile").value = ""; // Очищаем выбор файла
+                document.getElementById("editAvatarFile").value = "";
                 viewMode.style.display = "none";
                 editMode.style.display = "flex";
             } else {
@@ -601,21 +708,22 @@
 
             const newNick = document.getElementById("editNicknameInput").value.trim();
             const fileInput = document.getElementById("editAvatarFile");
+            const hasNewAvatar = fileInput.files && fileInput.files[0];
 
             if (!newNick) {
                 alert("Ник не может быть пустым!");
                 return;
             }
 
-            // Если ник меняется — проверяем его уникальность
-            if (newNick.toLowerCase() !== currentUserData.username_lower) {
+            const isNickChanged = (newNick.toLowerCase() !== currentUserData.username_lower);
+
+            if (isNickChanged) {
                 const available = await isNicknameAvailable(newNick);
                 if (!available) {
                     alert("Этот ник уже занят другим игроком!");
                     return;
                 }
 
-                // Меняем email в Auth для входа по новому нику
                 const newFakeEmail = newNick.toLowerCase() + FAKE_EMAIL_DOMAIN;
                 try {
                     await updateEmail(auth.currentUser, newFakeEmail);
@@ -625,12 +733,12 @@
                 }
             }
 
-            const updateData = {
-                username: newNick,
-                username_lower: newNick.toLowerCase()
-            };
+            const updateData = {};
+            if (isNickChanged) {
+                updateData.username = newNick;
+                updateData.username_lower = newNick.toLowerCase();
+            }
 
-            // Функция для сохранения изменений после считывания картинки (если она выбрана)
             const executeUpdate = async (avatarBase64) => {
                 if (avatarBase64) {
                     updateData.avatarUrl = avatarBase64;
@@ -638,22 +746,33 @@
 
                 try {
                     await updateDoc(doc(db, "users", currentUid), updateData);
-                    currentUserData.username = newNick;
-                    currentUserData.username_lower = newNick.toLowerCase();
-                    if (avatarBase64) currentUserData.avatarUrl = avatarBase64;
-
-                    document.getElementById("userDisplayNick").innerText = newNick;
-                    if (avatarBase64) document.getElementById("userAvatarImg").src = avatarBase64;
+                    
+                    if (isNickChanged) {
+                        currentUserData.username = newNick;
+                        currentUserData.username_lower = newNick.toLowerCase();
+                        document.getElementById("userDisplayNick").innerText = newNick;
+                    }
+                    if (avatarBase64) {
+                        currentUserData.avatarUrl = avatarBase64;
+                        document.getElementById("userAvatarImg").src = avatarBase64;
+                    }
 
                     toggleEditMode(false);
-                    alert("Профиль успешно обновлен! Старый ник освобожден.");
+
+                    // Уведомления строго по делу
+                    if (isNickChanged) {
+                        alert("Профиль успешно обновлен! Старый ник освобожден.");
+                    } else if (avatarBase64) {
+                        alert("Аватар успешно обновлен!");
+                    } else {
+                        alert("Изменения сохранены!");
+                    }
                 } catch (error) {
                     alert("Ошибка обновления: " + error.message);
                 }
             };
 
-            // Если пользователь выбрал файл из галереи, считываем его в формат Base64
-            if (fileInput.files && fileInput.files[0]) {
+            if (hasNewAvatar) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     executeUpdate(e.target.result);
@@ -667,6 +786,20 @@
             }
         };
 
+        // Периодическое обновление статуса активности (heartbeat)
+        async function updateHeartbeat() {
+            if (!currentUid) return;
+            const now = Date.now();
+            if (now - lastHeartbeatTime > 30000) { // раз в 30 секунд
+                lastHeartbeatTime = now;
+                try {
+                    await updateDoc(doc(db, "users", currentUid), {
+                        lastActive: serverTimestamp()
+                    });
+                } catch (e) {}
+            }
+        }
+
         // Отслеживание авторизации
         onAuthStateChanged(auth, async (user) => {
             const loggedOutView = document.getElementById("drawerLoggedOut");
@@ -679,7 +812,6 @@
                 loggedOutView.style.display = "none";
                 loggedInView.style.display = "flex";
 
-                // Разблокируем кнопки вывода для вошедших
                 if (withdrawMainBtn) {
                     withdrawMainBtn.disabled = false;
                     withdrawMainBtn.style.opacity = "1";
@@ -693,24 +825,28 @@
                     withdrawGameOverBtn.title = "Вывести миллилитры";
                 }
 
-                const userDoc = await getDoc(doc(db, "users", user.uid));
+                const userRef = doc(db, "users", user.uid);
+                const userDoc = await getDoc(userRef);
                 if (userDoc.exists()) {
                     currentUserData = userDoc.data();
                     document.getElementById("userDisplayNick").innerText = currentUserData.username || "Игрок";
                     document.getElementById("drawerBalance").innerText = (currentUserData.balance_ml || 0).toFixed(3);
-                    window.totalBank = currentUserData.balance_ml || 0; // Строго синхронизируем банк с базой аккаунта
+                    window.totalBank = currentUserData.balance_ml || 0;
                     if (currentUserData.avatarUrl) {
                         document.getElementById("userAvatarImg").src = currentUserData.avatarUrl;
                     }
+                    updateRequestsUI(currentUserData.friendRequests || []);
                 }
+
+                updateHeartbeat();
             } else {
                 currentUid = null;
                 currentUserData = null;
                 loggedOutView.style.display = "block";
                 loggedInView.style.display = "none";
                 toggleEditMode(false);
+                closeAllDrawerPanels();
 
-                // Блокируем кнопки вывода для гостей
                 if (withdrawMainBtn) {
                     withdrawMainBtn.disabled = true;
                     withdrawMainBtn.style.opacity = "0.5";
@@ -726,13 +862,297 @@
             }
         });
 
-        // Экспорт функций начисления очков в серверный Firestore
+        // Управление вкладками в шторке
+        window.closeAllDrawerPanels = function() {
+            document.getElementById("searchSectionPanel").style.display = "none";
+            document.getElementById("requestsSectionPanel").style.display = "none";
+            document.getElementById("friendsSectionPanel").style.display = "none";
+        }
+
+        window.toggleSearchPanel = function() {
+            const panel = document.getElementById("searchSectionPanel");
+            const isVisible = panel.style.display === "flex";
+            closeAllDrawerPanels();
+            panel.style.display = isVisible ? "none" : "flex";
+        }
+
+        window.toggleRequestsPanel = function() {
+            const panel = document.getElementById("requestsSectionPanel");
+            const isVisible = panel.style.display === "flex";
+            closeAllDrawerPanels();
+            panel.style.display = isVisible ? "none" : "flex";
+            if (!isVisible) loadIncomingRequests();
+        }
+
+        window.toggleFriendsPanel = function() {
+            const panel = document.getElementById("friendsSectionPanel");
+            const isVisible = panel.style.display === "flex";
+            closeAllDrawerPanels();
+            panel.style.display = isVisible ? "none" : "flex";
+            if (!isVisible) loadFriendsList();
+        }
+
+        // Обновление красных индикаторов заявок
+        function updateRequestsUI(requestsArray) {
+            const count = requestsArray ? requestsArray.length : 0;
+            const reqBtn = document.getElementById("drawerRequestsBtn");
+            const burgerBadge = document.getElementById("burgerRedBadge");
+
+            if (count > 0) {
+                reqBtn.style.display = "inline-block";
+                reqBtn.innerText = `👥 Заявки (${count})`;
+                burgerBadge.style.display = "block";
+            } else {
+                reqBtn.style.display = "none";
+                burgerBadge.style.display = "none";
+            }
+        }
+
+        // Поиск игроков
+        window.onSearchInputChanged = async function(queryText) {
+            const container = document.getElementById("searchResultsContainer");
+            container.innerHTML = "";
+            const cleanQuery = queryText.trim().toLowerCase();
+
+            if (!cleanQuery || cleanQuery.length < 2) {
+                container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Введите от 2 символов...</div>`;
+                return;
+            }
+
+            try {
+                const usersRef = collection(db, "users");
+                // Ищем по префиксу никнейма в базе
+                const q = query(usersRef, where("username_lower", ">=", cleanQuery), where("username_lower", "<=", cleanQuery + "\uf8ff"));
+                const snapshot = await getDocs(q);
+
+                if (snapshot.empty) {
+                    container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Никого не найдено</div>`;
+                    return;
+                }
+
+                let html = "";
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const targetUid = docSnap.id;
+
+                    if (targetUid === currentUid) return; // Себя не показываем
+
+                    const nick = data.username || "Игрок";
+                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
+                    const balance = (data.balance_ml || 0).toFixed(3);
+                    const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
+                    const statusText = formatLastActive(lastActiveTime);
+
+                    const isAlreadyFriend = currentUserData.friends && currentUserData.friends.includes(targetUid);
+                    const isRequestSent = data.friendRequests && data.friendRequests.includes(currentUid);
+
+                    let actionBtnHtml = "";
+                    if (isAlreadyFriend) {
+                        actionBtnHtml = `<span style="font-size:10px; color:#28a745; font-weight:bold;">Друг</span>`;
+                    } else if (isRequestSent) {
+                        actionBtnHtml = `<span style="font-size:10px; color:#ffaa00;">Отправлено</span>`;
+                    } else {
+                        actionBtnHtml = `<button class="btn-mini-action btn-mini-success" onclick="sendFriendRequest('${targetUid}')">+ Добавить</button>`;
+                    }
+
+                    html += `
+                        <div class="user-result-card">
+                            <div class="user-result-info">
+                                <img src="${ava}" class="user-result-ava">
+                                <div>
+                                    <div class="user-result-name">${nick}</div>
+                                    <div class="user-result-meta">💧 ${balance} мл | ${statusText}</div>
+                                </div>
+                            </div>
+                            <div>${actionBtnHtml}</div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html || `<div style="font-size:11px; color:#777; padding:5px;">Никого не найдено</div>`;
+            } catch (e) {
+                console.error("Ошибка поиска:", e);
+            }
+        };
+
+        // Отправка заявки в друзья
+        window.sendFriendRequest = async function(targetUid) {
+            if (!currentUid) return;
+            try {
+                const targetRef = doc(db, "users", targetUid);
+                await updateDoc(targetRef, {
+                    friendRequests: arrayUnion(currentUid)
+                });
+                alert("Заявка в друзья отправлена!");
+                // Перерисовываем поиск
+                const inputVal = document.getElementById("playerSearchInput").value;
+                onSearchInputChanged(inputVal);
+            } catch (e) {
+                alert("Ошибка отправки заявки: " + e.message);
+            }
+        };
+
+        // Загрузка входящих заявок
+        window.loadIncomingRequests = async function() {
+            const container = document.getElementById("requestsResultsContainer");
+            container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Загрузка...</div>`;
+
+            if (!currentUid || !currentUserData.friendRequests || currentUserData.friendRequests.length === 0) {
+                container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Нет входящих заявок</div>`;
+                return;
+            }
+
+            try {
+                let html = "";
+                for (let senderUid of currentUserData.friendRequests) {
+                    const senderDoc = await getDoc(doc(db, "users", senderUid));
+                    if (!senderDoc.exists()) continue;
+                    const data = senderDoc.data();
+                    const nick = data.username || "Игрок";
+                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
+
+                    html += `
+                        <div class="user-result-card">
+                            <div class="user-result-info">
+                                <img src="${ava}" class="user-result-ava">
+                                <div>
+                                    <div class="user-result-name">${nick}</div>
+                                    <div class="user-result-meta">Хочет добавить в друзья</div>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:4px;">
+                                <button class="btn-mini-action btn-mini-success" onclick="acceptFriendRequest('${senderUid}')">✔</button>
+                                <button class="btn-mini-action btn-mini-danger" onclick="rejectFriendRequest('${senderUid}')">✖</button>
+                            </div>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div style="font-size:11px; color:#f44336; padding:5px;">Ошибка загрузки</div>`;
+            }
+        };
+
+        window.acceptFriendRequest = async function(senderUid) {
+            if (!currentUid) return;
+            try {
+                const myRef = doc(db, "users", currentUid);
+                const senderRef = doc(db, "users", senderUid);
+
+                // Добавляем друг друга в друзья и удаляем из заявок
+                await updateDoc(myRef, {
+                    friends: arrayUnion(senderUid),
+                    friendRequests: arrayRemove(senderUid)
+                });
+                await updateDoc(senderRef, {
+                    friends: arrayUnion(currentUid)
+                });
+
+                // Обновляем локальные данные
+                currentUserData.friends = currentUserData.friends || [];
+                currentUserData.friends.push(senderUid);
+                currentUserData.friendRequests = currentUserData.friendRequests.filter(id => id !== senderUid);
+
+                updateRequestsUI(currentUserData.friendRequests);
+                loadIncomingRequests();
+                alert("Заявка принята!");
+            } catch (e) {
+                alert("Ошибка: " + e.message);
+            }
+        };
+
+        window.rejectFriendRequest = async function(senderUid) {
+            if (!currentUid) return;
+            try {
+                const myRef = doc(db, "users", currentUid);
+                await updateDoc(myRef, {
+                    friendRequests: arrayRemove(senderUid)
+                });
+
+                currentUserData.friendRequests = currentUserData.friendRequests.filter(id => id !== senderUid);
+                updateRequestsUI(currentUserData.friendRequests);
+                loadIncomingRequests();
+            } catch (e) {
+                alert("Ошибка: " + e.message);
+            }
+        };
+
+        // Загрузка списка друзей
+        window.loadFriendsList = async function() {
+            const container = document.getElementById("friendsResultsContainer");
+            container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Загрузка...</div>`;
+
+            if (!currentUid || !currentUserData.friends || currentUserData.friends.length === 0) {
+                container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">У вас пока нет друзей</div>`;
+                return;
+            }
+
+            try {
+                let html = "";
+                for (let friendUid of currentUserData.friends) {
+                    const friendDoc = await getDoc(doc(db, "users", friendUid));
+                    if (!friendDoc.exists()) continue;
+                    const data = friendDoc.data();
+                    const nick = data.username || "Игрок";
+                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
+                    const balance = (data.balance_ml || 0).toFixed(3);
+                    const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
+                    const statusText = formatLastActive(lastActiveTime);
+
+                    html += `
+                        <div class="user-result-card">
+                            <div class="user-result-info">
+                                <img src="${ava}" class="user-result-ava">
+                                <div>
+                                    <div class="user-result-name">${nick}</div>
+                                    <div class="user-result-meta">💧 ${balance} мл | ${statusText}</div>
+                                </div>
+                            </div>
+                            <button class="btn-mini-action btn-mini-danger" onclick="removeFriend('${friendUid}')" title="Удалить">🗑</button>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div style="font-size:11px; color:#f44336; padding:5px;">Ошибка загрузки</div>`;
+            }
+        };
+
+        window.removeFriend = async function(friendUid) {
+            const confirmed = confirm("Удалить из друзей?");
+            if (!confirmed) return;
+
+            try {
+                const myRef = doc(db, "users", currentUid);
+                const friendRef = doc(db, "users", friendUid);
+
+                await updateDoc(myRef, { friends: arrayRemove(friendUid) });
+                await updateDoc(friendRef, { friends: arrayRemove(currentUid) });
+
+                currentUserData.friends = currentUserData.friends.filter(id => id !== friendUid);
+                loadFriendsList();
+            } catch (e) {
+                alert("Ошибка: " + e.message);
+            }
+        };
+
+        // Форматирование времени последней активности
+        function formatLastActive(timestamp) {
+            if (!timestamp) return "Давно";
+            const diffSec = Math.floor((Date.now() - timestamp) / 1000);
+            if (diffSec < 60) return "В сети только что";
+            if (diffSec < 3600) return `В сети ${Math.floor(diffSec / 60)} мин. назад`;
+            if (diffSec < 86400) return `В сети ${Math.floor(diffSec / 3600)} ч. назад`;
+            return "Был в сети давно";
+        }
+
         window.addServerMilliliters = async function(amount) {
-            if (!currentUid) return; // Гостям в базу не пишем
+            if (!currentUid) return;
             const userRef = doc(db, "users", currentUid);
             try {
                 await updateDoc(userRef, {
-                    balance_ml: increment(amount)
+                    balance_ml: increment(amount),
+                    lastActive: serverTimestamp()
                 });
                 const updatedSnap = await getDoc(userRef);
                 if (updatedSnap.exists()) {
@@ -740,9 +1160,7 @@
                     window.totalBank = currentUserData.balance_ml;
                     document.getElementById("drawerBalance").innerText = window.totalBank.toFixed(3);
                 }
-            } catch (err) {
-                console.error("Ошибка обновления баланса в базе:", err);
-            }
+            } catch (err) {}
         };
 
         window.subtractServerMilliliters = async function(amount) {
@@ -750,7 +1168,8 @@
             const userRef = doc(db, "users", currentUid);
             try {
                 await updateDoc(userRef, {
-                    balance_ml: increment(-amount)
+                    balance_ml: increment(-amount),
+                    lastActive: serverTimestamp()
                 });
                 const updatedSnap = await getDoc(userRef);
                 if (updatedSnap.exists()) {
@@ -758,14 +1177,12 @@
                     window.totalBank = currentUserData.balance_ml;
                     document.getElementById("drawerBalance").innerText = window.totalBank.toFixed(3);
                 }
-            } catch (err) {
-                console.error("Ошибка списания баланса в базе:", err);
-            }
+            } catch (err) {}
         };
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v172_firebase_gallery_avatar";
+        const CURRENT_APP_VERSION = "v173_friends_and_search";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -787,7 +1204,6 @@
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        // Настройка холста для панели профиля
         const drawerCanvas = document.getElementById("drawerCanvasContainer");
         const drawerCtx = drawerCanvas.getContext("2d");
         const drawerW = 300;
@@ -845,7 +1261,6 @@
         let dashaPhaseStartTime = 0;
         let vaporTransitionStartTime = 0;
 
-        // Загрузка текстур
         const dashaImg = new Image();
         dashaImg.src = "bosses/dashaboss.webp";
 
@@ -891,15 +1306,15 @@
         }
 
         function toggleProfileDrawer(e) {
-            if (e) {
-                e.stopPropagation();
-            }
+            if (e) e.stopPropagation();
             isDrawerOpen = !isDrawerOpen;
             const drawer = document.getElementById("profileDrawer");
             if (isDrawerOpen) {
                 drawer.classList.add("open");
             } else {
                 drawer.classList.remove("open");
+                closeAllDrawerPanels();
+                toggleEditMode(false);
             }
         }
 
@@ -909,6 +1324,8 @@
                 if (!drawer.contains(e.target)) {
                     isDrawerOpen = false;
                     drawer.classList.remove("open");
+                    closeAllDrawerPanels();
+                    toggleEditMode(false);
                 }
             }
         });
@@ -918,7 +1335,6 @@
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             if (clientX > W - 70 && clientY < 70) return;
-            
             targetX = clientX;
         }
 
@@ -939,6 +1355,7 @@
             gameOver = false;
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
+            closeAllDrawerPanels();
             mlEarned = 0.0;
             items = [];
             spawnTimer = 0;
@@ -1013,6 +1430,7 @@
             gameOver = false;
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
+            closeAllDrawerPanels();
             document.getElementById("pauseScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("startScreen").style.display = "flex";
@@ -1041,7 +1459,7 @@
             else if (item.type === "fan_item") {
                 targetCtx.save();
                 targetCtx.translate(item.x, item.y);
-                item.rotate(item.rotation || 0);
+                targetCtx.rotate(item.rotation || 0);
                 targetCtx.font = "26px Arial"; 
                 targetCtx.textAlign = "center";
                 targetCtx.fillText("🪭", 0, 0);
@@ -1123,7 +1541,6 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            // Главное меню
             if (!gameStarted) {
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
@@ -1160,11 +1577,9 @@
                         else if (item.type === "snow") symbol = "❄️";
                         ctx.fillText(symbol, 0, 0);
                     }
-
                     ctx.restore();
                 });
 
-                // Отрисовка анимации внутри выдвижной панели профиля
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
                     item.y += item.speed; 
@@ -1289,7 +1704,6 @@
                     }
 
                     let activeTables = items.filter(it => it.type === "table" || it.type === "sword").length;
-                    
                     let tableSpawnChance = (bossHp > 400) ? 0.024 : 0.0168; 
                     let maxActiveTables = (bossHp > 400) ? 3 : 3;
 
@@ -1334,7 +1748,6 @@
                             let spawnMode = Math.random();
                             let fromLeft = Math.random() < 0.5;
                             let cornerItemType = Math.random() < 0.55 ? "table" : "sword";
-                            
                             let spawnX, spawnVx, spawnVy;
                             if (spawnMode < 0.6) {
                                 spawnX = fromLeft ? 20 : W - 20;
@@ -1624,7 +2037,6 @@
                 }
             }
 
-            // СПАВН ПРЕДМЕТОВ
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
@@ -1688,32 +2100,23 @@
             }
 
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
-            
             let isFlickerPhaseActive = false;
             let isSteadyGlowActive = false;
             
             if (isDashaActive && bossHp >= 170) {
-                if (dashaPhaseStartTime === 0) {
-                    dashaPhaseStartTime = now;
-                }
+                if (dashaPhaseStartTime === 0) dashaPhaseStartTime = now;
                 let cycleTime = (now - dashaPhaseStartTime) % 20000;
-                if (cycleTime < 15000) {
-                    isFlickerPhaseActive = true; 
-                } else {
-                    isSteadyGlowActive = true;   
-                }
+                if (cycleTime < 15000) isFlickerPhaseActive = true; 
+                else isSteadyGlowActive = true;   
             } else if (!isDashaActive) {
                 dashaPhaseStartTime = 0;
             }
 
             let vaporMultiplier = 1.0;
             if (isDashaActive && bossHp < 170) {
-                if (vaporTransitionStartTime === 0) {
-                    vaporTransitionStartTime = now;
-                }
+                if (vaporTransitionStartTime === 0) vaporTransitionStartTime = now;
                 let elapsedVapor = now - vaporTransitionStartTime;
-                let vaporDuration = 1500; 
-                vaporMultiplier = Math.max(0, 1.0 - (elapsedVapor / vaporDuration));
+                vaporMultiplier = Math.max(0, 1.0 - (elapsedVapor / 1500));
             } else {
                 vaporTransitionStartTime = 0;
             }
@@ -1753,13 +2156,8 @@
                     } else if (item.subType === "trickshot") {
                         item.x += item.vx;
                         item.y += item.vy;
-                        if (item.x < 30) {
-                            item.x = 30;
-                            item.vx *= -1;
-                        } else if (item.x > W - 30) {
-                            item.x = W - 30;
-                            item.vx *= -1;
-                        }
+                        if (item.x < 30) { item.x = 30; item.vx *= -1; }
+                        else if (item.x > W - 30) { item.x = W - 30; item.vx *= -1; }
                     } else {
                         item.x += (item.vx || 0);
                         item.y += (item.vy || item.speed);
@@ -1824,7 +2222,6 @@
                             let val = Math.sin((sideCycle / 1100) * Math.PI * 2);
                             alpha = val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0;
                         }
-                        
                         let vaporInP = vaporTransitionStartTime > 0 ? Math.min(1, (now - vaporTransitionStartTime) / 1500) : 1;
                         alpha *= vaporInP;
                     }
@@ -1846,9 +2243,7 @@
                     drawSingleItem(item);
                     ctx.restore();
                 } else if (!renderWithMoon || alpha <= 0.005) {
-                    if (!renderWithMoon) {
-                        drawSingleItem(item);
-                    }
+                    if (!renderWithMoon) drawSingleItem(item);
                 }
 
                 const dist = Math.hypot(player.x - item.x, player.y - item.y);
@@ -1976,7 +2371,6 @@
                 }
             }
 
-            // ОТРИСОВКА БОССА
             if (bossState === "active") {
                 let activeImg = (currentBoss === "dasha") ? dashaImg : ritaImg;
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
@@ -2033,7 +2427,6 @@
                 ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
-            // ИНТЕРФЕЙС И ЯЙЦО
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 15px Arial";
             ctx.textAlign = "left";
@@ -2193,11 +2586,8 @@
             document.getElementById("withdrawAmount").value = "";
 
             const lastBtn = document.getElementById("lastCodeBtn");
-            if (lastPromoCode) {
-                lastBtn.style.display = "inline-block";
-            } else {
-                lastBtn.style.display = "none";
-            }
+            if (lastPromoCode) lastBtn.style.display = "inline-block";
+            else lastBtn.style.display = "none";
 
             document.getElementById("withdrawModal").style.display = "flex";
         }
