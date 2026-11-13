@@ -96,12 +96,12 @@
             z-index: 31;
         }
 
-        /* Выдвижная панель профиля слева */
+        /* Выдвижная панель профиля слева (расширена до 360px) */
         #profileDrawer {
             position: absolute;
             top: 0;
-            left: -320px;
-            width: 300px;
+            left: -380px;
+            width: 360px;
             height: 100%;
             background: rgba(15, 23, 33, 0.98);
             border-right: 2px solid rgba(0, 210, 255, 0.2);
@@ -216,10 +216,10 @@
             color: white;
             border: none;
             width: 100%;
-            margin-top: 15px;
-            margin-bottom: 15px;
+            margin-top: 25px;
+            margin-bottom: 25px;
             font-size: 14px;
-            padding: 9px;
+            padding: 10px;
             border-radius: 10px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
@@ -293,14 +293,13 @@
             flex-direction: column;
             align-items: center;
             z-index: 25;
-            max-height: 240px;
+            max-height: 260px;
             overflow-y: auto;
         }
 
-        /* Увеличенная высота панели чата с прокруткой и отступом до кнопки вых */
         #chatSectionPanel {
-            max-height: 380px !important;
-            height: 360px !important;
+            max-height: 410px !important;
+            height: 390px !important;
         }
 
         .user-result-card {
@@ -372,7 +371,7 @@
 
         .chat-messages-box {
             width: 100%;
-            height: 250px;
+            height: 270px;
             background: rgba(0,0,0,0.3);
             border-radius: 6px;
             padding: 6px;
@@ -579,9 +578,12 @@
                                 <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()" style="flex-shrink:0;">✕ Назад</button>
                             </div>
                             <div id="chatMessagesBox" class="chat-messages-box"></div>
-                            <div style="display:flex; width:100%; gap:4px; align-items:center;">
+                            <div id="chatInputArea" style="display:flex; width:100%; gap:4px; align-items:center;">
                                 <input type="text" id="chatMessageInput" class="drawer-input" style="margin:0; font-size:12px; padding:6px;" placeholder="Сообщение..." oninput="onMyTypingInput()" />
                                 <button class="btn-mini-action btn-mini-success" onclick="sendChatMessage()">➤</button>
+                            </div>
+                            <div id="chatNotFriendWarning" style="display:none; font-size:10px; color:#ff4d4d; width:100%; text-align:center; padding:3px;">
+                                Пользователь не у вас в друзьях. Добавьте его в друзья, чтобы писать сообщения.
                             </div>
                         </div>
                     </div>
@@ -730,6 +732,7 @@
                     friends: [],
                     friendRequests: [],
                     inGame: false,
+                    gameStartTime: null,
                     lastActive: serverTimestamp(),
                     createdAt: new Date()
                 });
@@ -756,13 +759,12 @@
                 const fakeEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
                 const userCredential = await signInWithEmailAndPassword(auth, fakeEmail, password);
                 
-                // Проверка: действительно ли этот ник совпадает с сохраненным в документе пользователя
                 const userDocSnap = await getDoc(doc(db, "users", userCredential.user.uid));
                 if (userDocSnap.exists()) {
                     const actualNick = (userDocSnap.data().username || "").trim().toLowerCase();
                     if (actualNick !== cleanUsername) {
                         await signOut(auth);
-                        alert(`❌ Этот ник изменен на "${userDocSnap.data().username}". Вход по старому нику невозможен!`);
+                        alert(`❌ Никнейм этого аккаунта изменен на "${userDocSnap.data().username}". Пожалуйста, войдите под новым ником!`);
                         return;
                     }
                 }
@@ -778,7 +780,7 @@
             if (confirmed) {
                 try {
                     if (currentUid) {
-                        await updateDoc(doc(db, "users", currentUid), { inGame: false });
+                        await updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null });
                     }
                     if (unsubscribeUserDoc) unsubscribeUserDoc();
                     if (unsubscribeChat) unsubscribeChat();
@@ -851,7 +853,7 @@
                     }
 
                     toggleEditMode(false);
-                    alert("Изменения сохранены!");
+                    alert("Изменения сохранены! Теперь вход по новому нику актуален.");
                 } catch (error) {
                     alert("Ошибка обновления: " + error.message);
                 }
@@ -870,13 +872,19 @@
         async function updateHeartbeat(inGameStatus = false) {
             if (!currentUid) return;
             const now = Date.now();
-            if (now - lastHeartbeatTime > 10000 || inGameStatus) {
+            if (now - lastHeartbeatTime > 10000 || inGameStatus !== (currentUserData?.inGame)) {
                 lastHeartbeatTime = now;
                 try {
-                    await updateDoc(doc(db, "users", currentUid), {
+                    const updatePayload = {
                         lastActive: serverTimestamp(),
                         inGame: inGameStatus
-                    });
+                    };
+                    if (inGameStatus && (!currentUserData?.inGame || !currentUserData?.gameStartTime)) {
+                        updatePayload.gameStartTime = serverTimestamp();
+                    } else if (!inGameStatus) {
+                        updatePayload.gameStartTime = null;
+                    }
+                    await updateDoc(doc(db, "users", currentUid), updatePayload);
                 } catch (e) {}
             }
         }
@@ -1072,7 +1080,8 @@
                     const ava = data.avatarUrl || "https://via.placeholder.com/70";
                     const balance = (data.balance_ml || 0).toFixed(3);
                     const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
-                    const statusText = formatStatusText(lastActiveTime, data.inGame);
+                    const gameStartTime = data.gameStartTime ? data.gameStartTime.toMillis() : 0;
+                    const statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime);
 
                     const isAlreadyFriend = currentUserData.friends && currentUserData.friends.includes(targetUid);
                     const targetRequests = data.friendRequests || [];
@@ -1093,7 +1102,7 @@
                                 <img src="${ava}" class="user-result-ava">
                                 <div>
                                     <div class="user-result-name">${nick}</div>
-                                    <div class="user-result-meta">💧 ${balance} мл | ${statusText}</div>
+                                    <div class="user-result-meta">💧 ${balance} мл | <span style="color:${statusObj.color}">${statusObj.text}</span></div>
                                 </div>
                             </div>
                             <div>${actionBtnHtml}</div>
@@ -1211,7 +1220,8 @@
                     const ava = data.avatarUrl || "https://via.placeholder.com/70";
                     const balance = (data.balance_ml || 0).toFixed(3);
                     const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
-                    const statusText = formatStatusText(lastActiveTime, data.inGame);
+                    const gameStartTime = data.gameStartTime ? data.gameStartTime.toMillis() : 0;
+                    const statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime);
 
                     html += `
                         <div class="user-result-card">
@@ -1219,7 +1229,7 @@
                                 <img src="${ava}" class="user-result-ava">
                                 <div>
                                     <div class="user-result-name">${nick}</div>
-                                    <div class="user-result-meta">💧 ${balance} мл | ${statusText}</div>
+                                    <div class="user-result-meta">💧 ${balance} мл | <span style="color:${statusObj.color}">${statusObj.text}</span></div>
                                 </div>
                             </div>
                             <div style="display:flex; gap:4px;">
@@ -1307,6 +1317,19 @@
             document.getElementById("activeChatRedDot").style.display = "none";
             document.getElementById("chatSectionPanel").style.display = "flex";
 
+            // Проверка, является ли пользователь другом
+            const isFriend = currentUserData.friends && currentUserData.friends.includes(friendUid);
+            const chatInputArea = document.getElementById("chatInputArea");
+            const chatWarning = document.getElementById("chatNotFriendWarning");
+
+            if (isFriend) {
+                chatInputArea.style.display = "flex";
+                chatWarning.style.display = "none";
+            } else {
+                chatInputArea.style.display = "none";
+                chatWarning.style.display = "block";
+            }
+
             if (unsubscribeChat) unsubscribeChat();
             if (unsubscribePartnerStatus) unsubscribePartnerStatus();
 
@@ -1315,8 +1338,8 @@
                 if (docSnap.exists()) {
                     const pData = docSnap.data();
                     const lastActiveTime = pData.lastActive ? pData.lastActive.toMillis() : 0;
+                    const gameStartTime = pData.gameStartTime ? pData.gameStartTime.toMillis() : 0;
                     
-                    // Проверяем статус печатает ли собеседник
                     const typingMap = pData.typingInChats || {};
                     const isTyping = typingMap[currentUid] === true;
 
@@ -1324,8 +1347,9 @@
                         document.getElementById("chatWithStatus").innerText = "печатает...";
                         document.getElementById("chatWithStatus").style.color = "#00ffcc";
                     } else {
-                        document.getElementById("chatWithStatus").innerText = formatStatusText(lastActiveTime, pData.inGame);
-                        document.getElementById("chatWithStatus").style.color = "#a5d6a7";
+                        const statusObj = formatStatusObj(lastActiveTime, pData.inGame, gameStartTime);
+                        document.getElementById("chatWithStatus").innerText = statusObj.text;
+                        document.getElementById("chatWithStatus").style.color = statusObj.color;
                     }
                 }
             });
@@ -1407,11 +1431,17 @@
 
         window.sendChatMessage = async function() {
             if (!activeChatFriendUid || !currentUid) return;
+            
+            // Дополнительная проверка на дружбу перед отправкой
+            if (!currentUserData.friends || !currentUserData.friends.includes(activeChatFriendUid)) {
+                alert("Нельзя писать пользователям, которых нет в друзьях!");
+                return;
+            }
+
             const input = document.getElementById("chatMessageInput");
             const text = input.value.trim();
             if (!text) return;
 
-            // сбрасываем статус печати
             try {
                 await updateDoc(doc(db, "users", currentUid), {
                     [`typingInChats.${activeChatFriendUid}`]: false
@@ -1440,14 +1470,24 @@
             } catch (e) {}
         };
 
-        function formatStatusText(timestamp, inGame) {
-            if (inGame) return "Играет в Спаси кожицу";
-            if (!timestamp) return "Не в сети";
+        function formatStatusObj(timestamp, inGame, gameStartTime) {
+            if (inGame) {
+                let diffSec = 0;
+                if (gameStartTime) {
+                    diffSec = Math.floor((Date.now() - gameStartTime) / 1000);
+                    if (diffSec < 0) diffSec = 0;
+                }
+                const mins = Math.floor(diffSec / 60).toString().padStart(2, '0');
+                const secs = (diffSec % 60).toString().padStart(2, '0');
+                return { text: `Играет в Спаси кожицу [${mins}:${secs}]`, color: "#a5d6a7" };
+            }
+
+            if (!timestamp) return { text: "Не в сети", color: "#888888" };
             const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-            if (diffSec < 120) return "В сети";
-            if (diffSec < 3600) return `Был в сети ${Math.floor(diffSec / 60)} мин. назад`;
-            if (diffSec < 86400) return `Был в сети ${Math.floor(diffSec / 3600)} ч. назад`;
-            return "Был в сети давно";
+            if (diffSec < 120) return { text: "В сети", color: "#a5d6a7" };
+            if (diffSec < 3600) return { text: `Был в сети ${Math.floor(diffSec / 60)} мин. назад`, color: "#888888" };
+            if (diffSec < 86400) return { text: `Был в сети ${Math.floor(diffSec / 3600)} ч. назад`, color: "#888888" };
+            return { text: "Был в сети давно", color: "#888888" };
         }
 
         window.addServerMilliliters = async function(amount) {
@@ -1472,7 +1512,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v174_exact_requirements";
+        const CURRENT_APP_VERSION = "v175_exact_requirements";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1496,7 +1536,7 @@
 
         const drawerCanvas = document.getElementById("drawerCanvasContainer");
         const drawerCtx = drawerCanvas.getContext("2d");
-        const drawerW = 300;
+        const drawerW = 360; // Обновленная ширина под новую панель
         const drawerH = window.innerHeight;
         drawerCanvas.width = drawerW * dpr;
         drawerCanvas.height = drawerH * dpr;
@@ -2362,17 +2402,11 @@
             }
 
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
-            let isFlickerPhaseActive = false;
-            let isSteadyGlowActive = false;
             
-            if (isDashaActive && bossHp >= 170) {
-                if (dashaPhaseStartTime === 0) dashaPhaseStartTime = now;
-                let cycleTime = (now - dashaPhaseStartTime) % 20000;
-                if (cycleTime < 15000) isFlickerPhaseActive = true; 
-                else isSteadyGlowActive = true;   
-            } else if (!isDashaActive) {
-                dashaPhaseStartTime = 0;
-            }
+            // Исправление мигания: убираем замедление цикла, делаем равномерным и стабильным (период 600мс)
+            let centerZoneCycle = (now % 600);
+            let centerVal = Math.sin((centerZoneCycle / 600) * Math.PI * 2);
+            let centerZoneAlpha = centerVal > 0 ? 1.0 : 0.2; // Без затуханий в ноль и замедлений
 
             let vaporMultiplier = 1.0;
             if (isDashaActive && bossHp < 170) {
@@ -2382,10 +2416,6 @@
             } else {
                 vaporTransitionStartTime = 0;
             }
-
-            let centerZoneCycle = (now % 1100);
-            let centerVal = Math.sin((centerZoneCycle / 1100) * Math.PI * 2);
-            let centerZoneAlpha = centerVal > -0.3 ? Math.max(0.0, (centerVal + 0.3) / 1.3) : 0;
 
             for (let i = items.length - 1; i >= 0; i--) {
                 const item = items[i];
@@ -2446,18 +2476,14 @@
 
                 if (isDashaActive && bossHp >= 170) {
                     renderWithMoon = true;
-                    if (isSteadyGlowActive) {
-                        alpha = 0.85; 
+                    let centerX = W / 2;
+                    let distanceFromCenter = Math.abs(item.x - centerX);
+                    if (distanceFromCenter < W * 0.32) {
+                        alpha = centerZoneAlpha; 
                     } else {
-                        let centerX = W / 2;
-                        let distanceFromCenter = Math.abs(item.x - centerX);
-                        if (distanceFromCenter < W * 0.32) {
-                            alpha = centerZoneAlpha; 
-                        } else {
-                            let sideCycle = (now + (item.flickerOffset || 0)) % 1100;
-                            let val = Math.sin((sideCycle / 1100) * Math.PI * 2);
-                            alpha = val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0;
-                        }
+                        let sideCycle = (now + (item.flickerOffset || 0)) % 600;
+                        let val = Math.sin((sideCycle / 600) * Math.PI * 2);
+                        alpha = val > 0 ? 1.0 : 0.2;
                     }
                 } else if (isDashaActive && bossHp < 170) {
                     let vaporOutP = vaporTransitionStartTime > 0 ? Math.max(0, 1.0 - (now - vaporTransitionStartTime) / 1500) : 0;
@@ -2469,9 +2495,9 @@
                         if (distanceFromCenter < W * 0.32) {
                             alpha = centerZoneAlpha * vaporOutP;
                         } else {
-                            let sideCycle = (now + (item.flickerOffset || 0)) % 1100;
-                            let val = Math.sin((sideCycle / 1100) * Math.PI * 2);
-                            alpha = (val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0) * vaporOutP;
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 600;
+                            let val = Math.sin((sideCycle / 600) * Math.PI * 2);
+                            alpha = (val > 0 ? 1.0 : 0.2) * vaporOutP;
                         }
                     } else if (item.shouldFlicker) {
                         renderWithMoon = true;
@@ -2480,12 +2506,10 @@
                         if (distanceFromCenter < W * 0.32) {
                             alpha = centerZoneAlpha;
                         } else {
-                            let sideCycle = (now + (item.flickerOffset || 0)) % 1100;
-                            let val = Math.sin((sideCycle / 1100) * Math.PI * 2);
-                            alpha = val > -0.3 ? Math.max(0.0, (val + 0.3) / 1.3) : 0.0;
+                            let sideCycle = (now + (item.flickerOffset || 0)) % 600;
+                            let val = Math.sin((sideCycle / 600) * Math.PI * 2);
+                            alpha = val > 0 ? 1.0 : 0.2;
                         }
-                        let vaporInP = vaporTransitionStartTime > 0 ? Math.min(1, (now - vaporTransitionStartTime) / 1500) : 1;
-                        alpha *= vaporInP;
                     }
                 }
 
