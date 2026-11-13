@@ -707,13 +707,23 @@
         let unsubscribePartnerStatus = null;
         let typingTimeout = null;
 
-        async function isNicknameAvailable(nickname) {
+        // Генерация неизменного технического email по UID, чтобы смена ника никогда не блокировала старый ник
+        function generateInternalAuthEmail() {
+            const randPart = Math.random().toString(36).substring(2, 10);
+            return `uid_${Date.now()}_${randPart}${FAKE_EMAIL_DOMAIN}`;
+        }
+
+        async function isNicknameAvailable(nickname, excludeUid = null) {
             try {
                 const cleanNick = nickname.trim().toLowerCase();
                 const usersRef = collection(db, "users");
                 const q = query(usersRef, where("username_lower", "==", cleanNick));
                 const snapshot = await getDocs(q);
-                return snapshot.empty;
+                if (snapshot.empty) return true;
+                if (excludeUid) {
+                    return snapshot.docs.every(d => d.id === excludeUid);
+                }
+                return false;
             } catch (e) {
                 return true;
             }
@@ -729,15 +739,21 @@
                 return;
             }
 
+            const available = await isNicknameAvailable(cleanUsername);
+            if (!available) {
+                alert("Этот никнейм уже занят другим игроком!");
+                return;
+            }
+
             try {
-                const fakeEmail = cleanUsername.toLowerCase() + FAKE_EMAIL_DOMAIN;
-                const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
+                const internalEmail = generateInternalAuthEmail();
+                const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
                 const user = userCredential.user;
 
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
                     username_lower: cleanUsername.toLowerCase(),
-                    authEmail: fakeEmail,
+                    authEmail: internalEmail,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -752,11 +768,7 @@
                 localStorage.setItem("egg_total_ml_bank", "0.0");
                 alert("Аккаунт успешно создан!");
             } catch (error) {
-                if (error.code === "auth/email-already-in-use") {
-                    alert("Этот никнейм уже занят другим игроком!");
-                } else {
-                    alert("Ошибка создания аккаунта: " + error.message);
-                }
+                alert("Ошибка создания аккаунта: " + error.message);
             }
         };
 
@@ -771,23 +783,25 @@
             }
 
             try {
-                const fakeEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
-                const userCredential = await signInWithEmailAndPassword(auth, fakeEmail, password);
-                
-                const userDocSnap = await getDoc(doc(db, "users", userCredential.user.uid));
-                if (userDocSnap.exists()) {
-                    const actualNick = (userDocSnap.data().username || "").trim().toLowerCase();
-                    if (actualNick !== cleanUsername) {
-                        // Автоматически обновляем привязку email в Firebase Auth к новому нику, чтобы старый ник освободился
-                        try {
-                            await updateEmail(userCredential.user, actualNick + FAKE_EMAIL_DOMAIN);
-                        } catch (e) {}
-                        await signOut(auth);
-                        alert(`❌ Никнейм этого аккаунта изменен на "${userDocSnap.data().username}". Пожалуйста, войдите под новым ником!`);
-                        return;
-                    }
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, where("username_lower", "==", cleanUsername));
+                const snapshot = await getDocs(q);
+
+                if (snapshot.empty) {
+                    alert("Неверный ник или пароль!");
+                    return;
                 }
 
+                const userDoc = snapshot.docs[0];
+                const userData = userDoc.data();
+                let loginEmail = userData.authEmail;
+
+                if (!loginEmail) {
+                    loginEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
+                    await updateDoc(doc(db, "users", userDoc.id), { authEmail: loginEmail });
+                }
+
+                await signInWithEmailAndPassword(auth, loginEmail, password);
                 alert("Вход выполнен успешно!");
             } catch (error) {
                 alert("Неверный ник или пароль!");
@@ -842,7 +856,7 @@
             const isNickChanged = (newNick.toLowerCase() !== currentUserData.username_lower);
 
             if (isNickChanged) {
-                const available = await isNicknameAvailable(newNick);
+                const available = await isNicknameAvailable(newNick, currentUid);
                 if (!available) {
                     alert("Этот ник уже занят другим игроком!");
                     return;
@@ -853,17 +867,12 @@
             if (isNickChanged) {
                 updateData.username = newNick;
                 updateData.username_lower = newNick.toLowerCase();
-                updateData.authEmail = newNick.toLowerCase() + FAKE_EMAIL_DOMAIN;
             }
 
             const executeUpdate = async (avatarBase64) => {
                 if (avatarBase64) updateData.avatarUrl = avatarBase64;
 
                 try {
-                    if (isNickChanged && auth.currentUser) {
-                        await updateEmail(auth.currentUser, newNick.toLowerCase() + FAKE_EMAIL_DOMAIN);
-                    }
-
                     await updateDoc(doc(db, "users", currentUid), updateData);
                     
                     if (isNickChanged) {
@@ -877,7 +886,7 @@
                     }
 
                     toggleEditMode(false);
-                    alert("Изменения сохранены! Старый ник освобождён, теперь вход по новому нику.");
+                    alert("Изменения сохранены! Старый ник полностью освобождён.");
                 } catch (error) {
                     alert("Ошибка обновления: " + error.message);
                 }
@@ -1081,12 +1090,10 @@
             }
         }
 
-        // Проверка непрочитанных сообщений в реальном времени каждые 2 секунды
         setInterval(() => {
             if (currentUid) checkUnreadChats();
         }, 2000);
 
-        // Авто-обновление таймеров друзей каждую секунду без перезахода
         setInterval(() => {
             const friendsPanel = document.getElementById("friendsSectionPanel");
             if (friendsPanel && friendsPanel.style.display === "flex") {
@@ -1519,7 +1526,7 @@
                 }
                 const mins = Math.floor(diffSec / 60).toString().padStart(2, '0');
                 const secs = (diffSec % 60).toString().padStart(2, '0');
-                return { text: `Играет в Спаси кожицу [${mins}:${secs}]`, color: "#a5d6a7" };
+                return { text: `Играет [${mins}:${secs}]`, color: "#a5d6a7" };
             }
 
             if (!timestamp) return { text: "Не в сети", color: "#888888" };
@@ -1552,7 +1559,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v177_moon_restored";
+        const CURRENT_APP_VERSION = "v178_full_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1593,6 +1600,10 @@
         let hasShield = false;
         let hasHelmet = false;
         let fanExpiresAt = 0; 
+
+        // Переменные игрового таймера
+        let gameElapsedMs = 0;
+        let lastFrameTime = 0;
 
         let invincibleUntil = 0; 
         let eggSlowUntil = 0;    
@@ -1675,6 +1686,56 @@
             });
         }
 
+        // Форматирование таймера ММ:СС
+        function formatGameTimer(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const mins = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+            const secs = (totalSeconds % 60).toString().padStart(2, "0");
+            return `${mins}:${secs}`;
+        }
+
+        // Отрисовка таймера и имени босса в HUD
+        function drawGameTimerAndBossHUD() {
+            if (!gameStarted || gameOver) return;
+
+            let timerLabel = `⏱ ${formatGameTimer(gameElapsedMs)}`;
+            let isBossFight = (bossState === "intro" || bossState === "active") && currentBoss !== null;
+
+            if (isBossFight) {
+                let bName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
+                timerLabel += `  |  👑 Босс: ${bName}`;
+            }
+
+            ctx.save();
+            ctx.font = "bold 14px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillStyle = isBossFight ? "#00d2ff" : "#a5d6a7";
+            ctx.fillText(timerLabel, 12, 72);
+            ctx.restore();
+        }
+
+        // Моментальный сброс сессии при закрытии вкладки
+        function handleInstantTabExit() {
+            if (gameStarted && !gameOver && currentUid) {
+                gameStarted = false;
+                gameOver = true;
+                isPaused = false;
+                gameElapsedMs = 0;
+                currentBoss = null;
+                bossState = "normal";
+                localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
+                
+                // Асинхронный сброс статуса в Firebase
+                try {
+                    const dbRef = doc(db, "users", currentUid);
+                    updateDoc(dbRef, { inGame: false, gameStartTime: null }).catch(() => {});
+                } catch(e) {}
+            }
+        }
+
+        window.addEventListener("pagehide", handleInstantTabExit);
+        window.addEventListener("beforeunload", handleInstantTabExit);
+
         function toggleProfileDrawer(e) {
             if (e) e.stopPropagation();
             isDrawerOpen = !isDrawerOpen;
@@ -1722,6 +1783,8 @@
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
             mlEarned = 0.0;
+            gameElapsedMs = 0;
+            lastFrameTime = Date.now();
             items = [];
             spawnTimer = 0;
             invincibleUntil = 0;
@@ -1777,6 +1840,7 @@
                 pauseScreen.style.display = "none";
                 pBtn.classList.remove("paused");
                 targetX = player.x; 
+                lastFrameTime = Date.now();
             }
         }
 
@@ -1793,6 +1857,9 @@
             isPaused = false;
             gameStarted = false;
             gameOver = false;
+            gameElapsedMs = 0;
+            currentBoss = null;
+            bossState = "normal";
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
             document.getElementById("pauseScreen").style.display = "none";
@@ -1823,7 +1890,7 @@
             else if (item.type === "fan_item") {
                 targetCtx.save();
                 targetCtx.translate(item.x, item.y);
-                targetCtx.rotate(item.rotation || 0);
+                item.rotate(item.rotation || 0);
                 targetCtx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; 
                 targetCtx.textAlign = "center";
                 targetCtx.fillText("🪭", 0, 0);
@@ -1900,6 +1967,11 @@
         }
 
         function gameLoop() {
+            const now = Date.now();
+            if (lastFrameTime === 0) lastFrameTime = now;
+            const deltaMs = now - lastFrameTime;
+            lastFrameTime = now;
+
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
@@ -1976,6 +2048,7 @@
                 ctx.textAlign = "left";
                 ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
                 ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
+                drawGameTimerAndBossHUD();
 
                 const renderPlayerX = Math.round(player.x);
                 const renderPlayerY = Math.round(player.y);
@@ -2000,7 +2073,9 @@
                 return;
             }
 
-            const now = Date.now();
+            // Таймер тикает непрерывно во время активной игры
+            gameElapsedMs += Math.min(deltaMs, 200);
+
             const isInvincible = now < invincibleUntil;
             const isEggSlowed = now < eggSlowUntil;
             const hasFanActive = now < fanExpiresAt; 
@@ -2439,7 +2514,7 @@
 
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
             
-            // Оригинальный лунный цикл мигания у Даши: 15 секунд угасания и 5 секунд лунного света (общий цикл 20000 мс)
+            // Лунный цикл мигания у Даши: 15 секунд угасания и 5 секунд лунного света
             let centerZoneCycle = (now % 20000);
             let centerZoneAlpha = 0.0;
             if (centerZoneCycle < 15000) {
@@ -2795,8 +2870,9 @@
             ctx.textAlign = "left";
             ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
             ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
+            drawGameTimerAndBossHUD();
 
-            let statusY = 75;
+            let statusY = 95;
             if (isInvincible) {
                 ctx.fillStyle = "#ffcc00";
                 ctx.fillText("⛩ Непробиваемость!", 12, statusY);
@@ -2927,9 +3003,16 @@
 
         function showGameOver() {
             gameOver = true;
+            currentBoss = null;
+            bossState = "normal";
             window.totalBank += mlEarned;
             if (typeof window.addServerMilliliters === "function") {
                 window.addServerMilliliters(mlEarned);
+            }
+            if (currentUid) {
+                try {
+                    updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null }).catch(() => {});
+                } catch(e) {}
             }
             localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
 
