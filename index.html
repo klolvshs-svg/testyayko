@@ -492,10 +492,43 @@
             user-select: all;
             word-break: break-all;
         }
+        /* Окно загрузки при сохранении/смене ника */
+        #loadingOverlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 33, 0.9);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(0,210,255,0.2);
+            border-top: 5px solid #00d2ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
+
+    <!-- Экран загрузки -->
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div id="loadingText" style="font-size: 18px; color: #00d2ff; font-weight: bold;">Сохранение в базу данных...</div>
+    </div>
 
     <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
         <div class="pause-icon"><span></span><span></span></div>
@@ -522,7 +555,7 @@
                     </div>
                     <div class="drawer-username" style="margin-bottom: 15px;">Гость</div>
                     
-                    <input type="text" id="authUsername" class="drawer-input" placeholder="Никнейм">
+                    <input type="text" id="authUsername" class="drawer-input" placeholder="Ник (английский)">
                     <input type="password" id="authPassword" class="drawer-input" placeholder="Пароль">
                     
                     <button class="btn-drawer-custom" onclick="handleRegister()">Создать акк</button>
@@ -603,7 +636,7 @@
                     <!-- РЕЖИМ РЕДАКТИРОВАНИЯ -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
-                        <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник">
+                        <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник (английский)">
                         
                         <div style="width: 100%; margin-bottom: 8px; text-align: left;">
                             <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 3px;">Фото профиля:</label>
@@ -681,8 +714,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDbjOOmFID0DwVfYoOy6jHtNooXBOFvrk",
@@ -707,6 +740,20 @@
         let unsubscribePartnerStatus = null;
         let typingTimeout = null;
 
+        function showLoading(text) {
+            document.getElementById("loadingText").innerText = text || "Загрузка...";
+            document.getElementById("loadingOverlay").style.display = "flex";
+        }
+        function hideLoading() {
+            document.getElementById("loadingOverlay").style.display = "none";
+        }
+
+        // Проверка: только английские буквы и цифры
+        function isValidEnglishNickname(nick) {
+            const regex = /^[a-zA-Z0-9]+$/;
+            return regex.test(nick);
+        }
+
         async function isNicknameAvailable(nickname) {
             try {
                 const cleanNick = nickname.trim().toLowerCase();
@@ -729,23 +776,28 @@
                 return;
             }
 
-            const cleanLower = cleanUsername.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+            if (!isValidEnglishNickname(cleanUsername)) {
+                alert("Никнейм должен содержать только английские буквы и цифры без пробелов и спецсимволов!");
+                return;
+            }
+
+            const cleanLower = cleanUsername.toLowerCase();
             const available = await isNicknameAvailable(cleanLower);
             if (!available) {
                 alert("Этот никнейм уже занят в базе игроков!");
                 return;
             }
 
+            showLoading("Создание аккаунта...");
             try {
-                // Уникальный технический email с тайстампом гарантирует, что старые мусорные логины в Auth не помешают
-                const uniqueAuthEmail = `${cleanLower}_${Date.now()}${FAKE_EMAIL_DOMAIN}`;
-                const userCredential = await createUserWithEmailAndPassword(auth, uniqueAuthEmail, password);
+                const userEmail = cleanLower + FAKE_EMAIL_DOMAIN;
+                const userCredential = await createUserWithEmailAndPassword(auth, userEmail, password);
                 const user = userCredential.user;
 
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
                     username_lower: cleanLower,
-                    authEmail: uniqueAuthEmail,
+                    authEmail: userEmail,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -758,43 +810,43 @@
 
                 window.totalBank = 0.0;
                 localStorage.setItem("egg_total_ml_bank", "0.0");
+                hideLoading();
                 alert("Аккаунт успешно создан!");
             } catch (error) {
-                alert("Ошибка создания аккаунта: " + error.message);
+                hideLoading();
+                if (error.code === 'auth/email-already-in-use') {
+                    alert("Этот никнейм уже занят в системе авторизации!");
+                } else {
+                    alert("Ошибка создания аккаунта: " + error.message);
+                }
             }
         };
 
         window.handleLogin = async function() {
             const usernameInput = document.getElementById("authUsername").value;
             const password = document.getElementById("authPassword").value;
-            const cleanUsername = usernameInput.trim().toLowerCase();
+            const cleanUsername = usernameInput.trim();
 
             if (!cleanUsername || !password) {
                 alert("Заполните ник и пароль!");
                 return;
             }
 
+            if (!isValidEnglishNickname(cleanUsername)) {
+                alert("Ник должен содержать только английские буквы и цифры!");
+                return;
+            }
+
+            const cleanLower = cleanUsername.toLowerCase();
+            const loginEmail = cleanLower + FAKE_EMAIL_DOMAIN;
+
+            showLoading("Вход в аккаунт...");
             try {
-                const usersRef = collection(db, "users");
-                const q = query(usersRef, where("username_lower", "==", cleanUsername));
-                const snapshot = await getDocs(q);
-
-                if (snapshot.empty) {
-                    alert("Игрок с таким ником не найден!");
-                    return;
-                }
-
-                const userData = snapshot.docs[0].data();
-                const loginEmail = userData.authEmail;
-
-                if (!loginEmail) {
-                    alert("Ошибка данных аккаунта. Создайте новый аккаунт.");
-                    return;
-                }
-
                 await signInWithEmailAndPassword(auth, loginEmail, password);
+                hideLoading();
                 alert("Вход выполнен успешно!");
             } catch (error) {
+                hideLoading();
                 alert("Неверный ник или пароль!");
             }
         };
@@ -844,6 +896,11 @@
                 return;
             }
 
+            if (!isValidEnglishNickname(newNick)) {
+                alert("Никнейм должен содержать только английские буквы и цифры без пробелов!");
+                return;
+            }
+
             const newLower = newNick.toLowerCase();
             const isNickChanged = (newLower !== currentUserData.username_lower);
 
@@ -855,42 +912,61 @@
                 }
             }
 
-            const updateData = {};
-            if (isNickChanged) {
-                updateData.username = newNick;
-                updateData.username_lower = newLower;
-            }
+            showLoading("Сохранение и обновление в базе данных...");
 
-            const executeUpdate = async (avatarBase64) => {
-                if (avatarBase64) updateData.avatarUrl = avatarBase64;
+            const newEmail = newLower + FAKE_EMAIL_DOMAIN;
 
-                try {
-                    await updateDoc(doc(db, "users", currentUid), updateData);
-                    
-                    if (isNickChanged) {
-                        currentUserData.username = newNick;
-                        currentUserData.username_lower = newLower;
-                        document.getElementById("userDisplayNick").innerText = newNick;
-                    }
-                    if (avatarBase64) {
-                        currentUserData.avatarUrl = avatarBase64;
-                        document.getElementById("userAvatarImg").src = avatarBase64;
-                    }
+            try {
+                if (isNickChanged) {
+                    // Переавторизация перед сменой email, если требуется, или прямое обновление
+                    const user = auth.currentUser;
+                    await updateEmail(user, newEmail);
+                }
 
-                    toggleEditMode(false);
-                    alert("Изменения сохранены!");
-                } catch (error) {
+                let avatarBase64 = null;
+                if (hasNewAvatar) {
+                    avatarBase64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(e.target.result);
+                        reader.onerror = (e) => reject(e);
+                        reader.readAsDataURL(fileInput.files[0]);
+                    });
+                }
+
+                const updateData = {};
+                if (isNickChanged) {
+                    updateData.username = newNick;
+                    updateData.username_lower = newLower;
+                    updateData.authEmail = newEmail;
+                }
+                if (avatarBase64) {
+                    updateData.avatarUrl = avatarBase64;
+                }
+
+                await updateDoc(doc(db, "users", currentUid), updateData);
+
+                if (isNickChanged) {
+                    currentUserData.username = newNick;
+                    currentUserData.username_lower = newLower;
+                    document.getElementById("userDisplayNick").innerText = newNick;
+                }
+                if (avatarBase64) {
+                    currentUserData.avatarUrl = avatarBase64;
+                    document.getElementById("userAvatarImg").src = avatarBase64;
+                }
+
+                hideLoading();
+                toggleEditMode(false);
+                alert("Изменения успешно сохранены! Старый никнейм полностью освобожден.");
+            } catch (error) {
+                hideLoading();
+                if (error.code === 'auth/requires-recent-login') {
+                    alert("Для смены ника требуется повторный вход в аккаунт в целях безопасности.");
+                } else if (error.code === 'auth/email-already-in-use') {
+                    alert("Этот ник уже занят в системе авторизации!");
+                } else {
                     alert("Ошибка обновления: " + error.message);
                 }
-            };
-
-            if (hasNewAvatar) {
-                const reader = new FileReader();
-                reader.onload = function(e) { executeUpdate(e.target.result); };
-                reader.onerror = function() { alert("Не удалось прочитать файл изображения."); };
-                reader.readAsDataURL(fileInput.files[0]);
-            } else {
-                executeUpdate(null);
             }
         };
 
@@ -1551,7 +1627,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v182_full_restored";
+        const CURRENT_APP_VERSION = "v184_full_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
