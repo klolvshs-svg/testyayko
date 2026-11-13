@@ -681,8 +681,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDbjOOmFID0DwVfYoOy6jHtNooXBOFvrk",
@@ -707,7 +707,6 @@
         let unsubscribePartnerStatus = null;
         let typingTimeout = null;
 
-        // Строгая проверка доступности ника перед созданием
         async function isNicknameAvailable(nickname) {
             try {
                 const cleanNick = nickname.trim().toLowerCase();
@@ -721,30 +720,32 @@
         }
 
         window.handleRegister = async function() {
-            const username = document.getElementById("authUsername").value;
+            const usernameInput = document.getElementById("authUsername").value;
             const password = document.getElementById("authPassword").value;
-            const cleanUsername = username.trim();
+            const cleanUsername = usernameInput.trim();
 
             if (!cleanUsername || password.length < 4) {
                 alert("Введите ник и пароль (минимум 4 символа)!");
                 return;
             }
 
-            const cleanLower = cleanUsername.toLowerCase();
+            const cleanLower = cleanUsername.toLowerCase().replace(/[^a-z0-9_]/g, '_');
             const available = await isNicknameAvailable(cleanLower);
             if (!available) {
-                alert("Этот никнейм уже занят!");
+                alert("Этот никнейм уже занят в базе игроков!");
                 return;
             }
 
             try {
-                const registerEmail = cleanLower + FAKE_EMAIL_DOMAIN;
-                const userCredential = await createUserWithEmailAndPassword(auth, registerEmail, password);
+                // Уникальный технический email с тайстампом гарантирует, что старые мусорные логины в Auth не помешают
+                const uniqueAuthEmail = `${cleanLower}_${Date.now()}${FAKE_EMAIL_DOMAIN}`;
+                const userCredential = await createUserWithEmailAndPassword(auth, uniqueAuthEmail, password);
                 const user = userCredential.user;
 
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
                     username_lower: cleanLower,
+                    authEmail: uniqueAuthEmail,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -759,18 +760,14 @@
                 localStorage.setItem("egg_total_ml_bank", "0.0");
                 alert("Аккаунт успешно создан!");
             } catch (error) {
-                if (error.code === 'auth/email-already-in-use') {
-                    alert("Этот никнейм уже занят в базе аутентификации!");
-                } else {
-                    alert("Ошибка создания аккаунта: " + error.message);
-                }
+                alert("Ошибка создания аккаунта: " + error.message);
             }
         };
 
         window.handleLogin = async function() {
-            const username = document.getElementById("authUsername").value;
+            const usernameInput = document.getElementById("authUsername").value;
             const password = document.getElementById("authPassword").value;
-            const cleanUsername = username.trim().toLowerCase();
+            const cleanUsername = usernameInput.trim().toLowerCase();
 
             if (!cleanUsername || !password) {
                 alert("Заполните ник и пароль!");
@@ -778,7 +775,23 @@
             }
 
             try {
-                const loginEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, where("username_lower", "==", cleanUsername));
+                const snapshot = await getDocs(q);
+
+                if (snapshot.empty) {
+                    alert("Игрок с таким ником не найден!");
+                    return;
+                }
+
+                const userData = snapshot.docs[0].data();
+                const loginEmail = userData.authEmail;
+
+                if (!loginEmail) {
+                    alert("Ошибка данных аккаунта. Создайте новый аккаунт.");
+                    return;
+                }
+
                 await signInWithEmailAndPassword(auth, loginEmail, password);
                 alert("Вход выполнен успешно!");
             } catch (error) {
@@ -842,47 +855,42 @@
                 }
             }
 
-            try {
-                if (isNickChanged) {
-                    const newEmail = newLower + FAKE_EMAIL_DOMAIN;
-                    await updateEmail(auth.currentUser, newEmail);
+            const updateData = {};
+            if (isNickChanged) {
+                updateData.username = newNick;
+                updateData.username_lower = newLower;
+            }
 
-                    // Переносим старый документ в Firestore на новый UID или обновляем поля
-                    const oldUserDocSnap = await getDoc(doc(db, "users", currentUid));
-                    const oldData = oldUserDocSnap.data();
+            const executeUpdate = async (avatarBase64) => {
+                if (avatarBase64) updateData.avatarUrl = avatarBase64;
 
-                    await setDoc(doc(db, "users", currentUid), {
-                        ...oldData,
-                        username: newNick,
-                        username_lower: newLower
-                    });
+                try {
+                    await updateDoc(doc(db, "users", currentUid), updateData);
+                    
+                    if (isNickChanged) {
+                        currentUserData.username = newNick;
+                        currentUserData.username_lower = newLower;
+                        document.getElementById("userDisplayNick").innerText = newNick;
+                    }
+                    if (avatarBase64) {
+                        currentUserData.avatarUrl = avatarBase64;
+                        document.getElementById("userAvatarImg").src = avatarBase64;
+                    }
+
+                    toggleEditMode(false);
+                    alert("Изменения сохранены!");
+                } catch (error) {
+                    alert("Ошибка обновления: " + error.message);
                 }
+            };
 
-                const updatePayload = {};
-                if (hasNewAvatar) {
-                    const reader = new FileReader();
-                    reader.onload = async function(e) {
-                        updatePayload.avatarUrl = e.target.result;
-                        await updateDoc(doc(db, "users", currentUid), updatePayload);
-                        currentUserData.avatarUrl = e.target.result;
-                        document.getElementById("userAvatarImg").src = e.target.result;
-                        toggleEditMode(false);
-                        alert("Изменения сохранены!");
-                    };
-                    reader.readAsDataURL(fileInput.files[0]);
-                    return;
-                }
-
-                if (isNickChanged) {
-                    currentUserData.username = newNick;
-                    currentUserData.username_lower = newLower;
-                    document.getElementById("userDisplayNick").innerText = newNick;
-                }
-
-                toggleEditMode(false);
-                alert("Изменения сохранены!");
-            } catch (error) {
-                alert("Ошибка смены ника: " + error.message);
+            if (hasNewAvatar) {
+                const reader = new FileReader();
+                reader.onload = function(e) { executeUpdate(e.target.result); };
+                reader.onerror = function() { alert("Не удалось прочитать файл изображения."); };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                executeUpdate(null);
             }
         };
 
@@ -1543,7 +1551,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v181_full_restored";
+        const CURRENT_APP_VERSION = "v182_full_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1585,7 +1593,6 @@
         let hasHelmet = false;
         let fanExpiresAt = 0; 
 
-        // Переменные игрового таймера
         let gameElapsedMs = 0;
         let lastFrameTime = 0;
 
@@ -1670,7 +1677,6 @@
             });
         }
 
-        // Форматирование таймера ММ:СС
         function formatGameTimer(ms) {
             const totalSeconds = Math.floor(ms / 1000);
             const mins = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
@@ -1678,7 +1684,6 @@
             return `${mins}:${secs}`;
         }
 
-        // Отрисовка таймера и имени босса в HUD
         function drawGameTimerAndBossHUD() {
             if (!gameStarted || gameOver) return;
 
@@ -1698,7 +1703,6 @@
             ctx.restore();
         }
 
-        // Моментальный сброс сессии при закрытии вкладки
         function handleInstantTabExit() {
             if (gameStarted && !gameOver && currentUid) {
                 gameStarted = false;
