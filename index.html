@@ -124,41 +124,96 @@
             align-items: center;
             height: 100%;
             box-sizing: border-box;
+            overflow-y: auto;
         }
 
-        /* Аватарка заглушка без рамки */
+        /* Стили аватара */
         .drawer-avatar-wrap {
-            width: 80px;
-            height: 80px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
             background: rgba(36, 139, 218, 0.2);
             display: flex;
             justify-content: center;
             align-items: center;
             margin-top: 10px;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
             box-shadow: 0 0 15px rgba(0,210,255,0.2);
+            overflow: hidden;
+            border: 2px solid #fff;
         }
-        .drawer-avatar-icon {
-            font-size: 40px;
+        .drawer-avatar-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         .drawer-username {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             color: #ffffff;
-            margin-bottom: 20px;
+            margin-bottom: 5px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
-        /* Кастомный стиль для кнопки в шторке (темнее, полупрозрачная) */
+        /* Кнопка изменения профиля (желтая под авой) */
+        .btn-edit-profile {
+            background: #ffeb3b;
+            color: #000;
+            border: none;
+            width: 100%;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 25;
+            position: relative;
+        }
+        .btn-edit-profile:active { transform: scale(0.96); }
+
+        /* Красная кнопка выхода внизу */
+        .btn-logout-custom {
+            background: #f44336;
+            color: white;
+            border: none;
+            width: 100%;
+            margin-top: auto;
+            margin-bottom: 10px;
+            font-size: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            font-weight: bold;
+            z-index: 25;
+            position: relative;
+        }
+        .btn-logout-custom:active { transform: scale(0.96); background: #d32f2f; }
+
+        /* Поля ввода и кнопки в шторке */
+        .drawer-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            box-sizing: border-box;
+            background: rgba(15, 23, 33, 0.8);
+            border: 1px solid rgba(0, 210, 255, 0.4);
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
         .btn-drawer-custom {
             background: rgba(20, 70, 110, 0.75);
             color: #d0f0ff;
             border: 1px solid rgba(0, 210, 255, 0.3);
             width: 100%;
             margin: 6px 0;
-            font-size: 16px;
-            padding: 12px 10px;
+            font-size: 15px;
+            padding: 10px;
             border-radius: 10px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
@@ -251,6 +306,8 @@
             border: 2px solid #248bda;
             outline: none;
             margin: 10px 0;
+            background: #0f1721;
+            color: white;
         }
         .promo-box {
             background: #223040;
@@ -294,15 +351,39 @@
             <canvas id="drawerCanvasContainer"></canvas>
             
             <div class="drawer-content">
-                <div class="drawer-avatar-wrap">
-                    <div class="drawer-avatar-icon">👤</div>
-                </div>
-                <div class="drawer-username">username</div>
                 
-                <div style="margin-top: auto; width: 100%; margin-bottom: 10px;">
-                    <button class="btn-drawer-custom" onclick="alert('Войти в аккаунт')">Войти</button>
-                    <button class="btn-drawer-custom" onclick="alert('Скоро здесь появится создание аккаунта!')">Создать акк</button>
+                <!-- СОСТОЯНИЕ 1: ЕСЛИ НЕ АВТОРИЗОВАН -->
+                <div id="drawerLoggedOut" style="width: 100%; margin-top: 20px;">
+                    <div class="drawer-avatar-wrap" style="margin: 0 auto 10px auto;">
+                        <div class="drawer-avatar-icon" style="font-size: 36px;">👤</div>
+                    </div>
+                    <div class="drawer-username" style="margin-bottom: 15px;">Гость</div>
+                    
+                    <input type="text" id="authUsername" class="drawer-input" placeholder="Никнейм">
+                    <input type="password" id="authPassword" class="drawer-input" placeholder="Пароль">
+                    
+                    <button class="btn-drawer-custom" onclick="handleRegister()">Создать акк</button>
+                    <button class="btn-drawer-custom" onclick="handleLogin()">Войти</button>
                 </div>
+
+                <!-- СОСТОЯНИЕ 2: ЕСЛИ АВТОРИЗОВАН -->
+                <div id="drawerLoggedIn" style="width: 100%; display: none; margin-top: 10px; flex-direction: column; align-items: center; height: 100%;">
+                    <div class="drawer-avatar-wrap">
+                        <img id="userAvatarImg" src="https://via.placeholder.com/70" alt="Аватар" class="drawer-avatar-img">
+                    </div>
+                    <div id="userDisplayNick" class="drawer-username">Игрок</div>
+                    
+                    <!-- Кнопка изменить под авой (желтая) -->
+                    <button class="btn-edit-profile" onclick="openEditProfile()">ИЗМЕНИТЬ</button>
+
+                    <div style="font-size: 13px; color: #a5d6a7; margin-top: 5px; margin-bottom: 15px;">
+                        Баланс: <span id="drawerBalance">0</span> мл
+                    </div>
+
+                    <!-- Красная кнопка выхода внизу -->
+                    <button class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
+                </div>
+
             </div>
         </div>
 
@@ -367,8 +448,144 @@
         <button class="btn" onclick="closePromoModal()">Отлично 👍</button>
     </div>
 
+    <!-- Firebase SDK модули -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDbj0OmFlD0dWfYoOy6jHtNooXBOFvrk",
+            authDomain: "eggsballsbaze.firebaseapp.com",
+            projectId: "eggsballsbaze",
+            storageBucket: "eggsballsbaze.appspot.com",
+            messagingSenderId: "839614854960",
+            appId: "1:839614854960:web:8f00ed5fd7f1988c28baf5",
+            measurementId: "G-STNC9P6W36"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const FAKE_EMAIL_DOMAIN = "@save-the-egg.game";
+        let currentUid = null;
+
+        window.handleRegister = async function() {
+            const username = document.getElementById("authUsername").value;
+            const password = document.getElementById("authPassword").value;
+            const cleanUsername = username.trim().toLowerCase();
+
+            if (!cleanUsername || password.length < 4) {
+                alert("Введите ник и пароль (минимум 4 символа)!");
+                return;
+            }
+
+            try {
+                const fakeEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
+                const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
+                const user = userCredential.user;
+
+                await setDoc(doc(db, "users", user.uid), {
+                    username: username.trim(),
+                    avatarUrl: "https://via.placeholder.com/70",
+                    balance_ml: 0,
+                    createdAt: new Date()
+                });
+
+                alert("Аккаунт успешно создан!");
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    alert("Такой ник уже занят!");
+                } else {
+                    alert("Ошибка: " + error.message);
+                }
+            }
+        };
+
+        window.handleLogin = async function() {
+            const username = document.getElementById("authUsername").value;
+            const password = document.getElementById("authPassword").value;
+            const cleanUsername = username.trim().toLowerCase();
+
+            if (!cleanUsername || !password) {
+                alert("Заполните ник и пароль!");
+                return;
+            }
+
+            try {
+                const fakeEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
+                await signInWithEmailAndPassword(auth, fakeEmail, password);
+                alert("Вход выполнен успешно!");
+            } catch (error) {
+                alert("Неверный ник или пароль!");
+            }
+        };
+
+        window.handleLogout = async function() {
+            const confirmed = confirm("Вы уверены, что хотите выйти из аккаунта?");
+            if (confirmed) {
+                try {
+                    await signOut(auth);
+                    alert("Вы вышли из аккаунта.");
+                } catch (error) {
+                    console.error("Ошибка при выходе:", error);
+                }
+            }
+        };
+
+        window.openEditProfile = async function() {
+            if (!currentUid) return;
+
+            const newNick = prompt("Введите новый никнейм:");
+            const newAvatar = prompt("Введите прямую ссылку на новую аватарку (картинку):");
+
+            const updateData = {};
+            if (newNick && newNick.trim() !== "") {
+                updateData.username = newNick.trim();
+            }
+            if (newAvatar && newAvatar.trim() !== "") {
+                updateData.avatarUrl = newAvatar.trim();
+            }
+
+            if (Object.keys(updateData).length > 0) {
+                try {
+                    await updateDoc(doc(db, "users", currentUid), updateData);
+                    alert("Профиль успешно обновлен!");
+                    location.reload();
+                } catch (error) {
+                    alert("Ошибка обновления: " + error.message);
+                }
+            }
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            const loggedOutView = document.getElementById("drawerLoggedOut");
+            const loggedInView = document.getElementById("drawerLoggedIn");
+
+            if (user) {
+                currentUid = user.uid;
+                loggedOutView.style.display = "none";
+                loggedInView.style.display = "flex";
+
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    document.getElementById("userDisplayNick").innerText = data.username || "Игрок";
+                    document.getElementById("drawerBalance").innerText = (totalBank + (data.balance_ml || 0)).toFixed(3);
+                    if (data.avatarUrl) {
+                        document.getElementById("userAvatarImg").src = data.avatarUrl;
+                    }
+                }
+            } else {
+                currentUid = null;
+                loggedOutView.style.display = "block";
+                loggedInView.style.display = "none";
+            }
+        });
+    </script>
+
     <script>
-        const CURRENT_APP_VERSION = "v169_drawer_mixed_items";
+        const CURRENT_APP_VERSION = "v170_firebase_auth_fixed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -480,7 +697,6 @@
             });
         }
 
-        // Декор внутри выдвижной панели профиля (мечи, каски, бомбочки, капли, щиты)
         let drawerDecorItems = [];
         for (let i = 0; i < 9; i++) {
             const typesPool = ["sword", "helmet", "bomb", "drop1", "shield"];
@@ -642,7 +858,7 @@
             else if (item.type === "fan_item") {
                 targetCtx.save();
                 targetCtx.translate(item.x, item.y);
-                targetCtx.rotate(item.rotation || 0);
+                item.rotate(item.rotation || 0);
                 targetCtx.font = "26px Arial"; 
                 targetCtx.textAlign = "center";
                 targetCtx.fillText("🪭", 0, 0);
@@ -765,7 +981,7 @@
                     ctx.restore();
                 });
 
-                // Отрисовка анимации внутри выдвижной панели профиля (мечи, каски, бомбочки, капли, щиты)
+                // Отрисовка анимации внутри выдвижной панели профиля
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
                     item.y += item.speed; 
@@ -1222,7 +1438,7 @@
                 }
             }
 
-            // СПАВН ОБЫЧНЫХ ПРЕДМЕТОВ
+            // СПАВН ПРЕДМЕТОВ
             if (bossState !== "intro" && bossState !== "victory") {
                 spawnTimer++;
                 let baseInterval = Math.max(9, Math.floor(22 / speedMultiplier));
