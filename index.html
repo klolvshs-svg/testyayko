@@ -150,6 +150,25 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
+        /* Кастомный стиль для кнопки в шторке (темнее, полупрозрачная) */
+        .btn-drawer-custom {
+            background: rgba(20, 70, 110, 0.75);
+            color: #d0f0ff;
+            border: 1px solid rgba(0, 210, 255, 0.3);
+            width: 100%;
+            margin: 6px 0;
+            font-size: 16px;
+            padding: 12px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            transition: transform 0.1s, background 0.2s;
+            position: relative;
+            z-index: 25;
+            font-weight: bold;
+        }
+        .btn-drawer-custom:active { transform: scale(0.96); background: rgba(15, 55, 85, 0.9); }
+
         .btn {
             background: #248bda;
             color: white;
@@ -216,7 +235,6 @@
             margin-left: 3px;
         }
 
-        /* Переключение состояний иконки */
         #pauseBtn.paused .pause-icon {
             display: none;
         }
@@ -272,7 +290,7 @@
 
         <!-- Выдвижная панель профиля слева -->
         <div id="profileDrawer" onclick="event.stopPropagation()">
-            <!-- Холст для падающих предметов в панели -->
+            <!-- Холст для падающих предметов в панели (только мечи и каски) -->
             <canvas id="drawerCanvasContainer"></canvas>
             
             <div class="drawer-content">
@@ -282,7 +300,8 @@
                 <div class="drawer-username">username</div>
                 
                 <div style="margin-top: auto; width: 100%; margin-bottom: 10px;">
-                    <button class="btn" style="width: 100%; margin: 0; font-size: 16px; padding: 12px 10px;" onclick="alert('Скоро здесь появится создание аккаунта!')">Создать акк</button>
+                    <button class="btn-drawer-custom" onclick="alert('Войти в аккаунт')">Войти</button>
+                    <button class="btn-drawer-custom" onclick="alert('Скоро здесь появится создание аккаунта!')">Создать акк</button>
                 </div>
             </div>
         </div>
@@ -349,7 +368,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v167_fixed_gameplay_render";
+        const CURRENT_APP_VERSION = "v168_drawer_swords_helmets";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -461,10 +480,10 @@
             });
         }
 
-        // Декор внутри выдвижной панели профиля
+        // Декор внутри выдвижной панели профиля (ТОЛЬКО мечи и каски)
         let drawerDecorItems = [];
         for (let i = 0; i < 8; i++) {
-            const typesPool = ["sword", "table", "shield", "helmet", "drop1", "fan", "bomb", "snow"];
+            const typesPool = ["sword", "helmet"];
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
@@ -746,7 +765,7 @@
                     ctx.restore();
                 });
 
-                // Отрисовка анимации внутри выдвижной панели профиля
+                // Отрисовка анимации внутри выдвижной панели профиля (только мечи и каски)
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
                     item.y += item.speed; 
