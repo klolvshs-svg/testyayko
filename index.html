@@ -386,7 +386,13 @@
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник">
-                        <input type="text" id="editAvatarInput" class="drawer-input" placeholder="URL аватарки">
+                        
+                        <!-- Загрузка аватара из галереи устройства -->
+                        <div style="width: 100%; margin-bottom: 8px;">
+                            <label style="font-size: 12px; color: #aaa; display: block; margin-bottom: 3px; text-align: left;">Аватар из галереи:</label>
+                            <input type="file" id="editAvatarFile" accept="image/*" class="drawer-input" style="padding: 6px; font-size: 12px;" />
+                        </div>
+
                         <div style="width: 100%; display: flex; gap: 5px; margin-top: 5px; margin-bottom: 15px;">
                             <button class="btn-drawer-custom" style="background: #28a745; margin: 0;" onclick="saveProfileChanges()">Сохранить</button>
                             <button class="btn-drawer-custom" style="background: #6c757d; margin: 0;" onclick="toggleEditMode(false)">Отмена</button>
@@ -564,6 +570,9 @@
             if (confirmed) {
                 try {
                     await signOut(auth);
+                    // Сбрасываем локальный банк при выходе
+                    window.totalBank = 0;
+                    localStorage.setItem("egg_total_ml_bank", "0.0");
                     alert("Вы вышли из аккаунта.");
                 } catch (error) {
                     console.error("Ошибка при выходе:", error);
@@ -578,7 +587,7 @@
 
             if (isEditing && currentUserData) {
                 document.getElementById("editNicknameInput").value = currentUserData.username || "";
-                document.getElementById("editAvatarInput").value = currentUserData.avatarUrl || "";
+                document.getElementById("editAvatarFile").value = ""; // Очищаем выбор файла
                 viewMode.style.display = "none";
                 editMode.style.display = "flex";
             } else {
@@ -591,7 +600,7 @@
             if (!currentUid || !currentUserData) return;
 
             const newNick = document.getElementById("editNicknameInput").value.trim();
-            const newAvatar = document.getElementById("editAvatarInput").value.trim();
+            const fileInput = document.getElementById("editAvatarFile");
 
             if (!newNick) {
                 alert("Ник не может быть пустым!");
@@ -620,23 +629,41 @@
                 username: newNick,
                 username_lower: newNick.toLowerCase()
             };
-            if (newAvatar) {
-                updateData.avatarUrl = newAvatar;
-            }
 
-            try {
-                await updateDoc(doc(db, "users", currentUid), updateData);
-                currentUserData.username = newNick;
-                currentUserData.username_lower = newNick.toLowerCase();
-                if (newAvatar) currentUserData.avatarUrl = newAvatar;
+            // Функция для сохранения изменений после считывания картинки (если она выбрана)
+            const executeUpdate = async (avatarBase64) => {
+                if (avatarBase64) {
+                    updateData.avatarUrl = avatarBase64;
+                }
 
-                document.getElementById("userDisplayNick").innerText = newNick;
-                if (newAvatar) document.getElementById("userAvatarImg").src = newAvatar;
+                try {
+                    await updateDoc(doc(db, "users", currentUid), updateData);
+                    currentUserData.username = newNick;
+                    currentUserData.username_lower = newNick.toLowerCase();
+                    if (avatarBase64) currentUserData.avatarUrl = avatarBase64;
 
-                toggleEditMode(false);
-                alert("Профиль успешно обновлен! Старый ник освобожден.");
-            } catch (error) {
-                alert("Ошибка обновления: " + error.message);
+                    document.getElementById("userDisplayNick").innerText = newNick;
+                    if (avatarBase64) document.getElementById("userAvatarImg").src = avatarBase64;
+
+                    toggleEditMode(false);
+                    alert("Профиль успешно обновлен! Старый ник освобожден.");
+                } catch (error) {
+                    alert("Ошибка обновления: " + error.message);
+                }
+            };
+
+            // Если пользователь выбрал файл из галереи, считываем его в формат Base64
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    executeUpdate(e.target.result);
+                };
+                reader.onerror = function() {
+                    alert("Не удалось прочитать файл изображения.");
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                executeUpdate(null);
             }
         };
 
@@ -671,7 +698,7 @@
                     currentUserData = userDoc.data();
                     document.getElementById("userDisplayNick").innerText = currentUserData.username || "Игрок";
                     document.getElementById("drawerBalance").innerText = (currentUserData.balance_ml || 0).toFixed(3);
-                    window.totalBank = currentUserData.balance_ml || 0; // Синхронизируем игровой банк с сервером
+                    window.totalBank = currentUserData.balance_ml || 0; // Строго синхронизируем банк с базой аккаунта
                     if (currentUserData.avatarUrl) {
                         document.getElementById("userAvatarImg").src = currentUserData.avatarUrl;
                     }
@@ -699,7 +726,7 @@
             }
         });
 
-        // Экспорт функции начисления очков в серверный Firestore (защита от читов)
+        // Экспорт функций начисления очков в серверный Firestore
         window.addServerMilliliters = async function(amount) {
             if (!currentUid) return; // Гостям в базу не пишем
             const userRef = doc(db, "users", currentUid);
@@ -738,7 +765,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v171_firebase_auth_secure";
+        const CURRENT_APP_VERSION = "v172_firebase_gallery_avatar";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
