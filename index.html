@@ -262,7 +262,6 @@
         }
         .btn-drawer-custom:active { transform: scale(0.96); background: rgba(15, 55, 85, 0.9); }
 
-        /* Обертка для кнопки с красным индикатором уведомлений чата */
         .btn-with-badge-wrap {
             position: relative;
             width: 100%;
@@ -543,9 +542,15 @@
 
                         <!-- Окно активного диалога -->
                         <div id="chatSectionPanel" class="drawer-section-panel">
-                            <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:5px; align-items:center;">
-                                <span id="chatWithTitle" style="font-size:12px; color:#00d2ff; font-weight:bold;">Чат</span>
-                                <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()">✕ Назад</button>
+                            <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:5px; align-items:center; background:rgba(0,0,0,0.2); padding:4px; border-radius:6px;">
+                                <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
+                                    <img id="activeChatAvatar" src="https://via.placeholder.com/30" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid #00d2ff; flex-shrink:0;">
+                                    <div style="text-align:left; overflow:hidden;">
+                                        <div id="chatWithTitle" style="font-size:11px; color:#fff; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Чат</div>
+                                        <div id="chatWithStatus" style="font-size:9px; color:#a5d6a7;">В сети</div>
+                                    </div>
+                                </div>
+                                <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()" style="flex-shrink:0;">✕ Назад</button>
                             </div>
                             <div id="chatMessagesBox" class="chat-messages-box"></div>
                             <div style="display:flex; width:100%; gap:4px;">
@@ -559,12 +564,7 @@
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник">
-                        
-                        <div style="width: 100%; margin-bottom: 8px;">
-                            <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 3px; text-align: left;">Аватар из галереи:</label>
-                            <input type="file" id="editAvatarFile" accept="image/*" class="drawer-input" style="padding: 6px; font-size: 11px;" />
-                        </div>
-
+                        <input type="text" id="editAvatarInput" class="drawer-input" placeholder="URL аватарки">
                         <div style="width: 100%; display: flex; gap: 5px; margin-top: 5px; margin-bottom: 10px;">
                             <button class="btn-drawer-custom" style="background: #28a745; margin: 0;" onclick="saveProfileChanges()">Сохранить</button>
                             <button class="btn-drawer-custom" style="background: #6c757d; margin: 0;" onclick="toggleEditMode(false)">Отмена</button>
@@ -659,6 +659,7 @@
         let unsubscribeUserDoc = null;
         let activeChatFriendUid = null;
         let unsubscribeChat = null;
+        let unsubscribePartnerStatus = null;
 
         async function isNicknameAvailable(nickname) {
             const cleanNick = nickname.trim().toLowerCase();
@@ -737,6 +738,7 @@
                 try {
                     if (unsubscribeUserDoc) unsubscribeUserDoc();
                     if (unsubscribeChat) unsubscribeChat();
+                    if (unsubscribePartnerStatus) unsubscribePartnerStatus();
                     await signOut(auth);
                     window.totalBank = 0;
                     localStorage.setItem("egg_total_ml_bank", "0.0");
@@ -751,7 +753,7 @@
 
             if (isEditing && currentUserData) {
                 document.getElementById("editNicknameInput").value = currentUserData.username || "";
-                document.getElementById("editAvatarFile").value = "";
+                document.getElementById("editAvatarInput").value = currentUserData.avatarUrl || "";
                 viewMode.style.display = "none";
                 editMode.style.display = "flex";
             } else {
@@ -764,17 +766,14 @@
             if (!currentUid || !currentUserData) return;
 
             const newNick = document.getElementById("editNicknameInput").value.trim();
-            const fileInput = document.getElementById("editAvatarFile");
-            const hasNewAvatar = fileInput.files && fileInput.files[0];
+            const newAvatar = document.getElementById("editAvatarInput").value.trim();
 
             if (!newNick) {
                 alert("Ник не может быть пустым!");
                 return;
             }
 
-            const isNickChanged = (newNick.toLowerCase() !== currentUserData.username_lower);
-
-            if (isNickChanged) {
+            if (newNick.toLowerCase() !== currentUserData.username_lower) {
                 const available = await isNicknameAvailable(newNick);
                 if (!available) {
                     alert("Этот ник уже занят другим игроком!");
@@ -790,56 +789,32 @@
                 }
             }
 
-            const updateData = {};
-            if (isNickChanged) {
-                updateData.username = newNick;
-                updateData.username_lower = newNick.toLowerCase();
-            }
-
-            const executeUpdate = async (avatarBase64) => {
-                if (avatarBase64) updateData.avatarUrl = avatarBase64;
-
-                try {
-                    await updateDoc(doc(db, "users", currentUid), updateData);
-                    
-                    if (isNickChanged) {
-                        currentUserData.username = newNick;
-                        currentUserData.username_lower = newNick.toLowerCase();
-                        document.getElementById("userDisplayNick").innerText = newNick;
-                    }
-                    if (avatarBase64) {
-                        currentUserData.avatarUrl = avatarBase64;
-                        document.getElementById("userAvatarImg").src = avatarBase64;
-                    }
-
-                    toggleEditMode(false);
-
-                    if (isNickChanged) {
-                        alert("Профиль успешно обновлен! Старый ник освобожден.");
-                    } else if (avatarBase64) {
-                        alert("Аватар успешно обновлен!");
-                    } else {
-                        alert("Изменения сохранены!");
-                    }
-                } catch (error) {
-                    alert("Ошибка обновления: " + error.message);
-                }
+            const updateData = {
+                username: newNick,
+                username_lower: newNick.toLowerCase()
             };
+            if (newAvatar) updateData.avatarUrl = newAvatar;
 
-            if (hasNewAvatar) {
-                const reader = new FileReader();
-                reader.onload = function(e) { executeUpdate(e.target.result); };
-                reader.onerror = function() { alert("Не удалось прочитать файл изображения."); };
-                reader.readAsDataURL(fileInput.files[0]);
-            } else {
-                executeUpdate(null);
+            try {
+                await updateDoc(doc(db, "users", currentUid), updateData);
+                currentUserData.username = newNick;
+                currentUserData.username_lower = newNick.toLowerCase();
+                if (newAvatar) currentUserData.avatarUrl = newAvatar;
+
+                document.getElementById("userDisplayNick").innerText = newNick;
+                if (newAvatar) document.getElementById("userAvatarImg").src = newAvatar;
+
+                toggleEditMode(false);
+                alert("Профиль успешно обновлен!");
+            } catch (error) {
+                alert("Ошибка обновления: " + error.message);
             }
         };
 
         async function updateHeartbeat() {
             if (!currentUid) return;
             const now = Date.now();
-            if (now - lastHeartbeatTime > 15000) {
+            if (now - lastHeartbeatTime > 10000) {
                 lastHeartbeatTime = now;
                 try {
                     await updateDoc(doc(db, "users", currentUid), {
@@ -848,6 +823,8 @@
                 } catch (e) {}
             }
         }
+
+        setInterval(updateHeartbeat, 10000);
 
         onAuthStateChanged(auth, async (user) => {
             const loggedOutView = document.getElementById("drawerLoggedOut");
@@ -894,6 +871,7 @@
                 currentUserData = null;
                 if (unsubscribeUserDoc) unsubscribeUserDoc();
                 if (unsubscribeChat) unsubscribeChat();
+                if (unsubscribePartnerStatus) unsubscribePartnerStatus();
                 loggedOutView.style.display = "block";
                 loggedInView.style.display = "none";
                 toggleEditMode(false);
@@ -917,6 +895,7 @@
             document.getElementById("chatListSectionPanel").style.display = "none";
             document.getElementById("chatSectionPanel").style.display = "none";
             if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
+            if (unsubscribePartnerStatus) { unsubscribePartnerStatus(); unsubscribePartnerStatus = null; }
             activeChatFriendUid = null;
         }
 
@@ -1057,16 +1036,13 @@
                 }
 
                 container.innerHTML = html || `<div style="font-size:11px; color:#777; padding:5px;">Никого не найдено</div>`;
-            } catch (e) {
-                console.error("Ошибка поиска:", e);
-            }
+            } catch (e) {}
         };
 
         window.sendFriendRequest = async function(targetUid) {
             if (!currentUid) return;
             try {
                 const targetRef = doc(db, "users", targetUid);
-                // Используем arrayUnion для безопасного добавления в массив заявок без изменения других полей
                 await updateDoc(targetRef, {
                     friendRequests: arrayUnion(currentUid)
                 });
@@ -1181,7 +1157,7 @@
                                 </div>
                             </div>
                             <div style="display:flex; gap:4px;">
-                                <button class="btn-mini-action btn-mini-success" onclick="openChatWith('${friendUid}', '${nick}')">💬 Чат</button>
+                                <button class="btn-mini-action btn-mini-success" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')">💬 Чат</button>
                                 <button class="btn-mini-action btn-mini-danger" onclick="removeFriend('${friendUid}')" title="Удалить">🗑</button>
                             </div>
                         </div>
@@ -1212,7 +1188,7 @@
                     const ava = data.avatarUrl || "https://via.placeholder.com/70";
 
                     html += `
-                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}')" style="cursor:pointer;">
+                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')" style="cursor:pointer;">
                             <div class="user-result-info">
                                 <img src="${ava}" class="user-result-ava">
                                 <div>
@@ -1245,14 +1221,27 @@
             } catch (e) {}
         };
 
-        window.openChatWith = async function(friendUid, friendNick) {
+        window.openChatWith = async function(friendUid, friendNick, friendAvatar) {
             activeChatFriendUid = friendUid;
             document.getElementById("friendsSectionPanel").style.display = "none";
             document.getElementById("chatListSectionPanel").style.display = "none";
-            document.getElementById("chatWithTitle").innerText = `Чат с ${friendNick}`;
+            
+            document.getElementById("chatWithTitle").innerText = friendNick;
+            document.getElementById("activeChatAvatar").src = friendAvatar || "https://via.placeholder.com/30";
+            document.getElementById("chatWithStatus").innerText = "Загрузка...";
             document.getElementById("chatSectionPanel").style.display = "flex";
 
             if (unsubscribeChat) unsubscribeChat();
+            if (unsubscribePartnerStatus) unsubscribePartnerStatus();
+
+            const partnerRef = doc(db, "users", friendUid);
+            unsubscribePartnerStatus = onSnapshot(partnerRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const pData = docSnap.data();
+                    const lastActiveTime = pData.lastActive ? pData.lastActive.toMillis() : 0;
+                    document.getElementById("chatWithStatus").innerText = formatLastActive(lastActiveTime);
+                }
+            });
 
             const chatId = [currentUid, friendUid].sort().join("_");
             const chatRef = doc(db, "chats", chatId);
@@ -1266,7 +1255,6 @@
                 const data = docSnap.data();
                 const messages = data.messages || [];
 
-                // Помечаем сообщения прочитанными
                 let updated = false;
                 messages.forEach(msg => {
                     if (msg.sender !== currentUid && !msg.read) {
@@ -1291,6 +1279,7 @@
 
         window.closeChatPanel = function() {
             if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
+            if (unsubscribePartnerStatus) { unsubscribePartnerStatus(); unsubscribePartnerStatus = null; }
             activeChatFriendUid = null;
             document.getElementById("chatSectionPanel").style.display = "none";
             document.getElementById("friendsSectionPanel").style.display = "flex";
@@ -1325,11 +1314,11 @@
         };
 
         function formatLastActive(timestamp) {
-            if (!timestamp) return "Давно";
+            if (!timestamp) return "Не в сети";
             const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-            if (diffSec < 60) return "В сети только что";
-            if (diffSec < 3600) return `В сети ${Math.floor(diffSec / 60)} мин. назад`;
-            if (diffSec < 86400) return `В сети ${Math.floor(diffSec / 3600)} ч. назад`;
+            if (diffSec < 120) return "В сети";
+            if (diffSec < 3600) return `Был в сети ${Math.floor(diffSec / 60)} мин. назад`;
+            if (diffSec < 86400) return `Был в сети ${Math.floor(diffSec / 3600)} ч. назад`;
             return "Был в сети давно";
         }
 
@@ -1338,8 +1327,7 @@
             const userRef = doc(db, "users", currentUid);
             try {
                 await updateDoc(userRef, {
-                    balance_ml: increment(amount),
-                    lastActive: serverTimestamp()
+                    balance_ml: increment(amount)
                 });
             } catch (err) {}
         };
@@ -1349,15 +1337,14 @@
             const userRef = doc(db, "users", currentUid);
             try {
                 await updateDoc(userRef, {
-                    balance_ml: increment(-amount),
-                    lastActive: serverTimestamp()
+                    balance_ml: increment(-amount)
                 });
             } catch (err) {}
         };
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v175_fans_and_fix_perms";
+        const CURRENT_APP_VERSION = "v172_fix_gameover_chat";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1488,8 +1475,6 @@
                 drawer.classList.add("open");
             } else {
                 drawer.classList.remove("open");
-                closeAllDrawerPanels();
-                toggleEditMode(false);
             }
         }
 
@@ -1499,8 +1484,6 @@
                 if (!drawer.contains(e.target)) {
                     isDrawerOpen = false;
                     drawer.classList.remove("open");
-                    closeAllDrawerPanels();
-                    toggleEditMode(false);
                 }
             }
         });
@@ -1530,7 +1513,6 @@
             gameOver = false;
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
-            closeAllDrawerPanels();
             mlEarned = 0.0;
             items = [];
             spawnTimer = 0;
@@ -1605,7 +1587,6 @@
             gameOver = false;
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
-            closeAllDrawerPanels();
             document.getElementById("pauseScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("startScreen").style.display = "flex";
@@ -1903,7 +1884,6 @@
                         tableSpawnChance = 0.07; 
                         maxActiveTables = 9;
 
-                        // ВОЗВРАЩЕНЫ ПАДАЮЩИЕ ВЕЕРА КОГДА У ДАШИ < 150 ХП
                         if (Math.random() < 0.008) {
                             items.push({
                                 x: Math.random() * (W - 60) + 30,
