@@ -14,7 +14,7 @@
             padding: 0;
             background: #18222d;
             color: white;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif;
             text-align: center;
             overflow: hidden;
             touch-action: none;
@@ -83,7 +83,7 @@
             border-radius: 2px;
             display: block;
         }
-        /* Красная точка на бургере при новых заявках */
+        /* Красная точка на бургере при новых заявках или непрочитанных чатах */
         #burgerRedBadge {
             position: absolute;
             top: 6px;
@@ -94,6 +94,7 @@
             border-radius: 50%;
             display: none;
             border: 2px solid #18222d;
+            z-index: 31;
         }
 
         /* Выдвижная панель профиля слева */
@@ -139,7 +140,6 @@
             overflow-y: auto;
         }
 
-        /* Блок аватарки с красным кружком-уведомлением слева сверху */
         .drawer-avatar-container {
             position: relative;
             margin-top: 5px;
@@ -310,6 +310,18 @@
             justify-content: space-between;
             box-sizing: border-box;
             text-align: left;
+            position: relative;
+        }
+        .friend-chat-item-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 10px;
+            height: 10px;
+            background: #f44336;
+            border-radius: 50%;
+            display: none;
+            border: 2px solid #18222d;
         }
         .user-result-info {
             display: flex;
@@ -543,7 +555,8 @@
                         <!-- Окно активного диалога -->
                         <div id="chatSectionPanel" class="drawer-section-panel">
                             <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:5px; align-items:center; background:rgba(0,0,0,0.2); padding:4px; border-radius:6px;">
-                                <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
+                                <div style="display:flex; align-items:center; gap:6px; overflow:hidden; position:relative;">
+                                    <div id="activeChatRedDot" style="position:absolute; top:-2px; left:-2px; width:8px; height:8px; background:#f44336; border-radius:50%; display:none; border:1px solid #18222d; z-index:5;"></div>
                                     <img id="activeChatAvatar" src="https://via.placeholder.com/30" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid #00d2ff; flex-shrink:0;">
                                     <div style="text-align:left; overflow:hidden;">
                                         <div id="chatWithTitle" style="font-size:11px; color:#fff; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Чат</div>
@@ -560,11 +573,16 @@
                         </div>
                     </div>
 
-                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ -->
+                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ С ВЫБОРОМ ФАЙЛА АВАТАРКИ -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник">
-                        <input type="text" id="editAvatarInput" class="drawer-input" placeholder="URL аватарки">
+                        
+                        <div style="width: 100%; margin-bottom: 8px; text-align: left;">
+                            <label style="font-size: 11px; color: #aaa; display: block; margin-bottom: 3px;">Фото профиля:</label>
+                            <input type="file" id="editAvatarFile" accept="image/*" class="drawer-input" style="padding: 6px; font-size: 11px;" />
+                        </div>
+
                         <div style="width: 100%; display: flex; gap: 5px; margin-top: 5px; margin-bottom: 10px;">
                             <button class="btn-drawer-custom" style="background: #28a745; margin: 0;" onclick="saveProfileChanges()">Сохранить</button>
                             <button class="btn-drawer-custom" style="background: #6c757d; margin: 0;" onclick="toggleEditMode(false)">Отмена</button>
@@ -636,7 +654,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -753,7 +771,7 @@
 
             if (isEditing && currentUserData) {
                 document.getElementById("editNicknameInput").value = currentUserData.username || "";
-                document.getElementById("editAvatarInput").value = currentUserData.avatarUrl || "";
+                document.getElementById("editAvatarFile").value = "";
                 viewMode.style.display = "none";
                 editMode.style.display = "flex";
             } else {
@@ -766,48 +784,60 @@
             if (!currentUid || !currentUserData) return;
 
             const newNick = document.getElementById("editNicknameInput").value.trim();
-            const newAvatar = document.getElementById("editAvatarInput").value.trim();
+            const fileInput = document.getElementById("editAvatarFile");
+            const hasNewAvatar = fileInput.files && fileInput.files[0];
 
             if (!newNick) {
                 alert("Ник не может быть пустым!");
                 return;
             }
 
-            if (newNick.toLowerCase() !== currentUserData.username_lower) {
+            const isNickChanged = (newNick.toLowerCase() !== currentUserData.username_lower);
+
+            if (isNickChanged) {
                 const available = await isNicknameAvailable(newNick);
                 if (!available) {
                     alert("Этот ник уже занят другим игроком!");
                     return;
                 }
-
-                const newFakeEmail = newNick.toLowerCase() + FAKE_EMAIL_DOMAIN;
-                try {
-                    await updateEmail(auth.currentUser, newFakeEmail);
-                } catch (err) {
-                    alert("Для смены ника перезайдите в аккаунт.");
-                    return;
-                }
             }
 
-            const updateData = {
-                username: newNick,
-                username_lower: newNick.toLowerCase()
+            const updateData = {};
+            if (isNickChanged) {
+                updateData.username = newNick;
+                updateData.username_lower = newNick.toLowerCase();
+            }
+
+            const executeUpdate = async (avatarBase64) => {
+                if (avatarBase64) updateData.avatarUrl = avatarBase64;
+
+                try {
+                    await updateDoc(doc(db, "users", currentUid), updateData);
+                    
+                    if (isNickChanged) {
+                        currentUserData.username = newNick;
+                        currentUserData.username_lower = newNick.toLowerCase();
+                        document.getElementById("userDisplayNick").innerText = newNick;
+                    }
+                    if (avatarBase64) {
+                        currentUserData.avatarUrl = avatarBase64;
+                        document.getElementById("userAvatarImg").src = avatarBase64;
+                    }
+
+                    toggleEditMode(false);
+                    alert("Изменения сохранены!");
+                } catch (error) {
+                    alert("Ошибка обновления: " + error.message);
+                }
             };
-            if (newAvatar) updateData.avatarUrl = newAvatar;
 
-            try {
-                await updateDoc(doc(db, "users", currentUid), updateData);
-                currentUserData.username = newNick;
-                currentUserData.username_lower = newNick.toLowerCase();
-                if (newAvatar) currentUserData.avatarUrl = newAvatar;
-
-                document.getElementById("userDisplayNick").innerText = newNick;
-                if (newAvatar) document.getElementById("userAvatarImg").src = newAvatar;
-
-                toggleEditMode(false);
-                alert("Профиль успешно обновлен!");
-            } catch (error) {
-                alert("Ошибка обновления: " + error.message);
+            if (hasNewAvatar) {
+                const reader = new FileReader();
+                reader.onload = function(e) { executeUpdate(e.target.result); };
+                reader.onerror = function() { alert("Не удалось прочитать файл изображения."); };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                executeUpdate(null);
             }
         };
 
@@ -860,7 +890,7 @@
                         if (currentUserData.avatarUrl) {
                             document.getElementById("userAvatarImg").src = currentUserData.avatarUrl;
                         }
-                        updateRequestsUI(currentUserData.friendRequests || []);
+                        updateBurgerAndRequestsUI(currentUserData.friendRequests || []);
                         checkUnreadChats();
                     }
                 });
@@ -930,20 +960,18 @@
             if (!isVisible) loadChatList();
         }
 
-        function updateRequestsUI(requestsArray) {
+        function updateBurgerAndRequestsUI(requestsArray) {
             const count = requestsArray ? requestsArray.length : 0;
             const burgerBadge = document.getElementById("burgerRedBadge");
             const avatarBadgeBtn = document.getElementById("avatarBadgeBtn");
             const reqMenuBtn = document.getElementById("btnRequestsMenu");
 
             if (count > 0) {
-                burgerBadge.style.display = "block";
                 avatarBadgeBtn.style.display = "flex";
                 avatarBadgeBtn.innerText = count;
                 reqMenuBtn.innerText = `👥 Заявки в друзья (${count})`;
                 reqMenuBtn.style.color = "#ff4444";
             } else {
-                burgerBadge.style.display = "none";
                 avatarBadgeBtn.style.display = "none";
                 reqMenuBtn.innerText = `👥 Заявки в друзья`;
                 reqMenuBtn.style.color = "#d0f0ff";
@@ -951,8 +979,9 @@
         }
 
         async function checkUnreadChats() {
-            if (!currentUid || !currentUserData.friends) return;
+            if (!currentUid || !currentUserData || !currentUserData.friends) return;
             const redDot = document.getElementById("chatRedBadge");
+            const burgerBadge = document.getElementById("burgerRedBadge");
             let hasUnread = false;
 
             for (let friendUid of currentUserData.friends) {
@@ -961,8 +990,8 @@
                 if (chatSnap.exists()) {
                     const data = chatSnap.data();
                     const messages = data.messages || [];
-                    const lastMsg = messages[messages.length - 1];
-                    if (lastMsg && lastMsg.sender !== currentUid && !lastMsg.read) {
+                    const hasUnreadFromThisFriend = messages.some(m => m.sender !== currentUid && !m.read);
+                    if (hasUnreadFromThisFriend) {
                         hasUnread = true;
                         break;
                     }
@@ -973,6 +1002,13 @@
                 redDot.style.display = "block";
             } else {
                 redDot.style.display = "none";
+            }
+
+            const hasRequests = currentUserData.friendRequests && currentUserData.friendRequests.length > 0;
+            if (hasUnread || hasRequests) {
+                burgerBadge.style.display = "block";
+            } else {
+                burgerBadge.style.display = "none";
             }
         }
 
@@ -1187,8 +1223,18 @@
                     const nick = data.username || "Игрок";
                     const ava = data.avatarUrl || "https://via.placeholder.com/70";
 
+                    // Проверяем наличие непрочитанных от этого друга
+                    const chatId = [currentUid, friendUid].sort().join("_");
+                    const chatSnap = await getDoc(doc(db, "chats", chatId));
+                    let hasUnreadHere = false;
+                    if (chatSnap.exists()) {
+                        const msgs = chatSnap.data().messages || [];
+                        hasUnreadHere = msgs.some(m => m.sender !== currentUid && !m.read);
+                    }
+
                     html += `
                         <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')" style="cursor:pointer;">
+                            <div class="friend-chat-item-badge" id="friend_badge_${friendUid}" style="display:${hasUnreadHere ? 'block' : 'none'};"></div>
                             <div class="user-result-info">
                                 <img src="${ava}" class="user-result-ava">
                                 <div>
@@ -1229,6 +1275,7 @@
             document.getElementById("chatWithTitle").innerText = friendNick;
             document.getElementById("activeChatAvatar").src = friendAvatar || "https://via.placeholder.com/30";
             document.getElementById("chatWithStatus").innerText = "Загрузка...";
+            document.getElementById("activeChatRedDot").style.display = "none";
             document.getElementById("chatSectionPanel").style.display = "flex";
 
             if (unsubscribeChat) unsubscribeChat();
@@ -1254,6 +1301,13 @@
                 }
                 const data = docSnap.data();
                 const messages = data.messages || [];
+
+                let hasUnread = messages.some(m => m.sender !== currentUid && !m.read);
+                if (hasUnread) {
+                    document.getElementById("activeChatRedDot").style.display = "block";
+                } else {
+                    document.getElementById("activeChatRedDot").style.display = "none";
+                }
 
                 let updated = false;
                 messages.forEach(msg => {
@@ -1344,7 +1398,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v172_fix_gameover_chat";
+        const CURRENT_APP_VERSION = "v173_final_fixes";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1598,7 +1652,7 @@
 
         function drawSingleItem(item, customCtx) {
             let targetCtx = customCtx || ctx;
-            targetCtx.font = customCtx ? "44px Arial" : "35px Arial";
+            targetCtx.font = customCtx ? "44px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif" : "35px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
             targetCtx.textAlign = "center";
 
             if (item.type === "sword" && item.subType !== "corner_sword") targetCtx.fillText("🗡", item.x, item.y);
@@ -1607,7 +1661,7 @@
                 targetCtx.translate(item.x, item.y);
                 item.rotation = (item.rotation || 0) + 0.08;
                 targetCtx.rotate(item.rotation);
-                targetCtx.font = "32px Arial";
+                targetCtx.font = "32px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 targetCtx.textAlign = "center";
                 targetCtx.fillText("🗡", 0, 0);
                 targetCtx.restore();
@@ -1616,7 +1670,7 @@
                 targetCtx.save();
                 targetCtx.translate(item.x, item.y);
                 item.rotate(item.rotation || 0);
-                targetCtx.font = "26px Arial"; 
+                targetCtx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; 
                 targetCtx.textAlign = "center";
                 targetCtx.fillText("🪭", 0, 0);
                 targetCtx.restore();
@@ -1626,7 +1680,7 @@
                 targetCtx.translate(item.x, item.y);
                 item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
                 targetCtx.rotate(item.rotation);
-                targetCtx.font = "35px Arial";
+                targetCtx.font = "35px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 targetCtx.textAlign = "center";
                 targetCtx.fillText("🪑", 0, 10);
                 targetCtx.restore();
@@ -1717,12 +1771,12 @@
                             let drawW = drawH * imgAspect;
                             ctx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
                         } else {
-                            ctx.font = "32px Arial";
+                            ctx.font = "32px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                             ctx.textAlign = "center";
                             ctx.fillText("💣", 0, 0);
                         }
                     } else {
-                        ctx.font = "32px Arial";
+                        ctx.font = "32px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                         ctx.textAlign = "center";
                         let symbol = "🗡";
                         if (item.type === "table") symbol = "🪑";
@@ -1766,7 +1820,7 @@
 
             if (isPaused) {
                 ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 15px Arial";
+                ctx.font = "bold 15px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 ctx.textAlign = "left";
                 ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
                 ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
@@ -1781,7 +1835,7 @@
                     let renderY = Math.round(renderPlayerY - drawH / 2);
                     ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
                 } else {
-                    ctx.font = "40px Arial";
+                    ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                     ctx.textAlign = "center";
                     ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
                 }
@@ -2031,7 +2085,7 @@
                 if (introImg.complete && introImg.naturalWidth !== 0) {
                     ctx.drawImage(introImg, introX - (28 * scaleAnim), currentIntroY - (28 * scaleAnim), 56 * scaleAnim, 56 * scaleAnim);
                 } else {
-                    ctx.font = `${Math.floor(40 * scaleAnim)}px Arial`;
+                    ctx.font = `${Math.floor(40 * scaleAnim)}px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif`;
                     ctx.textAlign = "center";
                     ctx.fillText("👑", introX, currentIntroY + 10);
                 }
@@ -2057,7 +2111,7 @@
                     ctx.strokeRect(barX, barY, barWidth, barHeight);
 
                     ctx.fillStyle = "#ffffff";
-                    ctx.font = "bold 12px Arial";
+                    ctx.font = "bold 12px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                     ctx.textAlign = "center";
                     let bName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
                     ctx.fillText(`БОСС ${bName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
@@ -2101,13 +2155,13 @@
                 ctx.fillStyle = "#00ff88";
                 ctx.strokeStyle = "#003311";
                 ctx.lineWidth = 4;
-                ctx.font = `bold ${Math.floor(38 * scale)}px Arial`;
+                ctx.font = `bold ${Math.floor(38 * scale)}px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif`;
                 ctx.textAlign = "center";
                 ctx.strokeText("+5.000 мл ПОБЕДА!", W / 2, H / 2 - 20);
                 ctx.fillText("+5.000 мл ПОБЕДА!", W / 2, H / 2 - 20);
                 
                 let defeatedName = (currentBoss === "dasha") ? "Даша" : "Рита";
-                ctx.font = `bold 22px Arial`;
+                ctx.font = `bold 22px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif`;
                 ctx.fillStyle = "#ffffff";
                 ctx.fillText(`Босс ${defeatedName} повержена!`, W / 2, H / 2 + 30);
                 ctx.restore();
@@ -2142,7 +2196,7 @@
                 ff.x += Math.cos(angle) * ff.speed;
                 ff.y += Math.sin(angle) * ff.speed;
 
-                ctx.font = "26px Arial";
+                ctx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 ctx.textAlign = "center";
                 ctx.fillText("✊", ff.x, ff.y);
 
@@ -2533,7 +2587,7 @@
                         });
                     }
                 } else {
-                    ctx.font = "40px Arial";
+                    ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                     ctx.textAlign = "center";
                     ctx.fillText(currentBoss === "dasha" ? "🧝‍♀️" : "👑", bossX, bossY + 10);
                 }
@@ -2555,14 +2609,14 @@
                 ctx.strokeRect(barX, barY, barWidth, barHeight);
 
                 ctx.fillStyle = "#ffffff";
-                ctx.font = "bold 12px Arial";
+                ctx.font = "bold 12px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 ctx.textAlign = "center";
                 let bossTitleName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
                 ctx.fillText(`БОСС ${bossTitleName}: ${bossHp}/${bossMaxHp}`, W / 2, barY - 5);
             }
 
             ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 15px Arial";
+            ctx.font = "bold 15px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
             ctx.textAlign = "left";
             ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
             ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
@@ -2604,7 +2658,7 @@
                 let renderY = Math.round(renderPlayerY - drawH / 2);
                 ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
             } else {
-                ctx.font = "40px Arial";
+                ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 ctx.textAlign = "center";
                 ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
             }
