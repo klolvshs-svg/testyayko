@@ -342,7 +342,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v162_profile_drawer_straight";
+        const CURRENT_APP_VERSION = "v164_profile_drawer_rotation_rare";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -455,16 +455,18 @@
             });
         }
 
-        // Декор внутри выдвижной панели профиля (палть медленно, ровно, бомбы реже)
+        // Декор внутри выдвижной панели профиля (меньше предметов, крутятся вокруг себя, 7% быстрых)
         let drawerDecorItems = [];
-        for (let i = 0; i < 13; i++) {
-            // Бомбы встречаются реже, преобладают остальные предметы
+        for (let i = 0; i < 7; i++) {
             const typesPool = ["sword", "table", "shield", "helmet", "drop1", "fan", "bomb", "snow"];
+            let isFast = Math.random() < 0.07; // 7% шанс на быстрый предмет
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
-                speed: 0.5 + Math.random() * 0.7, // Медленное падение
-                type: typesPool[Math.floor(Math.random() * typesPool.length)]
+                speed: isFast ? (2.2 + Math.random() * 1.0) : (0.4 + Math.random() * 0.6), // Медленные по умолчанию, 7% быстрые
+                type: typesPool[Math.floor(Math.random() * typesPool.length)],
+                rotation: Math.random() * Math.PI * 2,
+                rotSpeed: (Math.random() - 0.5) * 0.05 // Вращение вокруг себя
             });
         }
 
@@ -602,25 +604,25 @@
             targetCtx.font = isLarge ? "44px Arial" : "35px Arial";
             targetCtx.textAlign = "center";
 
-            if (item.type === "sword") targetCtx.fillText("🗡", item.x, item.y);
-            else if (item.type === "table") targetCtx.fillText("🪑", item.x, item.y);
-            else if (item.type === "fan") targetCtx.fillText("🪭", item.x, item.y);
+            if (item.type === "sword") targetCtx.fillText("🗡", 0, 0);
+            else if (item.type === "table") targetCtx.fillText("🪑", 0, 0);
+            else if (item.type === "fan") targetCtx.fillText("🪭", 0, 0);
             else if (item.type === "bomb") {
                 if (bombImg.complete && bombImg.naturalWidth !== 0) {
                     let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
                     let drawH = isLarge ? 46 : 40;
                     let drawW = drawH * imgAspect;
-                    targetCtx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
+                    targetCtx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
                 } else {
-                    targetCtx.fillText("💣", item.x, item.y);
+                    targetCtx.fillText("💣", 0, 0);
                 }
             }
-            else if (item.type === "shield") targetCtx.fillText("🛡", item.x, item.y);
-            else if (item.type === "helmet") targetCtx.fillText("🪖", item.x, item.y);
-            else if (item.type === "drop1") targetCtx.fillText("💧", item.x, item.y);
-            else if (item.type === "snow") targetCtx.fillText("❄️", item.x, item.y);
+            else if (item.type === "shield") targetCtx.fillText("🛡", 0, 0);
+            else if (item.type === "helmet") targetCtx.fillText("🪖", 0, 0);
+            else if (item.type === "drop1") targetCtx.fillText("💧", 0, 0);
+            else if (item.type === "snow") targetCtx.fillText("❄️", 0, 0);
             else {
-                targetCtx.fillText("🗡", item.x, item.y);
+                targetCtx.fillText("🗡", 0, 0);
             }
         }
 
@@ -670,15 +672,23 @@
                     ctx.restore();
                 });
 
-                // Отрисовка анимации внутри выдвижной панели профиля (ровное медленное падение без вращения)
+                // Отрисовка анимации внутри панели профиля (меньше предметов, крутятся, 7% быстрых)
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
-                    item.y += item.speed; // Медленно вниз
+                    item.y += item.speed; 
+                    item.rotation += item.rotSpeed; // Вращение вокруг себя
                     if (item.y > drawerH + 50) {
                         item.y = -50;
                         item.x = Math.random() * drawerW;
+                        let isFast = Math.random() < 0.07;
+                        item.speed = isFast ? (2.2 + Math.random() * 1.0) : (0.4 + Math.random() * 0.6);
                     }
+
+                    drawerCtx.save();
+                    drawerCtx.translate(item.x, item.y);
+                    drawerCtx.rotate(item.rotation);
                     drawSingleItem(item, drawerCtx, true);
+                    drawerCtx.restore();
                 });
 
                 requestAnimationFrame(gameLoop);
