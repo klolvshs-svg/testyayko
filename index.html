@@ -118,7 +118,7 @@
         .drawer-content {
             position: relative;
             z-index: 2;
-            padding: 25px 20px;
+            padding: 15px 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -126,28 +126,28 @@
             box-sizing: border-box;
         }
 
-        /* Аватарка заглушка */
+        /* Аватарка заглушка (поднята выше) */
         .drawer-avatar-wrap {
-            width: 90px;
-            height: 90px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
             background: rgba(36, 139, 218, 0.2);
             border: 2px solid #00d2ff;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 20px;
-            margin-bottom: 12px;
+            margin-top: 10px;
+            margin-bottom: 8px;
             box-shadow: 0 0 15px rgba(0,210,255,0.3);
         }
         .drawer-avatar-icon {
-            font-size: 45px;
+            font-size: 40px;
         }
         .drawer-username {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             color: #ffffff;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
@@ -193,7 +193,6 @@
             transform: scale(0.90);
         }
 
-        /* Отрисовка значка паузы */
         .pause-icon {
             display: flex;
             gap: 4px;
@@ -206,7 +205,6 @@
             display: block;
         }
 
-        /* Отрисовка значка play (треугольник) */
         .play-icon {
             display: none;
             width: 0;
@@ -268,7 +266,7 @@
 
         <!-- Выдвижная панель профиля слева -->
         <div id="profileDrawer" onclick="event.stopPropagation()">
-            <!-- Холст для медленных крупных предметов на фоне панели -->
+            <!-- Холст для падающих предметов в панели -->
             <canvas id="drawerCanvasContainer"></canvas>
             
             <div class="drawer-content">
@@ -277,7 +275,7 @@
                 </div>
                 <div class="drawer-username">username</div>
                 
-                <div style="margin-top: auto; width: 100%;">
+                <div style="margin-top: auto; width: 100%; margin-bottom: 10px;">
                     <button class="btn" style="width: 100%; margin: 0; font-size: 16px; padding: 12px 10px;" onclick="alert('Скоро здесь появится создание аккаунта!')">Создать акк</button>
                 </div>
             </div>
@@ -345,7 +343,7 @@
     </div>
 
     <script>
-        const CURRENT_APP_VERSION = "v160_profile_drawer_ui";
+        const CURRENT_APP_VERSION = "v161_profile_drawer_upgraded";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -367,7 +365,7 @@
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        // Настройка холста для панели профиля (крупные и медленные элементы)
+        // Настройка холста для панели профиля
         const drawerCanvas = document.getElementById("drawerCanvasContainer");
         const drawerCtx = drawerCanvas.getContext("2d");
         const drawerW = 300;
@@ -458,17 +456,18 @@
             });
         }
 
-        // Декор внутри выдвижной панели профиля (более крупные предметы, медленнее падают)
+        // Декор внутри выдвижной панели профиля (+30% элементов, частые бомбы с текстурой, вращение)
         let drawerDecorItems = [];
-        for (let i = 0; i < 8; i++) {
-            const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan"];
+        for (let i = 0; i < 13; i++) {
+            // Увеличиваем шанс выпадения бомбы (bomb)
+            const typesPool = ["bomb", "bomb", "sword", "table", "shield", "helmet", "drop1", "fan", "bomb"];
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
                 speed: 0.8 + Math.random() * 1.2,
                 type: typesPool[Math.floor(Math.random() * typesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.03
+                rotSpeed: (Math.random() - 0.5) * 0.07 // Более активное вращение вокруг себя
             });
         }
 
@@ -485,7 +484,6 @@
             }
         }
 
-        // Клик по основному экрану (ГМ) закрывает шторку, если она открыта
         window.addEventListener("click", (e) => {
             if (isDrawerOpen && !gameStarted) {
                 const drawer = document.getElementById("profileDrawer");
@@ -642,11 +640,11 @@
             else if (item.type === "bomb") {
                 if (bombImg.complete && bombImg.naturalWidth !== 0) {
                     let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                    let drawH = isLarge ? 50 : 40;
+                    let drawH = isLarge ? 46 : 40;
                     let drawW = drawH * imgAspect;
-                    targetCtx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
+                    targetCtx.drawImage(bombImg, Math.round(-drawW / 2), Math.round(-drawH / 2), drawW, drawH);
                 } else {
-                    targetCtx.fillText("💣", item.x, item.y);
+                    targetCtx.fillText("💣", 0, 0);
                 }
             }
             else if (item.type === "shield") targetCtx.fillText("🛡", item.x, item.y);
@@ -654,7 +652,7 @@
             else if (item.type === "drop1") targetCtx.fillText("💧", item.x, item.y);
             else if (item.type === "snow") targetCtx.fillText("❄️", item.x, item.y);
             else {
-                targetCtx.fillText("🗡", item.x, item.y);
+                targetCtx.fillText("🗡", 0, 0);
             }
         }
 
@@ -704,11 +702,11 @@
                     ctx.restore();
                 });
 
-                // Отрисовка анимации внутри выдвижной панели профиля (если она открыта)
+                // Отрисовка анимации внутри выдвижной панели профиля с вращением вокруг себя
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
-                    item.y += item.speed; // Медленнее
-                    item.rotation += item.rotSpeed;
+                    item.y += item.speed; 
+                    item.rotation += item.rotSpeed; // Крутятся вокруг себя
                     if (item.y > drawerH + 50) {
                         item.y = -50;
                         item.x = Math.random() * drawerW;
@@ -717,7 +715,6 @@
                     drawerCtx.save();
                     drawerCtx.translate(item.x, item.y);
                     drawerCtx.rotate(item.rotation);
-                    // Крупнее предметы (isLarge = true)
                     drawSingleItem(item, drawerCtx, true);
                     drawerCtx.restore();
                 });
