@@ -96,7 +96,7 @@
             z-index: 31;
         }
 
-        /* Выдвижная панель профиля слева (расширена до 360px) */
+        /* Выдвижная панель профиля слева */
         #profileDrawer {
             position: absolute;
             top: 0;
@@ -713,13 +713,13 @@
                 return;
             }
 
-            const available = await isNicknameAvailable(cleanUsername);
-            if (!available) {
-                alert("Этот никнейм уже занят другим игроком!");
-                return;
-            }
-
             try {
+                const available = await isNicknameAvailable(cleanUsername);
+                if (!available) {
+                    alert("Этот никнейм уже занят другим игроком!");
+                    return;
+                }
+
                 const fakeEmail = cleanUsername.toLowerCase() + FAKE_EMAIL_DOMAIN;
                 const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, password);
                 const user = userCredential.user;
@@ -1028,6 +1028,7 @@
                 if (chatSnap.exists()) {
                     const data = chatSnap.data();
                     const messages = data.messages || [];
+                    // Срабатывает сразу с самого первого непрочитанного сообщения
                     const hasUnreadFromThisFriend = messages.some(m => m.sender !== currentUid && !m.read);
                     if (hasUnreadFromThisFriend) {
                         hasUnread = true;
@@ -1049,6 +1050,14 @@
                 burgerBadge.style.display = "none";
             }
         }
+
+        // Авто-обновление таймеров друзей каждую секунду без перезахода
+        setInterval(() => {
+            const friendsPanel = document.getElementById("friendsSectionPanel");
+            if (friendsPanel && friendsPanel.style.display === "flex") {
+                loadFriendsList();
+            }
+        }, 1000);
 
         window.onSearchInputChanged = async function(queryText) {
             const container = document.getElementById("searchResultsContainer");
@@ -1203,7 +1212,7 @@
 
         window.loadFriendsList = async function() {
             const container = document.getElementById("friendsResultsContainer");
-            container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Загрузка...</div>`;
+            if (!container) return;
 
             if (!currentUid || !currentUserData.friends || currentUserData.friends.length === 0) {
                 container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">У вас пока нет друзей</div>`;
@@ -1240,9 +1249,7 @@
                     `;
                 }
                 container.innerHTML = html;
-            } catch (e) {
-                container.innerHTML = `<div style="font-size:11px; color:#f44336; padding:5px;">Ошибка загрузки</div>`;
-            }
+            } catch (e) {}
         };
 
         window.loadChatList = async function() {
@@ -1317,7 +1324,6 @@
             document.getElementById("activeChatRedDot").style.display = "none";
             document.getElementById("chatSectionPanel").style.display = "flex";
 
-            // Проверка, является ли пользователь другом
             const isFriend = currentUserData.friends && currentUserData.friends.includes(friendUid);
             const chatInputArea = document.getElementById("chatInputArea");
             const chatWarning = document.getElementById("chatNotFriendWarning");
@@ -1432,7 +1438,6 @@
         window.sendChatMessage = async function() {
             if (!activeChatFriendUid || !currentUid) return;
             
-            // Дополнительная проверка на дружбу перед отправкой
             if (!currentUserData.friends || !currentUserData.friends.includes(activeChatFriendUid)) {
                 alert("Нельзя писать пользователям, которых нет в друзьях!");
                 return;
@@ -1512,7 +1517,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v175_exact_requirements";
+        const CURRENT_APP_VERSION = "v176_optimized";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1532,11 +1537,11 @@
 
         ctx.scale(dpr, dpr);
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        ctx.imageSmoothingQuality = 'medium'; // Оптимизировано для высокой производительности
 
         const drawerCanvas = document.getElementById("drawerCanvasContainer");
         const drawerCtx = drawerCanvas.getContext("2d");
-        const drawerW = 360; // Обновленная ширина под новую панель
+        const drawerW = 360;
         const drawerH = window.innerHeight;
         drawerCanvas.width = drawerW * dpr;
         drawerCanvas.height = drawerH * dpr;
@@ -1610,28 +1615,28 @@
         let spawnTimer = 0;
 
         let menuDecorItems = [];
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 10; i++) { // Уменьшено количество для идеального FPS
             const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"];
             menuDecorItems.push({
                 x: Math.random() * W,
                 y: Math.random() * H,
-                speed: 1.5 + Math.random() * 2.5,
+                speed: 1.2 + Math.random() * 2.0,
                 type: typesPool[Math.floor(Math.random() * typesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.04
+                rotSpeed: (Math.random() - 0.5) * 0.03
             });
         }
 
         let drawerDecorItems = [];
-        for (let i = 0; i < 9; i++) {
+        for (let i = 0; i < 6; i++) {
             const typesPool = ["sword", "helmet", "bomb", "drop1", "shield"];
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
-                speed: 1.5 + Math.random() * 2.5,
+                speed: 1.2 + Math.random() * 2.0,
                 type: typesPool[Math.floor(Math.random() * typesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.04
+                rotSpeed: (Math.random() - 0.5) * 0.03
             });
         }
 
@@ -1809,8 +1814,6 @@
                 targetCtx.bezierCurveTo(9, -3, 9, 10, 0, 13);
                 targetCtx.bezierCurveTo(-9, 10, -9, -3, 0, -12);
                 targetCtx.fillStyle = "#ffffff";
-                targetCtx.shadowColor = "#ffffff";
-                targetCtx.shadowBlur = 10;
                 targetCtx.fill();
                 targetCtx.restore();
             }
@@ -2334,8 +2337,6 @@
                 ctx.bezierCurveTo(7, -2, 7, 8, 0, 10);
                 ctx.bezierCurveTo(-7, 8, -7, -2, 0, -10);
                 ctx.fillStyle = "#ffffff";
-                ctx.shadowColor = "#ffffff";
-                ctx.shadowBlur = 8;
                 ctx.fill();
                 ctx.restore();
 
@@ -2403,10 +2404,10 @@
 
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
             
-            // Исправление мигания: убираем замедление цикла, делаем равномерным и стабильным (период 600мс)
+            // Фикс мигания у Даши: стабильный ритмичный цикл без замедлений
             let centerZoneCycle = (now % 600);
             let centerVal = Math.sin((centerZoneCycle / 600) * Math.PI * 2);
-            let centerZoneAlpha = centerVal > 0 ? 1.0 : 0.2; // Без затуханий в ноль и замедлений
+            let centerZoneAlpha = centerVal > 0 ? 1.0 : 0.2;
 
             let vaporMultiplier = 1.0;
             if (isDashaActive && bossHp < 170) {
@@ -2515,13 +2516,12 @@
 
                 if (renderWithMoon && alpha > 0.005) {
                     ctx.save();
-                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 65);
+                    let moonGlow = ctx.createRadialGradient(item.x, item.y, 2, item.x, item.y, 50);
                     moonGlow.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-                    moonGlow.addColorStop(0.5, `rgba(0, 210, 255, ${alpha * 0.7})`);
                     moonGlow.addColorStop(1, 'rgba(0, 210, 255, 0)');
 
                     ctx.beginPath();
-                    ctx.arc(item.x, item.y, 65, 0, Math.PI * 2);
+                    ctx.arc(item.x, item.y, 50, 0, Math.PI * 2);
                     ctx.fillStyle = moonGlow;
                     ctx.fill();
 
