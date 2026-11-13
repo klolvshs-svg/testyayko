@@ -642,7 +642,7 @@
         </div>
     </div>
 
-    <div id="gameOverScreen" class="modal">
+    <div id="gameOverScreen" class="modal" style="z-index: 40;">
         <h1 style="font-size: 36px; margin: 0;">💀 ИГРА ОКОНЧЕНА</h1>
         <p style="font-size: 18px; color: #aaa;">Заработано за раунд:</p>
         <p style="font-size: 26px; color: #00d2ff; font-weight: bold;" id="roundScoreText">+0.000 мл</p>
@@ -681,8 +681,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDbjOOmFID0DwVfYoOy6jHtNooXBOFvrk",
@@ -707,25 +707,16 @@
         let unsubscribePartnerStatus = null;
         let typingTimeout = null;
 
-        // Генерация неизменяемого технического email по UID, чтобы смена ника никогда не ломала авторизацию
-        function generateInternalAuthEmail() {
-            const randPart = Math.random().toString(36).substring(2, 10);
-            return `uid_${Date.now()}_${randPart}${FAKE_EMAIL_DOMAIN}`;
-        }
-
-        async function isNicknameAvailable(nickname, excludeUid = null) {
+        // Строгая проверка доступности ника перед созданием
+        async function isNicknameAvailable(nickname) {
             try {
                 const cleanNick = nickname.trim().toLowerCase();
                 const usersRef = collection(db, "users");
                 const q = query(usersRef, where("username_lower", "==", cleanNick));
                 const snapshot = await getDocs(q);
-                if (snapshot.empty) return true;
-                if (excludeUid) {
-                    return snapshot.docs.every(d => d.id === excludeUid);
-                }
-                return false;
+                return snapshot.empty;
             } catch (e) {
-                return true;
+                return false;
             }
         }
 
@@ -739,21 +730,21 @@
                 return;
             }
 
-            const available = await isNicknameAvailable(cleanUsername);
+            const cleanLower = cleanUsername.toLowerCase();
+            const available = await isNicknameAvailable(cleanLower);
             if (!available) {
-                alert("Этот никнейм уже занят другим игроком!");
+                alert("Этот никнейм уже занят!");
                 return;
             }
 
             try {
-                const internalEmail = generateInternalAuthEmail();
-                const userCredential = await createUserWithEmailAndPassword(auth, internalEmail, password);
+                const registerEmail = cleanLower + FAKE_EMAIL_DOMAIN;
+                const userCredential = await createUserWithEmailAndPassword(auth, registerEmail, password);
                 const user = userCredential.user;
 
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
-                    username_lower: cleanUsername.toLowerCase(),
-                    authEmail: internalEmail,
+                    username_lower: cleanLower,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -768,7 +759,11 @@
                 localStorage.setItem("egg_total_ml_bank", "0.0");
                 alert("Аккаунт успешно создан!");
             } catch (error) {
-                alert("Ошибка создания аккаунта: " + error.message);
+                if (error.code === 'auth/email-already-in-use') {
+                    alert("Этот никнейм уже занят в базе аутентификации!");
+                } else {
+                    alert("Ошибка создания аккаунта: " + error.message);
+                }
             }
         };
 
@@ -783,24 +778,7 @@
             }
 
             try {
-                const usersRef = collection(db, "users");
-                const q = query(usersRef, where("username_lower", "==", cleanUsername));
-                const snapshot = await getDocs(q);
-
-                if (snapshot.empty) {
-                    alert("Неверный ник или пароль!");
-                    return;
-                }
-
-                const userDoc = snapshot.docs[0];
-                const userData = userDoc.data();
-                let loginEmail = userData.authEmail;
-
-                if (!loginEmail) {
-                    loginEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
-                    await updateDoc(doc(db, "users", userDoc.id), { authEmail: loginEmail });
-                }
-
+                const loginEmail = cleanUsername + FAKE_EMAIL_DOMAIN;
                 await signInWithEmailAndPassword(auth, loginEmail, password);
                 alert("Вход выполнен успешно!");
             } catch (error) {
@@ -853,52 +831,58 @@
                 return;
             }
 
-            const isNickChanged = (newNick.toLowerCase() !== currentUserData.username_lower);
+            const newLower = newNick.toLowerCase();
+            const isNickChanged = (newLower !== currentUserData.username_lower);
 
             if (isNickChanged) {
-                const available = await isNicknameAvailable(newNick, currentUid);
+                const available = await isNicknameAvailable(newLower);
                 if (!available) {
                     alert("Этот ник уже занят другим игроком!");
                     return;
                 }
             }
 
-            const updateData = {};
-            if (isNickChanged) {
-                updateData.username = newNick;
-                updateData.username_lower = newNick.toLowerCase();
-            }
+            try {
+                if (isNickChanged) {
+                    const newEmail = newLower + FAKE_EMAIL_DOMAIN;
+                    await updateEmail(auth.currentUser, newEmail);
 
-            const executeUpdate = async (avatarBase64) => {
-                if (avatarBase64) updateData.avatarUrl = avatarBase64;
+                    // Переносим старый документ в Firestore на новый UID или обновляем поля
+                    const oldUserDocSnap = await getDoc(doc(db, "users", currentUid));
+                    const oldData = oldUserDocSnap.data();
 
-                try {
-                    await updateDoc(doc(db, "users", currentUid), updateData);
-                    
-                    if (isNickChanged) {
-                        currentUserData.username = newNick;
-                        currentUserData.username_lower = newNick.toLowerCase();
-                        document.getElementById("userDisplayNick").innerText = newNick;
-                    }
-                    if (avatarBase64) {
-                        currentUserData.avatarUrl = avatarBase64;
-                        document.getElementById("userAvatarImg").src = avatarBase64;
-                    }
-
-                    toggleEditMode(false);
-                    alert("Изменения сохранены! Старый ник полностью освобождён.");
-                } catch (error) {
-                    alert("Ошибка обновления: " + error.message);
+                    await setDoc(doc(db, "users", currentUid), {
+                        ...oldData,
+                        username: newNick,
+                        username_lower: newLower
+                    });
                 }
-            };
 
-            if (hasNewAvatar) {
-                const reader = new FileReader();
-                reader.onload = function(e) { executeUpdate(e.target.result); };
-                reader.onerror = function() { alert("Не удалось прочитать файл изображения."); };
-                reader.readAsDataURL(fileInput.files[0]);
-            } else {
-                executeUpdate(null);
+                const updatePayload = {};
+                if (hasNewAvatar) {
+                    const reader = new FileReader();
+                    reader.onload = async function(e) {
+                        updatePayload.avatarUrl = e.target.result;
+                        await updateDoc(doc(db, "users", currentUid), updatePayload);
+                        currentUserData.avatarUrl = e.target.result;
+                        document.getElementById("userAvatarImg").src = e.target.result;
+                        toggleEditMode(false);
+                        alert("Изменения сохранены!");
+                    };
+                    reader.readAsDataURL(fileInput.files[0]);
+                    return;
+                }
+
+                if (isNickChanged) {
+                    currentUserData.username = newNick;
+                    currentUserData.username_lower = newLower;
+                    document.getElementById("userDisplayNick").innerText = newNick;
+                }
+
+                toggleEditMode(false);
+                alert("Изменения сохранены!");
+            } catch (error) {
+                alert("Ошибка смены ника: " + error.message);
             }
         };
 
@@ -1559,7 +1543,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v180_full_restored";
+        const CURRENT_APP_VERSION = "v181_full_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -2072,7 +2056,6 @@
                 return;
             }
 
-            // Таймер тикает непрерывно во время активной игры
             gameElapsedMs += Math.min(deltaMs, 200);
 
             const isInvincible = now < invincibleUntil;
@@ -2513,7 +2496,6 @@
 
             let isDashaActive = (bossState === "active" && currentBoss === "dasha" && bossHp < 300);
             
-            // Лунный цикл мигания у Даши: 15 секунд угасания и 5 секунд лунного света
             let centerZoneCycle = (now % 20000);
             let centerZoneAlpha = 0.0;
             if (centerZoneCycle < 15000) {
@@ -2793,7 +2775,6 @@
                         } 
 
                         showGameOver();
-                        requestAnimationFrame(gameLoop);
                         return;
                     }
                 }
@@ -2986,7 +2967,6 @@
                                     continue;
                                 } else {
                                     showGameOver();
-                                    requestAnimationFrame(gameLoop);
                                     return;
                                 }
                             }
@@ -3001,6 +2981,7 @@
         }
 
         function showGameOver() {
+            if (gameOver) return;
             gameOver = true;
             currentBoss = null;
             bossState = "normal";
