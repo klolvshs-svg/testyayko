@@ -1006,6 +1006,7 @@
                         return;
                     }
 
+                    // 1. Создаем новый документ с тем же профилем и новым ID
                     await setDoc(newDocRef, {
                         ...currentUserData,
                         username: newNick,
@@ -1016,13 +1017,71 @@
                         lastActive: serverTimestamp()
                     });
 
+                    // 2. Обновляем ссылки у друзей (заменяем старый ID на новый)
+                    if (currentUserData.friends && currentUserData.friends.length > 0) {
+                        for (let friendUid of currentUserData.friends) {
+                            try {
+                                const friendRef = doc(db, "users", friendUid);
+                                const friendSnap = await getDoc(friendRef);
+                                if (friendSnap.exists()) {
+                                    let fData = friendSnap.data();
+                                    let fFriends = fData.friends || [];
+                                    if (fFriends.includes(oldLower)) {
+                                        fFriends = fFriends.map(id => id === oldLower ? newLower : id);
+                                        await updateDoc(friendRef, { friends: fFriends });
+                                    }
+                                    let fReqs = fData.friendRequests || [];
+                                    if (fReqs.includes(oldLower)) {
+                                        fReqs = fReqs.map(id => id === oldLower ? newLower : id);
+                                        await updateDoc(friendRef, { friendRequests: fReqs });
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                    }
+
+                    // 3. Обновляем входящие запросы в друзья
+                    if (currentUserData.friendRequests && currentUserData.friendRequests.length > 0) {
+                        for (let reqUid of currentUserData.friendRequests) {
+                            try {
+                                const reqRef = doc(db, "users", reqUid);
+                                const reqSnap = await getDoc(reqRef);
+                                if (reqSnap.exists()) {
+                                    let rData = reqSnap.data();
+                                    let rReqs = rData.friendRequests || [];
+                                    if (rReqs.includes(oldLower)) {
+                                        rReqs = rReqs.map(id => id === oldLower ? newLower : id);
+                                        await updateDoc(reqRef, { friendRequests: rReqs });
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                    }
+
+                    // 4. Переносим переписки (чаты) со старого ID на новый, чтобы чаты не пропадали
+                    if (currentUserData.friends && currentUserData.friends.length > 0) {
+                        for (let friendUid of currentUserData.friends) {
+                            try {
+                                const oldChatId = [oldLower, friendUid].sort().join("_");
+                                const newChatId = [newLower, friendUid].sort().join("_");
+                                const oldChatRef = doc(db, "chats", oldChatId);
+                                const oldChatSnap = await getDoc(oldChatRef);
+                                if (oldChatSnap.exists()) {
+                                    await setDoc(doc(db, "chats", newChatId), oldChatSnap.data());
+                                    await deleteDoc(oldChatRef);
+                                }
+                            } catch(e) {}
+                        }
+                    }
+
+                    // 5. Удаляем старый документ профиля
                     await deleteDoc(doc(db, "users", oldLower));
                     localStorage.removeItem("egg_session_token_" + oldLower);
 
                     bindUserProfile(newLower);
                     hideLoading();
                     toggleEditMode(false);
-                    alert("Изменения сохранены! Старый ник освобожден.");
+                    alert("Ник успешно изменен! Все чаты и друзья сохранены.");
                 } else {
                     await updateDoc(doc(db, "users", oldLower), {
                         username: newNick,
@@ -1634,7 +1693,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v190_fixed_syntax";
+        const CURRENT_APP_VERSION = "v191_fix_nickname_chats";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
