@@ -38,6 +38,19 @@
             align-items: center;
             z-index: 10;
         }
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 33, 0.82);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 40;
+        }
         #startScreen {
             display: flex;
             position: absolute;
@@ -578,7 +591,7 @@
                         </div>
                     </div>
 
-                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ -->
+                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ И СЕССИИ -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник (английский)">
@@ -593,13 +606,17 @@
                         <input type="password" id="editOldPasswordInput" class="drawer-input" placeholder="Старый пароль">
                         <input type="password" id="editNewPasswordInput" class="drawer-input" placeholder="Новый пароль (мин. 4 символа)">
 
-                        <div style="width: 100%; display: flex; gap: 5px; margin-top: 5px; margin-bottom: 10px;">
+                        <button class="btn-drawer-custom" style="background: #1e3c55; margin-top: 10px;" onclick="toggleSessionsPanel()">🖥 Активные сессии</button>
+                        <div id="sessionsSectionPanel" class="drawer-section-panel" style="max-height: 180px;">
+                            <div id="sessionsResultsContainer" style="width: 100%;"></div>
+                        </div>
+
+                        <div style="width: 100%; display: flex; gap: 5px; margin-top: 10px; margin-bottom: 10px;">
                             <button class="btn-drawer-custom" style="background: #28a745; margin: 0;" onclick="saveProfileChanges()">Сохранить</button>
                             <button class="btn-drawer-custom" style="background: #6c757d; margin: 0;" onclick="toggleEditMode(false)">Отмена</button>
                         </div>
                     </div>
 
-                    <!-- Кнопка выйти из акка (скрыта при редактировании, видна внизу шторки) -->
                     <button id="logoutDrawerBtn" class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
                 </div>
             </div>
@@ -625,19 +642,20 @@
         </div>
     </div>
 
-    <div id="gameOverScreen" class="modal" style="z-index: 40;">
-        <h1 style="font-size: 36px; margin: 0;">💀 ИГРА ОКОНЧЕНА</h1>
-        <p style="font-size: 18px; color: #aaa;">Заработано за раунд:</p>
-        <p style="font-size: 26px; color: #00d2ff; font-weight: bold;" id="roundScoreText">+0.000 мл</p>
-        <p style="font-size: 18px; color: #fff;">Общий баланс на сайте: <b id="totalBankText">0.000</b> мл</p>
+    <!-- ЭКРАН ПОРАЖЕНИЯ (ВОЗВРАЩЕН С ПОЛУПРОЗРАЧНЫМ ФОНОМ И КНОПКАМИ) -->
+    <div id="gameOverScreen">
+        <h1 style="font-size: 36px; margin: 0; color: #ff4d4d; text-shadow: 0 0 15px rgba(255,77,77,0.5);">💀 ИГРА ОКОНЧЕНА</h1>
+        <p style="font-size: 18px; color: #aaa; margin: 10px 0 5px 0;">Заработано за раунд:</p>
+        <p style="font-size: 26px; color: #00d2ff; font-weight: bold; margin: 0 0 15px 0;" id="roundScoreText">+0.000 мл</p>
+        <p style="font-size: 18px; color: #fff; margin: 0 0 20px 0;">Общий баланс на сайте: <b id="totalBankText">0.000</b> мл</p>
         
-        <div>
+        <div style="position: relative; z-index: 45;">
             <button class="btn" onclick="restartGame()">Заново 🔄</button>
-            <button id="withdrawGameOverBtn" class="btn btn-withdraw" onclick="showWithdrawModal()" disabled style="opacity: 0.5; cursor: not-allowed;" title="Войдите в аккаунт, чтобы вывести миллилитры">Вывести мл 🎁</button>
+            <button id="withdrawGameOverBtn" class="btn btn-withdraw" onclick="showWithdrawModal()">Вывести мл 🎁</button>
         </div>
     </div>
 
-    <div id="withdrawModal" class="modal" style="z-index: 30;">
+    <div id="withdrawModal" class="modal" style="z-index: 50;">
         <h2>🎁 Вывод миллилитров</h2>
         <p style="color: #aaa; font-size: 14px; max-width: 80%;">
             Доступно: <b id="withdrawBalanceText" style="color: #00d2ff;">0</b> мл<br>
@@ -654,7 +672,7 @@
         </div>
     </div>
 
-    <div id="promoModal" class="modal" style="z-index: 35;">
+    <div id="promoModal" class="modal" style="z-index: 55;">
         <h2>🎉 Код начисления готов!</h2>
         <p style="color: #aaa;">Скопируйте код и отправьте боту командой:</p>
         <div class="promo-box" id="promoCodeDisplay">EGG-XXXX-XXXX-XXXX</div>
@@ -689,6 +707,11 @@
         let unsubscribeChat = null;
         let unsubscribePartnerStatus = null;
         let typingTimeout = null;
+        let currentDeviceSessionId = localStorage.getItem("egg_device_session_id") || (() => {
+            const id = Math.random().toString(36).substring(2) + Date.now().toString(36);
+            localStorage.setItem("egg_device_session_id", id);
+            return id;
+        })();
 
         function showLoading(text) {
             document.getElementById("loadingText").innerText = text || "Загрузка...";
@@ -738,9 +761,10 @@
                 if (docSnap.exists()) {
                     currentUserData = docSnap.data();
                     
-                    const localToken = localStorage.getItem("egg_session_token_" + nickId);
-                    if (currentUserData.sessionToken && localToken && currentUserData.sessionToken !== localToken) {
-                        alert("Ваш пароль был изменен на другом устройстве. Пожалуйста, войдите заново.");
+                    // Проверяем сессии
+                    const sessions = currentUserData.activeSessions || {};
+                    if (sessions[currentDeviceSessionId] === false) {
+                        alert("Ваша сессия была завершена (вы выброшены с аккаунта).");
                         clearLocalSession();
                         return;
                     }
@@ -758,21 +782,36 @@
                 }
             });
 
+            registerDeviceSession(nickId);
             updateHeartbeat(false);
+        }
+
+        async function registerDeviceSession(nickId) {
+            try {
+                const userRef = doc(db, "users", nickId);
+                const ua = navigator.userAgent.includes("Mobile") ? "📱 Телефон / Планшет" : "💻 Компьютер (ПК)";
+                const sessionName = `${ua} (${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})`;
+                await updateDoc(userRef, {
+                    [`activeSessions.${currentDeviceSessionId}`]: sessionName
+                });
+            } catch(e) {}
         }
 
         function clearLocalSession() {
             if (currentUid) {
                 try {
-                    navigator.sendBeacon ? null : fetch(`https://firestore.googleapis.com/...`, {method:'POST'});
-                    // Синхронный сброс статуса через пустой вызов или локальную очистку
-                    updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null, currentBossName: null, lastActive: null }).catch(()=>{});
+                    updateDoc(doc(db, "users", currentUid), { 
+                        inGame: false, 
+                        gameStartTime: null, 
+                        currentBossName: null, 
+                        lastActive: null,
+                        [`activeSessions.${currentDeviceSessionId}`]: false 
+                    }).catch(()=>{});
                 } catch(e){}
-                localStorage.removeItem("egg_session_token_" + currentUid);
+                localStorage.removeItem("egg_logged_in_nick");
             }
             currentUid = null;
             currentUserData = null;
-            localStorage.removeItem("egg_logged_in_nick");
             if (unsubscribeUserDoc) { unsubscribeUserDoc(); unsubscribeUserDoc = null; }
             if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
             if (unsubscribePartnerStatus) { unsubscribePartnerStatus(); unsubscribePartnerStatus = null; }
@@ -817,14 +856,10 @@
                     return;
                 }
 
-                const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
-                localStorage.setItem("egg_session_token_" + cleanLower, sessionToken);
-
                 await setDoc(userDocRef, {
                     username: cleanUsername,
                     username_lower: cleanLower,
                     password: password,
-                    sessionToken: sessionToken,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -832,6 +867,7 @@
                     inGame: false,
                     gameStartTime: null,
                     currentBossName: null,
+                    activeSessions: { [currentDeviceSessionId]: "Текущее устройство" },
                     lastActive: serverTimestamp(),
                     createdAt: new Date()
                 });
@@ -883,10 +919,6 @@
                     return;
                 }
 
-                const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
-                localStorage.setItem("egg_session_token_" + cleanLower, sessionToken);
-                await updateDoc(userDocRef, { sessionToken: sessionToken });
-
                 bindUserProfile(cleanLower);
                 hideLoading();
                 alert("Вход выполнен успешно!");
@@ -901,7 +933,12 @@
             if (confirmed) {
                 try {
                     if (currentUid) {
-                        await updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null, currentBossName: null, lastActive: null });
+                        await updateDoc(doc(db, "users", currentUid), { 
+                            inGame: false, 
+                            gameStartTime: null, 
+                            currentBossName: null,
+                            [`activeSessions.${currentDeviceSessionId}`]: false 
+                        });
                     }
                 } catch (e) {}
                 clearLocalSession();
@@ -924,11 +961,57 @@
                 viewMode.style.display = "none";
                 editMode.style.display = "flex";
                 if (logoutBtn) logoutBtn.style.display = "none";
+                document.getElementById("sessionsSectionPanel").style.display = "none";
             } else {
                 viewMode.style.display = "flex";
                 editMode.style.display = "none";
                 if (logoutBtn) logoutBtn.style.display = "block";
             }
+        };
+
+        window.toggleSessionsPanel = function() {
+            const panel = document.getElementById("sessionsSectionPanel");
+            const isVisible = panel.style.display === "flex";
+            panel.style.display = isVisible ? "none" : "flex";
+            if (!isVisible) loadActiveSessions();
+        }
+
+        window.loadActiveSessions = async function() {
+            const container = document.getElementById("sessionsResultsContainer");
+            if (!currentUserData || !currentUserData.activeSessions) {
+                container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Нет данных</div>`;
+                return;
+            }
+
+            let html = "";
+            for (let [sId, sName] of Object.entries(currentUserData.activeSessions)) {
+                if (sName === false) continue;
+                let isCurrent = (sId === currentDeviceSessionId);
+                html += `
+                    <div class="user-result-card" style="padding: 6px;">
+                        <div class="user-result-info">
+                            <div>
+                                <div class="user-result-name" style="font-size:11px;">${sName} ${isCurrent ? '<span style="color:#a5d6a7;">(Вы)</span>' : ''}</div>
+                            </div>
+                        </div>
+                        <div>
+                            ${isCurrent ? '<span style="font-size:10px; color:#aaa;">Текущее</span>' : `<button class="btn-mini-action btn-mini-danger" onclick="terminateSession('${sId}')">Выкинуть</button>`}
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html || `<div style="font-size:11px; color:#777; padding:5px;">Нет других сессий</div>`;
+        };
+
+        window.terminateSession = async function(targetSessionId) {
+            if (!currentUid) return;
+            try {
+                const userRef = doc(db, "users", currentUid);
+                await updateDoc(userRef, {
+                    [`activeSessions.${targetSessionId}`]: false
+                });
+                loadActiveSessions();
+            } catch(e) {}
         };
 
         window.saveProfileChanges = async function() {
@@ -984,9 +1067,13 @@
                     });
                 }
 
-                // Сбрасываем токены всем устройствам (включая текущие другие вкладки) при смене пароля
-                const newSessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
-                localStorage.setItem("egg_session_token_" + (isNickChanged ? newLower : oldLower), newSessionToken);
+                // Сбрасываем другие сессии ТОЛЬКО если реально сменился пароль
+                let sessionsUpdate = currentUserData.activeSessions || {};
+                if (isPasswordChanging) {
+                    let newSessions = {};
+                    newSessions[currentDeviceSessionId] = sessionsUpdate[currentDeviceSessionId] || "Текущее устройство";
+                    sessionsUpdate = newSessions;
+                }
 
                 if (isNickChanged) {
                     const newDocRef = doc(db, "users", newLower);
@@ -1002,8 +1089,8 @@
                         username: newNick,
                         username_lower: newLower,
                         password: newPasswordToSave,
-                        sessionToken: newSessionToken,
                         avatarUrl: avatarBase64,
+                        activeSessions: sessionsUpdate,
                         lastActive: serverTimestamp()
                     });
 
@@ -1062,22 +1149,20 @@
                     }
 
                     await deleteDoc(doc(db, "users", oldLower));
-                    localStorage.removeItem("egg_session_token_" + oldLower);
-
                     bindUserProfile(newLower);
                     hideLoading();
                     toggleEditMode(false);
-                    alert("Ник и сессии успешно обновлены!");
+                    alert("Ник и изменения успешно сохранены!");
                 } else {
                     await updateDoc(doc(db, "users", oldLower), {
                         username: newNick,
                         password: newPasswordToSave,
-                        sessionToken: newSessionToken,
-                        avatarUrl: avatarBase64
+                        avatarUrl: avatarBase64,
+                        activeSessions: sessionsUpdate
                     });
                     hideLoading();
                     toggleEditMode(false);
-                    alert("Изменения успешно сохранены, сессии на других устройствах сброшены!");
+                    alert("Изменения успешно сохранены!");
                 }
             } catch (error) {
                 hideLoading();
@@ -1088,7 +1173,7 @@
         async function updateHeartbeat(inGameStatus = false, bossName = null) {
             if (!currentUid) return;
             const now = Date.now();
-            if (now - lastHeartbeatTime > 6000 || inGameStatus !== (currentUserData?.inGame) || bossName !== (currentUserData?.currentBossName)) {
+            if (now - lastHeartbeatTime > 5000 || inGameStatus !== (currentUserData?.inGame) || bossName !== (currentUserData?.currentBossName)) {
                 lastHeartbeatTime = now;
                 try {
                     const updatePayload = {
@@ -1114,7 +1199,7 @@
                 bName = (currentBoss === "dasha") ? "Даша" : "Рита";
             }
             updateHeartbeat(inGame, bName);
-        }, 5000);
+        }, 4000);
 
         async function goOfflineInstant() {
             if (currentUid) {
@@ -1123,7 +1208,8 @@
                         inGame: false,
                         gameStartTime: null,
                         currentBossName: null,
-                        lastActive: null
+                        lastActive: null,
+                        [`activeSessions.${currentDeviceSessionId}`]: false
                     });
                 } catch (e) {}
             }
@@ -1659,7 +1745,7 @@
         function formatStatusObj(timestamp, inGame, gameStartTime, bossName) {
             if (inGame) {
                 if (bossName) {
-                    return { text: `спасает яичницу (${bossName})`, color: "#00d2ff" };
+                    return { text: `Спасает кожицу от ${bossName}`, color: "#00d2ff" };
                 }
                 let diffSec = 0;
                 if (gameStartTime) {
@@ -1668,7 +1754,7 @@
                 }
                 const mins = Math.floor(diffSec / 60).toString().padStart(2, '0');
                 const secs = (diffSec % 60).toString().padStart(2, '0');
-                return { text: `играет в спаси яичницу [${mins}:${secs}]`, color: "#a5d6a7" };
+                return { text: `Спасает кожицу [${mins}:${secs}]`, color: "#a5d6a7" };
             }
 
             if (!timestamp) return { text: "Не в сети", color: "#888888" };
@@ -1701,7 +1787,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v192_fix_smooth_gameover";
+        const CURRENT_APP_VERSION = "v193_fix_sessions_gameover";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1914,6 +2000,7 @@
             window.gameOver = false;
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
+            document.getElementById("gameOverScreen").style.display = "none";
             mlEarned = 0.0;
             gameElapsedMs = 0;
             lastFrameTime = Date.now();
@@ -1949,7 +2036,6 @@
 
             document.getElementById("startScreen").style.display = "none";
             document.getElementById("pauseScreen").style.display = "none";
-            document.getElementById("gameOverScreen").style.display = "none";
             
             const pBtn = document.getElementById("pauseBtn");
             pBtn.style.display = "flex";
@@ -1995,6 +2081,7 @@
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
             document.getElementById("pauseScreen").style.display = "none";
+            document.getElementById("gameOverScreen").style.display = "none";
             document.getElementById("pauseBtn").style.display = "none";
             document.getElementById("startScreen").style.display = "flex";
         }
@@ -2127,7 +2214,6 @@
             }
 
             if (window.gameOver) {
-                // Заморозка игры с видимым фоном и состоянием намертво
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 15px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 ctx.textAlign = "left";
