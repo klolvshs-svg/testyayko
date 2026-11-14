@@ -751,7 +751,6 @@
 
             showLoading("Создание аккаунта...");
             try {
-                // Если осталась старая сессия, сбрасываем её перед анонимным входом
                 if (auth.currentUser) {
                     await signOut(auth);
                 }
@@ -832,7 +831,6 @@
                 alert("Ошибка входа: " + error.message);
             }
         };
-
         window.handleLogout = async function() {
             const confirmed = confirm("Вы уверены, что хотите выйти из аккаунта?");
             if (confirmed) {
