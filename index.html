@@ -669,7 +669,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDbjOOmFID0DwVfYoOy6jHtNooXBOFvrk",
@@ -684,7 +684,8 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        let currentUid = null;
+
+        let currentUid = null; // Теперь здесь хранится уникальный ник в нижнем регистре (ID документа)
         let currentUserData = null;
         let lastHeartbeatTime = 0;
         let unsubscribeUserDoc = null;
@@ -702,26 +703,80 @@
         }
 
         function isValidEnglishNickname(nick) {
-            const regex = /^[a-zA-Z0-9]+$/;
-            return regex.test(nick);
+            return /^[a-zA-Z0-9]+$/.test(nick);
         }
 
-        async function isNicknameAvailable(nickname, excludeUid = null) {
-            try {
-                const cleanNick = nickname.trim().toLowerCase();
-                const usersRef = collection(db, "users");
-                const q = query(usersRef, where("username_lower", "==", cleanNick));
-                const snapshot = await getDocs(q);
-                
-                if (snapshot.empty) return true;
-                if (excludeUid && snapshot.docs.length === 1 && snapshot.docs[0].id === excludeUid) {
-                    return true;
-                }
-                return false;
-            } catch (e) {
-                console.error("Ошибка проверки ника:", e);
-                return false;
+        // Гарантирует, что клиент авторизован в Firebase Auth перед любым запросом к базе
+        async function ensureFirebaseAuth() {
+            if (!auth.currentUser) {
+                await signInAnonymously(auth);
             }
+        }
+
+        // Подписка на профиль игрока по его уникальному нику (ID документа)
+        function bindUserProfile(nickId) {
+            currentUid = nickId;
+            localStorage.setItem("egg_logged_in_nick", nickId);
+
+            const loggedOutView = document.getElementById("drawerLoggedOut");
+            const loggedInView = document.getElementById("drawerLoggedIn");
+            const withdrawMainBtn = document.getElementById("withdrawMainBtn");
+            const withdrawGameOverBtn = document.getElementById("withdrawGameOverBtn");
+
+            loggedOutView.style.display = "none";
+            loggedInView.style.display = "flex";
+
+            if (withdrawMainBtn) {
+                withdrawMainBtn.disabled = false;
+                withdrawMainBtn.style.opacity = "1";
+                withdrawMainBtn.style.cursor = "pointer";
+            }
+            if (withdrawGameOverBtn) {
+                withdrawGameOverBtn.disabled = false;
+                withdrawGameOverBtn.style.opacity = "1";
+                withdrawGameOverBtn.style.cursor = "pointer";
+            }
+
+            if (unsubscribeUserDoc) unsubscribeUserDoc();
+            const userRef = doc(db, "users", nickId);
+
+            unsubscribeUserDoc = onSnapshot(userRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    currentUserData = docSnap.data();
+                    document.getElementById("userDisplayNick").innerText = currentUserData.username || nickId;
+                    document.getElementById("drawerBalance").innerText = (currentUserData.balance_ml || 0).toFixed(3);
+                    window.totalBank = currentUserData.balance_ml || 0;
+                    if (currentUserData.avatarUrl) {
+                        document.getElementById("userAvatarImg").src = currentUserData.avatarUrl;
+                    }
+                    updateBurgerAndRequestsUI(currentUserData.friendRequests || []);
+                    checkUnreadChats();
+                } else {
+                    // Если аккаунт был удалён из базы
+                    clearLocalSession();
+                }
+            });
+
+            updateHeartbeat(false);
+        }
+
+        function clearLocalSession() {
+            currentUid = null;
+            currentUserData = null;
+            localStorage.removeItem("egg_logged_in_nick");
+            if (unsubscribeUserDoc) { unsubscribeUserDoc(); unsubscribeUserDoc = null; }
+            if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
+            if (unsubscribePartnerStatus) { unsubscribePartnerStatus(); unsubscribePartnerStatus = null; }
+
+            document.getElementById("drawerLoggedOut").style.display = "block";
+            document.getElementById("drawerLoggedIn").style.display = "none";
+            toggleEditMode(false);
+            closeAllDrawerPanels();
+
+            const withdrawMainBtn = document.getElementById("withdrawMainBtn");
+            const withdrawGameOverBtn = document.getElementById("withdrawGameOverBtn");
+            if (withdrawMainBtn) { withdrawMainBtn.disabled = true; withdrawMainBtn.style.opacity = "0.5"; }
+            if (withdrawGameOverBtn) { withdrawGameOverBtn.disabled = true; withdrawGameOverBtn.style.opacity = "0.5"; }
         }
 
         window.handleRegister = async function() {
@@ -735,29 +790,29 @@
             }
 
             if (!isValidEnglishNickname(cleanUsername)) {
-                alert("Никнейм должен содержать только английские буквы и цифры без пробелов и спецсимволов!");
+                alert("Никнейм должен содержать только английские буквы и цифры без пробелов!");
                 return;
             }
 
             const cleanLower = cleanUsername.toLowerCase();
-            
-            showLoading("Проверка никнейма...");
-            const available = await isNicknameAvailable(cleanLower);
-            if (!available) {
-                hideLoading();
-                alert("Этот никнейм уже занят другим игроком!");
-                return;
-            }
 
             showLoading("Создание аккаунта...");
             try {
-                if (auth.currentUser) {
-                    await signOut(auth);
-                }
-                const userCredential = await signInAnonymously(auth);
-                const user = userCredential.user;
+                // 1. Сначала получаем права доступа в Firebase Auth
+                await ensureFirebaseAuth();
 
-                await setDoc(doc(db, "users", user.uid), {
+                // 2. Проверяем документ напрямую по ID = никнейм
+                const userDocRef = doc(db, "users", cleanLower);
+                const existingDoc = await getDoc(userDocRef);
+
+                if (existingDoc.exists()) {
+                    hideLoading();
+                    alert("Этот никнейм уже занят другим игроком!");
+                    return;
+                }
+
+                // 3. Создаём документ с ID = cleanLower
+                await setDoc(userDocRef, {
                     username: cleanUsername,
                     username_lower: cleanLower,
                     password: password,
@@ -773,6 +828,7 @@
 
                 window.totalBank = 0.0;
                 localStorage.setItem("egg_total_ml_bank", "0.0");
+                bindUserProfile(cleanLower);
                 hideLoading();
                 alert("Аккаунт успешно создан!");
             } catch (error) {
@@ -800,30 +856,27 @@
 
             showLoading("Вход в аккаунт...");
             try {
-                const usersRef = collection(db, "users");
-                const q = query(usersRef, where("username_lower", "==", cleanLower));
-                const snapshot = await getDocs(q);
+                // 1. Сначала авторизуемся анонимно для доступа к базе
+                await ensureFirebaseAuth();
 
-                if (snapshot.empty) {
+                // 2. Читаем документ по ID = cleanLower
+                const userDocRef = doc(db, "users", cleanLower);
+                const userDocSnap = await getDoc(userDocRef);
+
+                if (!userDocSnap.exists()) {
                     hideLoading();
                     alert("Игрок с таким ником не найден!");
                     return;
                 }
 
-                const userDocSnap = snapshot.docs[0];
                 const userData = userDocSnap.data();
-
                 if (userData.password !== password) {
                     hideLoading();
                     alert("Неверный пароль!");
                     return;
                 }
 
-                if (auth.currentUser) {
-                    await signOut(auth);
-                }
-                await signInAnonymously(auth);
-
+                bindUserProfile(cleanLower);
                 hideLoading();
                 alert("Вход выполнен успешно!");
             } catch (error) {
@@ -831,6 +884,7 @@
                 alert("Ошибка входа: " + error.message);
             }
         };
+
         window.handleLogout = async function() {
             const confirmed = confirm("Вы уверены, что хотите выйти из аккаунта?");
             if (confirmed) {
@@ -838,14 +892,11 @@
                     if (currentUid) {
                         await updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null });
                     }
-                    if (unsubscribeUserDoc) unsubscribeUserDoc();
-                    if (unsubscribeChat) unsubscribeChat();
-                    if (unsubscribePartnerStatus) unsubscribePartnerStatus();
-                    await signOut(auth);
-                    window.totalBank = 0;
-                    localStorage.setItem("egg_total_ml_bank", "0.0");
-                    alert("Вы вышли из аккаунта.");
-                } catch (error) {}
+                } catch (e) {}
+                clearLocalSession();
+                window.totalBank = 0;
+                localStorage.setItem("egg_total_ml_bank", "0.0");
+                alert("Вы вышли из аккаунта.");
             }
         };
 
@@ -882,20 +933,15 @@
             }
 
             const newLower = newNick.toLowerCase();
-            const isNickChanged = (newLower !== currentUserData.username_lower);
-
-            if (isNickChanged) {
-                const available = await isNicknameAvailable(newLower, currentUid);
-                if (!available) {
-                    alert("Этот ник уже занят другим игроком!");
-                    return;
-                }
-            }
+            const oldLower = currentUid;
+            const isNickChanged = (newLower !== oldLower);
 
             showLoading("Сохранение изменений...");
 
             try {
-                let avatarBase64 = null;
+                await ensureFirebaseAuth();
+
+                let avatarBase64 = currentUserData.avatarUrl || "https://via.placeholder.com/70";
                 if (hasNewAvatar) {
                     avatarBase64 = await new Promise((resolve, reject) => {
                         const reader = new FileReader();
@@ -905,30 +951,40 @@
                     });
                 }
 
-                const updateData = {};
                 if (isNickChanged) {
-                    updateData.username = newNick;
-                    updateData.username_lower = newLower; 
-                }
-                if (avatarBase64) {
-                    updateData.avatarUrl = avatarBase64;
-                }
+                    const newDocRef = doc(db, "users", newLower);
+                    const checkNewSnap = await getDoc(newDocRef);
+                    if (checkNewSnap.exists()) {
+                        hideLoading();
+                        alert("Этот ник уже занят другим игроком!");
+                        return;
+                    }
 
-                await updateDoc(doc(db, "users", currentUid), updateData);
+                    // Создаём новый документ со всеми данными и старым паролем
+                    await setDoc(newDocRef, {
+                        ...currentUserData,
+                        username: newNick,
+                        username_lower: newLower,
+                        avatarUrl: avatarBase64,
+                        lastActive: serverTimestamp()
+                    });
 
-                if (isNickChanged) {
-                    currentUserData.username = newNick;
-                    currentUserData.username_lower = newLower;
-                    document.getElementById("userDisplayNick").innerText = newNick;
-                }
-                if (avatarBase64) {
-                    currentUserData.avatarUrl = avatarBase64;
-                    document.getElementById("userAvatarImg").src = avatarBase64;
-                }
+                    // Удаляем старый документ — старый ник полностью освобождается
+                    await deleteDoc(doc(db, "users", oldLower));
 
-                hideLoading();
-                toggleEditMode(false);
-                alert("Изменения сохранены! Старый никнейм полностью освобожден для других игроков.");
+                    bindUserProfile(newLower);
+                    hideLoading();
+                    toggleEditMode(false);
+                    alert("Ник изменён! Старый никнейм полностью освобождён, вход теперь по новому нику со старым паролем.");
+                } else {
+                    await updateDoc(doc(db, "users", oldLower), {
+                        username: newNick,
+                        avatarUrl: avatarBase64
+                    });
+                    hideLoading();
+                    toggleEditMode(false);
+                    alert("Изменения сохранены!");
+                }
             } catch (error) {
                 hideLoading();
                 alert("Ошибка обновления: " + error.message);
@@ -960,65 +1016,16 @@
             updateHeartbeat(inGame);
         }, 10000);
 
+        // Автоматическое восстановление сессии при перезагрузке страницы
         onAuthStateChanged(auth, async (user) => {
-            const loggedOutView = document.getElementById("drawerLoggedOut");
-            const loggedInView = document.getElementById("drawerLoggedIn");
-            const withdrawMainBtn = document.getElementById("withdrawMainBtn");
-            const withdrawGameOverBtn = document.getElementById("withdrawGameOverBtn");
-
-            if (user) {
-                currentUid = user.uid;
-                loggedOutView.style.display = "none";
-                loggedInView.style.display = "flex";
-
-                if (withdrawMainBtn) {
-                    withdrawMainBtn.disabled = false;
-                    withdrawMainBtn.style.opacity = "1";
-                    withdrawMainBtn.style.cursor = "pointer";
+            const savedNick = localStorage.getItem("egg_logged_in_nick");
+            if (savedNick) {
+                if (!user) {
+                    await signInAnonymously(auth);
                 }
-                if (withdrawGameOverBtn) {
-                    withdrawGameOverBtn.disabled = false;
-                    withdrawGameOverBtn.style.opacity = "1";
-                    withdrawGameOverBtn.style.cursor = "pointer";
-                }
-
-                if (unsubscribeUserDoc) unsubscribeUserDoc();
-                const userRef = doc(db, "users", user.uid);
-                
-                unsubscribeUserDoc = onSnapshot(userRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        currentUserData = docSnap.data();
-                        document.getElementById("userDisplayNick").innerText = currentUserData.username || "Игрок";
-                        document.getElementById("drawerBalance").innerText = (currentUserData.balance_ml || 0).toFixed(3);
-                        window.totalBank = currentUserData.balance_ml || 0;
-                        if (currentUserData.avatarUrl) {
-                            document.getElementById("userAvatarImg").src = currentUserData.avatarUrl;
-                        }
-                        updateBurgerAndRequestsUI(currentUserData.friendRequests || []);
-                        checkUnreadChats();
-                    }
-                });
-
-                updateHeartbeat(false);
+                bindUserProfile(savedNick);
             } else {
-                currentUid = null;
-                currentUserData = null;
-                if (unsubscribeUserDoc) unsubscribeUserDoc();
-                if (unsubscribeChat) unsubscribeChat();
-                if (unsubscribePartnerStatus) unsubscribePartnerStatus();
-                loggedOutView.style.display = "block";
-                loggedInView.style.display = "none";
-                toggleEditMode(false);
-                closeAllDrawerPanels();
-
-                if (withdrawMainBtn) {
-                    withdrawMainBtn.disabled = true;
-                    withdrawMainBtn.style.opacity = "0.5";
-                }
-                if (withdrawGameOverBtn) {
-                    withdrawGameOverBtn.disabled = true;
-                    withdrawGameOverBtn.style.opacity = "0.5";
-                }
+                clearLocalSession();
             }
         });
 
@@ -1066,8 +1073,6 @@
 
         function updateBurgerAndRequestsUI(requestsArray) {
             const count = requestsArray ? requestsArray.length : 0;
-            const burgerBadge = document.getElementById("burgerRedBadge");
-            const burgerBtn = document.getElementById("menuBurgerBtn");
             const avatarBadgeBtn = document.getElementById("avatarBadgeBtn");
             const reqMenuBtn = document.getElementById("btnRequestsMenu");
 
