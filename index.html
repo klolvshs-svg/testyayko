@@ -642,7 +642,7 @@
         </div>
     </div>
 
-    <!-- ЭКРАН ПОРАЖЕНИЯ (ВОЗВРАЩЕН С ПОЛУПРОЗРАЧНЫМ ФОНОМ И КНОПКАМИ) -->
+    <!-- ЭКРАН ПОРАЖЕНИЯ -->
     <div id="gameOverScreen">
         <h1 style="font-size: 36px; margin: 0; color: #ff4d4d; text-shadow: 0 0 15px rgba(255,77,77,0.5);">💀 ИГРА ОКОНЧЕНА</h1>
         <p style="font-size: 18px; color: #aaa; margin: 10px 0 5px 0;">Заработано за раунд:</p>
@@ -707,11 +707,13 @@
         let unsubscribeChat = null;
         let unsubscribePartnerStatus = null;
         let typingTimeout = null;
-        let currentDeviceSessionId = localStorage.getItem("egg_device_session_id") || (() => {
-            const id = Math.random().toString(36).substring(2) + Date.now().toString(36);
-            localStorage.setItem("egg_device_session_id", id);
-            return id;
-        })();
+
+        // Фиксация постоянного ID сессии этого устройства/вкладки
+        let currentDeviceSessionId = localStorage.getItem("egg_device_session_id");
+        if (!currentDeviceSessionId) {
+            currentDeviceSessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+            localStorage.setItem("egg_device_session_id", currentDeviceSessionId);
+        }
 
         function showLoading(text) {
             document.getElementById("loadingText").innerText = text || "Загрузка...";
@@ -761,10 +763,10 @@
                 if (docSnap.exists()) {
                     currentUserData = docSnap.data();
                     
-                    // Проверяем сессии
+                    // Проверка сброса конкретно этой сессии (при смене пароля)
                     const sessions = currentUserData.activeSessions || {};
                     if (sessions[currentDeviceSessionId] === false) {
-                        alert("Ваша сессия была завершена (вы выброшены с аккаунта).");
+                        alert("Пароль был изменен. Вас выбило из сессии, войдите заново.");
                         clearLocalSession();
                         return;
                     }
@@ -804,8 +806,7 @@
                         inGame: false, 
                         gameStartTime: null, 
                         currentBossName: null, 
-                        lastActive: null,
-                        [`activeSessions.${currentDeviceSessionId}`]: false 
+                        lastActive: null
                     }).catch(()=>{});
                 } catch(e){}
                 localStorage.removeItem("egg_logged_in_nick");
@@ -944,7 +945,7 @@
                 clearLocalSession();
                 window.totalBank = 0;
                 localStorage.setItem("egg_total_ml_bank", "0.0");
-                alert("Вы вышли из аккаунта.");
+                alert("Вы вышли из аккаунта");
             }
         };
 
@@ -1067,7 +1068,7 @@
                     });
                 }
 
-                // Сбрасываем другие сессии ТОЛЬКО если реально сменился пароль
+                // МОМЕНТАЛЬНЫЙ СБРОС ВСЕХ ОСТАЛЬНЫХ СЕССИЙ ПРИ СМЕНЕ ПАРОЛЯ
                 let sessionsUpdate = currentUserData.activeSessions || {};
                 if (isPasswordChanging) {
                     let newSessions = {};
@@ -1208,8 +1209,7 @@
                         inGame: false,
                         gameStartTime: null,
                         currentBossName: null,
-                        lastActive: null,
-                        [`activeSessions.${currentDeviceSessionId}`]: false
+                        lastActive: null
                     });
                 } catch (e) {}
             }
@@ -1787,7 +1787,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v193_fix_sessions_gameover";
+        const CURRENT_APP_VERSION = "v194_speed_and_logout_text_fix";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1887,16 +1887,17 @@
         let items = [];
         let spawnTimer = 0;
 
+        // ИСХОДНАЯ БЫСТРАЯ И ПЛАВНАЯ СКОРОСТЬ ДЕКОРА (МЕНЮ И ШТОРКА)
         let menuDecorItems = [];
         for (let i = 0; i < 10; i++) {
             const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"];
             menuDecorItems.push({
                 x: Math.random() * W,
                 y: Math.random() * H,
-                speed: 1.2 + Math.random() * 2.0,
+                speed: 3.5 + Math.random() * 4.0,
                 type: typesPool[Math.floor(Math.random() * typesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.03
+                rotSpeed: (Math.random() - 0.5) * 0.08
             });
         }
 
@@ -1906,10 +1907,10 @@
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
-                speed: 1.5 + Math.random() * 2.5,
+                speed: 4.0 + Math.random() * 4.5,
                 type: drawerTypesPool[Math.floor(Math.random() * drawerTypesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.04
+                rotSpeed: (Math.random() - 0.5) * 0.1
             });
         }
 
