@@ -32,7 +32,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(15, 23, 33, 0.95);
+            background: rgba(15, 23, 33, 0.92);
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -71,11 +71,6 @@
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
             -webkit-tap-highlight-color: transparent;
             transition: transform 0.1s, background 0.3s, box-shadow 0.3s, border-color 0.3s;
-        }
-        #menuBurgerBtn.has-unread-glow {
-            background: rgba(244, 67, 54, 0.35);
-            border-color: #f44336;
-            box-shadow: 0 0 15px rgba(244, 67, 54, 0.8);
         }
         #menuBurgerBtn:active { transform: scale(0.92); }
         #menuBurgerBtn span {
@@ -250,12 +245,6 @@
             font-weight: bold;
         }
         .btn-drawer-custom:active { transform: scale(0.96); background: rgba(15, 55, 85, 0.9); }
-        .btn-drawer-custom.has-unread-glow {
-            background: rgba(244, 67, 54, 0.35);
-            border-color: #f44336;
-            color: #ffffff;
-            box-shadow: 0 0 14px rgba(244, 67, 54, 0.75);
-        }
         .btn-with-badge-wrap {
             position: relative;
             width: 100%;
@@ -774,6 +763,11 @@
 
         function clearLocalSession() {
             if (currentUid) {
+                try {
+                    navigator.sendBeacon ? null : fetch(`https://firestore.googleapis.com/...`, {method:'POST'});
+                    // Синхронный сброс статуса через пустой вызов или локальную очистку
+                    updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null, currentBossName: null, lastActive: null }).catch(()=>{});
+                } catch(e){}
                 localStorage.removeItem("egg_session_token_" + currentUid);
             }
             currentUid = null;
@@ -837,6 +831,7 @@
                     friendRequests: [],
                     inGame: false,
                     gameStartTime: null,
+                    currentBossName: null,
                     lastActive: serverTimestamp(),
                     createdAt: new Date()
                 });
@@ -906,7 +901,7 @@
             if (confirmed) {
                 try {
                     if (currentUid) {
-                        await updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null });
+                        await updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null, currentBossName: null, lastActive: null });
                     }
                 } catch (e) {}
                 clearLocalSession();
@@ -989,13 +984,9 @@
                     });
                 }
 
-                const newSessionToken = isPasswordChanging 
-                    ? (Math.random().toString(36).substring(2) + Date.now().toString(36))
-                    : currentUserData.sessionToken;
-
-                if (isPasswordChanging) {
-                    localStorage.setItem("egg_session_token_" + newLower, newSessionToken);
-                }
+                // Сбрасываем токены всем устройствам (включая текущие другие вкладки) при смене пароля
+                const newSessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+                localStorage.setItem("egg_session_token_" + (isNickChanged ? newLower : oldLower), newSessionToken);
 
                 if (isNickChanged) {
                     const newDocRef = doc(db, "users", newLower);
@@ -1006,7 +997,6 @@
                         return;
                     }
 
-                    // 1. Создаем новый документ с тем же профилем и новым ID
                     await setDoc(newDocRef, {
                         ...currentUserData,
                         username: newNick,
@@ -1017,7 +1007,6 @@
                         lastActive: serverTimestamp()
                     });
 
-                    // 2. Обновляем ссылки у друзей (заменяем старый ID на новый)
                     if (currentUserData.friends && currentUserData.friends.length > 0) {
                         for (let friendUid of currentUserData.friends) {
                             try {
@@ -1040,7 +1029,6 @@
                         }
                     }
 
-                    // 3. Обновляем входящие запросы в друзья
                     if (currentUserData.friendRequests && currentUserData.friendRequests.length > 0) {
                         for (let reqUid of currentUserData.friendRequests) {
                             try {
@@ -1058,7 +1046,6 @@
                         }
                     }
 
-                    // 4. Переносим переписки (чаты) со старого ID на новый, чтобы чаты не пропадали
                     if (currentUserData.friends && currentUserData.friends.length > 0) {
                         for (let friendUid of currentUserData.friends) {
                             try {
@@ -1074,14 +1061,13 @@
                         }
                     }
 
-                    // 5. Удаляем старый документ профиля
                     await deleteDoc(doc(db, "users", oldLower));
                     localStorage.removeItem("egg_session_token_" + oldLower);
 
                     bindUserProfile(newLower);
                     hideLoading();
                     toggleEditMode(false);
-                    alert("Ник успешно изменен! Все чаты и друзья сохранены.");
+                    alert("Ник и сессии успешно обновлены!");
                 } else {
                     await updateDoc(doc(db, "users", oldLower), {
                         username: newNick,
@@ -1091,7 +1077,7 @@
                     });
                     hideLoading();
                     toggleEditMode(false);
-                    alert("Изменения успешно сохранены!");
+                    alert("Изменения успешно сохранены, сессии на других устройствах сброшены!");
                 }
             } catch (error) {
                 hideLoading();
@@ -1099,20 +1085,22 @@
             }
         };
 
-        async function updateHeartbeat(inGameStatus = false) {
+        async function updateHeartbeat(inGameStatus = false, bossName = null) {
             if (!currentUid) return;
             const now = Date.now();
-            if (now - lastHeartbeatTime > 10000 || inGameStatus !== (currentUserData?.inGame)) {
+            if (now - lastHeartbeatTime > 6000 || inGameStatus !== (currentUserData?.inGame) || bossName !== (currentUserData?.currentBossName)) {
                 lastHeartbeatTime = now;
                 try {
                     const updatePayload = {
                         lastActive: serverTimestamp(),
-                        inGame: inGameStatus
+                        inGame: inGameStatus,
+                        currentBossName: bossName
                     };
                     if (inGameStatus && (!currentUserData?.inGame || !currentUserData?.gameStartTime)) {
                         updatePayload.gameStartTime = serverTimestamp();
                     } else if (!inGameStatus) {
                         updatePayload.gameStartTime = null;
+                        updatePayload.currentBossName = null;
                     }
                     await updateDoc(doc(db, "users", currentUid), updatePayload);
                 } catch (e) {}
@@ -1121,8 +1109,28 @@
 
         setInterval(() => {
             const inGame = (window.gameStarted && !window.isPaused && !window.gameOver);
-            updateHeartbeat(inGame);
-        }, 10000);
+            let bName = null;
+            if (inGame && (bossState === "intro" || bossState === "active") && currentBoss) {
+                bName = (currentBoss === "dasha") ? "Даша" : "Рита";
+            }
+            updateHeartbeat(inGame, bName);
+        }, 5000);
+
+        async function goOfflineInstant() {
+            if (currentUid) {
+                try {
+                    await updateDoc(doc(db, "users", currentUid), {
+                        inGame: false,
+                        gameStartTime: null,
+                        currentBossName: null,
+                        lastActive: null
+                    });
+                } catch (e) {}
+            }
+        }
+
+        window.addEventListener("pagehide", goOfflineInstant);
+        window.addEventListener("beforeunload", goOfflineInstant);
 
         onAuthStateChanged(auth, async (user) => {
             const savedNick = localStorage.getItem("egg_logged_in_nick");
@@ -1198,7 +1206,6 @@
         async function checkUnreadChats() {
             if (!currentUid || !currentUserData || !currentUserData.friends) return;
             const redDot = document.getElementById("chatRedBadge");
-            const chatMenuBtn = document.getElementById("btnChatMenu");
             const burgerBadge = document.getElementById("burgerRedBadge");
             const burgerBtn = document.getElementById("menuBurgerBtn");
             let hasUnread = false;
@@ -1219,10 +1226,8 @@
 
             if (hasUnread) {
                 redDot.style.display = "block";
-                if (chatMenuBtn) chatMenuBtn.classList.add("has-unread-glow");
             } else {
                 redDot.style.display = "none";
-                if (chatMenuBtn) chatMenuBtn.classList.remove("has-unread-glow");
             }
 
             const hasRequests = currentUserData.friendRequests && currentUserData.friendRequests.length > 0;
@@ -1266,7 +1271,7 @@
                     const balance = (data.balance_ml || 0).toFixed(3);
                     const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
                     const gameStartTime = data.gameStartTime ? data.gameStartTime.toMillis() : 0;
-                    const statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime);
+                    const statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime, data.currentBossName);
 
                     const isAlreadyFriend = currentUserData.friends && currentUserData.friends.includes(targetUid);
                     const targetRequests = data.friendRequests || [];
@@ -1406,7 +1411,7 @@
                     const balance = (data.balance_ml || 0).toFixed(3);
                     const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
                     const gameStartTime = data.gameStartTime ? data.gameStartTime.toMillis() : 0;
-                    const statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime);
+                    const statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime, data.currentBossName);
 
                     html += `
                         <div class="user-result-card">
@@ -1455,7 +1460,7 @@
                     }
 
                     html += `
-                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')" style="cursor:pointer; ${hasUnreadHere ? 'border:1px solid #f44336;' : ''}">
+                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')" style="cursor:pointer; ${hasUnreadHere ? 'border:1px solid #ff4444;' : ''}">
                             <div class="friend-chat-item-badge" id="friend_badge_${friendUid}" style="display:${hasUnreadHere ? 'block' : 'none'};"></div>
                             <div class="user-result-info">
                                 <img src="${ava}" class="user-result-ava">
@@ -1529,7 +1534,7 @@
                         document.getElementById("chatWithStatus").innerText = "печатает...";
                         document.getElementById("chatWithStatus").style.color = "#00ffcc";
                     } else {
-                        const statusObj = formatStatusObj(lastActiveTime, pData.inGame, gameStartTime);
+                        const statusObj = formatStatusObj(lastActiveTime, pData.inGame, gameStartTime, pData.currentBossName);
                         document.getElementById("chatWithStatus").innerText = statusObj.text;
                         document.getElementById("chatWithStatus").style.color = statusObj.color;
                     }
@@ -1651,8 +1656,11 @@
             } catch (e) {}
         };
 
-        function formatStatusObj(timestamp, inGame, gameStartTime) {
+        function formatStatusObj(timestamp, inGame, gameStartTime, bossName) {
             if (inGame) {
+                if (bossName) {
+                    return { text: `спасает яичницу (${bossName})`, color: "#00d2ff" };
+                }
                 let diffSec = 0;
                 if (gameStartTime) {
                     diffSec = Math.floor((Date.now() - gameStartTime) / 1000);
@@ -1660,12 +1668,12 @@
                 }
                 const mins = Math.floor(diffSec / 60).toString().padStart(2, '0');
                 const secs = (diffSec % 60).toString().padStart(2, '0');
-                return { text: `Играет [${mins}:${secs}]`, color: "#a5d6a7" };
+                return { text: `играет в спаси яичницу [${mins}:${secs}]`, color: "#a5d6a7" };
             }
 
             if (!timestamp) return { text: "Не в сети", color: "#888888" };
             const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-            if (diffSec < 120) return { text: "В сети", color: "#a5d6a7" };
+            if (diffSec < 12) return { text: "В сети", color: "#a5d6a7" };
             if (diffSec < 3600) return { text: `Был в сети ${Math.floor(diffSec / 60)} мин. назад`, color: "#888888" };
             if (diffSec < 86400) return { text: `Был в сети ${Math.floor(diffSec / 3600)} ч. назад`, color: "#888888" };
             return { text: "Был в сети давно", color: "#888888" };
@@ -1693,7 +1701,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v191_fix_nickname_chats";
+        const CURRENT_APP_VERSION = "v192_fix_smooth_gameover";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -2007,7 +2015,7 @@
                     let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
                     let drawH = customCtx ? 46 : 40;
                     let drawW = drawH * imgAspect;
-                    targetCtx.drawImage(bombImg, Math.round(item.x - drawW / 2), Math.round(item.y - drawH / 2), drawW, drawH);
+                    targetCtx.drawImage(bombImg, item.x - drawW / 2, item.y - drawH / 2, drawW, drawH);
                 } else {
                     targetCtx.fillText("💣", item.x, item.y);
                 }
@@ -2102,25 +2110,44 @@
                 ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
                 drawGameTimerAndBossHUD();
 
-                const renderPlayerX = Math.round(player.x);
-                const renderPlayerY = Math.round(player.y);
                 if (eggImg.complete && eggImg.naturalWidth !== 0) {
                     let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                     let drawH = 50; 
                     let drawW = drawH * imgAspect; 
-                    let renderX = Math.round(renderPlayerX - drawW / 2);
-                    let renderY = Math.round(renderPlayerY - drawH / 2);
+                    let renderX = player.x - drawW / 2;
+                    let renderY = player.y - drawH / 2;
                     ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
                 } else {
                     ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                     ctx.textAlign = "center";
-                    ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
+                    ctx.fillText("🥚", player.x, player.y + 15);
                 }
                 requestAnimationFrame(gameLoop);
                 return;
             }
 
             if (window.gameOver) {
+                // Заморозка игры с видимым фоном и состоянием намертво
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 15px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                ctx.textAlign = "left";
+                ctx.fillText("За раунд: " + mlEarned.toFixed(3) + " мл", 12, 28);
+                ctx.fillText("В банке: " + window.totalBank.toFixed(3) + " мл 💦", 12, 50);
+                drawGameTimerAndBossHUD();
+
+                if (eggImg.complete && eggImg.naturalWidth !== 0) {
+                    let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
+                    let drawH = 50; 
+                    let drawW = drawH * imgAspect; 
+                    let renderX = player.x - drawW / 2;
+                    let renderY = player.y - drawH / 2;
+                    ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
+                } else {
+                    ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText("🥚", player.x, player.y + 15);
+                }
+
                 requestAnimationFrame(gameLoop);
                 return;
             }
@@ -2947,46 +2974,43 @@
                 ctx.fillText("❄️ Яйцо замедлено!", 12, statusY);
             }
 
-            const renderPlayerX = Math.round(player.x);
-            const renderPlayerY = Math.round(player.y);
-
             if (eggImg.complete && eggImg.naturalWidth !== 0) {
                 let imgAspect = eggImg.naturalWidth / eggImg.naturalHeight; 
                 let drawH = 50; 
                 let drawW = drawH * imgAspect; 
-                let renderX = Math.round(renderPlayerX - drawW / 2);
-                let renderY = Math.round(renderPlayerY - drawH / 2);
+                let renderX = player.x - drawW / 2;
+                let renderY = player.y - drawH / 2;
                 ctx.drawImage(eggImg, renderX, renderY, drawW, drawH);
             } else {
                 ctx.font = "40px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 ctx.textAlign = "center";
-                ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
+                ctx.fillText("🥚", player.x, player.y + 15);
             }
 
             if (isInvincible) {
                 ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 18, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, player.radius + 18, 0, Math.PI * 2);
                 ctx.strokeStyle = "#ffcc00";
                 ctx.lineWidth = 5;
                 ctx.stroke();
             }
             if (hasShield) {
                 ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 12, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, player.radius + 12, 0, Math.PI * 2);
                 ctx.strokeStyle = "#00d2ff";
                 ctx.lineWidth = 4;
                 ctx.stroke();
             }
             if (hasHelmet) {
                 ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 15, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, player.radius + 15, 0, Math.PI * 2);
                 ctx.strokeStyle = "#ff9900";
                 ctx.lineWidth = 4;
                 ctx.stroke();
             }
             if (hasFanActive) {
                 ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, player.radius + 20, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, player.radius + 20, 0, Math.PI * 2);
                 ctx.strokeStyle = "#00ffcc";
                 ctx.lineWidth = 3;
                 ctx.stroke();
@@ -2998,7 +3022,7 @@
                 ctx.strokeStyle = "rgba(0, 255, 204, " + (1 - progress) + ")";
                 ctx.lineWidth = 4;
                 ctx.beginPath();
-                ctx.arc(renderPlayerX, renderPlayerY, progress * 220, 0, Math.PI * 2);
+                ctx.arc(player.x, player.y, progress * 220, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.restore();
             } else {
@@ -3060,7 +3084,7 @@
             }
             if (currentUid) {
                 try {
-                    updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null }).catch(() => {});
+                    updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null, currentBossName: null }).catch(() => {});
                 } catch(e) {}
             }
             localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
