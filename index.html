@@ -589,7 +589,7 @@
                         </div>
                     </div>
 
-                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ (Без кнопки выйти, но с полями для смены пароля) -->
+                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник (английский)">
@@ -610,7 +610,7 @@
                         </div>
                     </div>
 
-                    <!-- Кнопка выйти из акка (скрывается в режиме редактирования, видна внизу шторки) -->
+                    <!-- Кнопка выйти из акка (скрыта при редактировании, видна внизу шторки) -->
                     <button id="logoutDrawerBtn" class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
                 </div>
             </div>
@@ -749,7 +749,6 @@
                 if (docSnap.exists()) {
                     currentUserData = docSnap.data();
                     
-                    // Проверка безопасности: если пароль сменили на другом устройстве, текущую сессию выкинет (если токены смены пароля не совпадают)
                     const localToken = localStorage.getItem("egg_session_token_" + nickId);
                     if (currentUserData.sessionToken && localToken && currentUserData.sessionToken !== localToken) {
                         alert("Ваш пароль был изменен на другом устройстве. Пожалуйста, войдите заново.");
@@ -929,11 +928,11 @@
                 document.getElementById("editAvatarFile").value = "";
                 viewMode.style.display = "none";
                 editMode.style.display = "flex";
-                if (logoutBtn) logoutBtn.style.display = "none"; // Скрываем кнопку выхода в режиме редактирования
+                if (logoutBtn) logoutBtn.style.display = "none";
             } else {
                 viewMode.style.display = "flex";
                 editMode.style.display = "none";
-                if (logoutBtn) logoutBtn.style.display = "block"; // Возвращаем кнопку выхода внизу шторки
+                if (logoutBtn) logoutBtn.style.display = "block";
             }
         };
 
@@ -990,7 +989,6 @@
                     });
                 }
 
-                // Новый токен сессии для этого устройства (другие устройства вылезут, если сменился пароль)
                 const newSessionToken = isPasswordChanging 
                     ? (Math.random().toString(36).substring(2) + Date.now().toString(36))
                     : currentUserData.sessionToken;
@@ -1636,7 +1634,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v189_drawer_drawer_bg";
+        const CURRENT_APP_VERSION = "v190_fixed_syntax";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1749,7 +1747,6 @@
             });
         }
 
-        // Падающие мечи, бомбочки и текстурки на фоне открытой шторки
         let drawerDecorItems = [];
         for (let i = 0; i < 12; i++) {
             const drawerTypesPool = ["sword", "bomb", "shield", "helmet", "drop1", "snow", "table"];
@@ -1811,7 +1808,7 @@
             if (isDrawerOpen) {
                 drawer.classList.add("open");
             } else {
-                drawer.classList.remove("open";
+                drawer.classList.remove("open");
             }
         }
 
@@ -1973,7 +1970,6 @@
             ctx.fillRect(0, 0, W, H);
 
             if (!window.gameStarted) {
-                // Анимация падающих предметов на главном экране
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
                     item.rotation += item.rotSpeed;
@@ -2011,7 +2007,6 @@
                     ctx.restore();
                 });
 
-                // Отрисовка падающих мечей, бомбочек и текстур на фоне открытой шторки
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
                     item.y += item.speed; 
@@ -3012,7 +3007,7 @@
             localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
 
             document.getElementById("pauseBtn").style.display = "none";
-            document.getElementById("roundScoreTest").innerText = "+" + mlEarned.toFixed(3) + " мл 💦";
+            document.getElementById("roundScoreText").innerText = "+" + mlEarned.toFixed(3) + " мл 💦";
             document.getElementById("totalBankText").innerText = window.totalBank.toFixed(3);
             document.getElementById("gameOverScreen").style.display = "flex";
         }
@@ -3022,7 +3017,7 @@
         }
 
         function showWithdrawModal() {
-            document.getElementById("withdrawBalanceTest").innerText = Math.floor(window.totalBank);
+            document.getElementById("withdrawBalanceText").innerText = Math.floor(window.totalBank);
             document.getElementById("withdrawError").style.display = "none";
             document.getElementById("withdrawAmount").value = "";
 
