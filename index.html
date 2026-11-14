@@ -38,7 +38,6 @@
             align-items: center;
             z-index: 10;
         }
-        /* Стартовый экран */
         #startScreen {
             display: flex;
             position: absolute;
@@ -52,8 +51,6 @@
             align-items: center;
             z-index: 20;
         }
-
-        /* Кнопка с тремя полосками в левом верхнем углу главного меню */
         #menuBurgerBtn {
             position: absolute;
             top: 15px;
@@ -101,8 +98,6 @@
             z-index: 31;
             animation: pulseBadge 1.5s infinite;
         }
-
-        /* Выдвижная панель профиля слева */
         #profileDrawer {
             position: absolute;
             top: 0;
@@ -118,10 +113,7 @@
             box-shadow: 5px 0 25px rgba(0,0,0,0.6);
             overflow: hidden;
         }
-        #profileDrawer.open {
-            left: 0;
-        }
-
+        #profileDrawer.open { left: 0; }
         #drawerCanvasContainer {
             position: absolute;
             top: 0;
@@ -131,7 +123,6 @@
             pointer-events: none;
             z-index: 1;
         }
-
         .drawer-content {
             position: relative;
             z-index: 2;
@@ -143,7 +134,6 @@
             box-sizing: border-box;
             overflow-y: auto;
         }
-
         .drawer-avatar-container {
             position: relative;
             margin-top: 5px;
@@ -191,7 +181,6 @@
             50% { transform: scale(1.12); }
             100% { transform: scale(1); }
         }
-
         .drawer-username {
             font-size: 16px;
             font-weight: bold;
@@ -199,7 +188,6 @@
             margin-bottom: 5px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
-
         .btn-edit-profile {
             background: #ffeb3b;
             color: #000;
@@ -216,7 +204,6 @@
             position: relative;
         }
         .btn-edit-profile:active { transform: scale(0.96); }
-
         .btn-logout-custom {
             background: #f44336;
             color: white;
@@ -234,7 +221,6 @@
             position: relative;
         }
         .btn-logout-custom:active { transform: scale(0.96); background: #d32f2f; }
-
         .drawer-input {
             width: 100%;
             padding: 10px;
@@ -247,7 +233,6 @@
             font-size: 14px;
             outline: none;
         }
-
         .btn-drawer-custom {
             background: rgba(20, 70, 110, 0.75);
             color: #d0f0ff;
@@ -271,7 +256,6 @@
             color: #ffffff;
             box-shadow: 0 0 14px rgba(244, 67, 54, 0.75);
         }
-
         .btn-with-badge-wrap {
             position: relative;
             width: 100%;
@@ -291,7 +275,6 @@
             z-index: 26;
             animation: pulseBadge 1.5s infinite;
         }
-
         .drawer-section-panel {
             width: 100%;
             background: rgba(10, 15, 22, 0.95);
@@ -308,12 +291,10 @@
             max-height: 260px;
             overflow-y: auto;
         }
-
         #chatSectionPanel {
             max-height: 410px !important;
             height: 390px !important;
         }
-
         .user-result-card {
             width: 100%;
             background: rgba(25, 35, 48, 0.8);
@@ -364,7 +345,6 @@
             font-size: 10px;
             color: #aaa;
         }
-
         .btn-mini-action {
             background: #248bda;
             color: white;
@@ -380,7 +360,6 @@
         .btn-mini-danger { background: #f44336; }
         .btn-mini-success { background: #28a745; }
         .btn-mini-gray { background: #555; color: #ccc; cursor: default; }
-
         .chat-messages-box {
             width: 100%;
             height: 270px;
@@ -411,17 +390,8 @@
             font-size: 8px;
             color: #b0e0e6;
         }
-        .chat-msg.me {
-            background: #248bda;
-            color: #fff;
-            align-self: flex-end;
-        }
-        .chat-msg.partner {
-            background: #334155;
-            color: #fff;
-            align-self: flex-start;
-        }
-
+        .chat-msg.me { background: #248bda; color: #fff; align-self: flex-end; }
+        .chat-msg.partner { background: #334155; color: #fff; align-self: flex-start; }
         .btn {
             background: #248bda;
             color: white;
@@ -440,7 +410,6 @@
         .btn:active { transform: scale(0.96); }
         .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
-        
         #pauseBtn {
             position: absolute;
             top: 15px;
@@ -460,13 +429,11 @@
             -webkit-tap-highlight-color: transparent;
         }
         #pauseBtn:active { transform: scale(0.90); }
-
         .pause-icon { display: flex; gap: 4px; }
         .pause-icon span { width: 5px; height: 15px; background-color: #ffffff; border-radius: 2px; display: block; }
         .play-icon { display: none; width: 0; height: 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-left: 14px solid #ffffff; margin-left: 3px; }
         #pauseBtn.paused .pause-icon { display: none; }
         #pauseBtn.paused .play-icon { display: block; }
-
         input[type="number"] {
             padding: 10px;
             font-size: 18px;
@@ -492,7 +459,6 @@
             user-select: all;
             word-break: break-all;
         }
-        /* Окно загрузки при сохранении/смене ника */
         #loadingOverlay {
             display: none;
             position: absolute;
@@ -524,10 +490,9 @@
 <body>
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Экран загрузки -->
     <div id="loadingOverlay">
         <div class="spinner"></div>
-        <div id="loadingText" style="font-size: 18px; color: #00d2ff; font-weight: bold;">Сохранение в базу данных...</div>
+        <div id="loadingText" style="font-size: 18px; color: #00d2ff; font-weight: bold;">Загрузка...</div>
     </div>
 
     <button id="pauseBtn" onclick="togglePause(event)" ontouchstart="event.stopPropagation()">
@@ -547,8 +512,6 @@
             <canvas id="drawerCanvasContainer"></canvas>
             
             <div class="drawer-content">
-                
-                <!-- СОСТОЯНИЕ 1: ГОСТЬ -->
                 <div id="drawerLoggedOut" style="width: 100%; margin-top: 20px;">
                     <div class="drawer-avatar-wrap" style="margin: 0 auto 10px auto;">
                         <div class="drawer-avatar-icon" style="font-size: 36px;">👤</div>
@@ -562,9 +525,7 @@
                     <button class="btn-drawer-custom" onclick="handleLogin()">Войти</button>
                 </div>
 
-                <!-- СОСТОЯНИЕ 2: АВТОРИЗОВАН -->
                 <div id="drawerLoggedIn" style="width: 100%; display: none; margin-top: 5px; flex-direction: column; align-items: center; height: 100%;">
-                    
                     <div class="drawer-avatar-container">
                         <button id="avatarBadgeBtn" onclick="toggleRequestsPanel()">!</button>
                         <div class="drawer-avatar-wrap">
@@ -581,26 +542,22 @@
                             Баланс: <span id="drawerBalance">0</span> мл
                         </div>
 
-                        <!-- Кнопка Найти -->
                         <button class="btn-drawer-custom" onclick="toggleSearchPanel()">🔍 Найти игроков</button>
                         <div id="searchSectionPanel" class="drawer-section-panel">
                             <input type="text" id="playerSearchInput" class="drawer-input" placeholder="Введите ник..." oninput="onSearchInputChanged(this.value)" />
                             <div id="searchResultsContainer" style="width: 100%;"></div>
                         </div>
 
-                        <!-- Кнопка Заявки -->
                         <button id="btnRequestsMenu" class="btn-drawer-custom" onclick="toggleRequestsPanel()">👥 Заявки в друзья</button>
                         <div id="requestsSectionPanel" class="drawer-section-panel">
                             <div id="requestsResultsContainer" style="width: 100%;"></div>
                         </div>
 
-                        <!-- Кнопка Друзья -->
                         <button class="btn-drawer-custom" onclick="toggleFriendsPanel()">👫 Друзья</button>
                         <div id="friendsSectionPanel" class="drawer-section-panel">
                             <div id="friendsResultsContainer" style="width: 100%;"></div>
                         </div>
 
-                        <!-- Кнопка Чат с красным индикатором -->
                         <div class="btn-with-badge-wrap">
                             <div id="chatRedBadge" class="chat-red-dot"></div>
                             <button id="btnChatMenu" class="btn-drawer-custom" style="margin:0; width:100%;" onclick="toggleChatListPanel()">💬 Чаты</button>
@@ -609,7 +566,6 @@
                             <div id="chatListContainer" style="width: 100%;"></div>
                         </div>
 
-                        <!-- Окно активного диалога -->
                         <div id="chatSectionPanel" class="drawer-section-panel">
                             <div style="display:flex; justify-content:space-between; width:100%; margin-bottom:5px; align-items:center; background:rgba(0,0,0,0.2); padding:4px; border-radius:6px;">
                                 <div style="display:flex; align-items:center; gap:6px; overflow:hidden; position:relative;">
@@ -633,7 +589,6 @@
                         </div>
                     </div>
 
-                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник (английский)">
@@ -651,7 +606,6 @@
 
                     <button class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
                 </div>
-
             </div>
         </div>
 
@@ -713,7 +667,7 @@
     </div>
 
     <script type="module">
-       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -752,7 +706,6 @@
             return regex.test(nick);
         }
 
-        // Проверка: занят ли ник кем-то другим
         async function isNicknameAvailable(nickname, excludeUid = null) {
             try {
                 const cleanNick = nickname.trim().toLowerCase();
@@ -761,8 +714,6 @@
                 const snapshot = await getDocs(q);
                 
                 if (snapshot.empty) return true;
-                
-                // Если ник найден, но он принадлежит текущему пользователю (при смене своего же ника)
                 if (excludeUid && snapshot.docs.length === 1 && snapshot.docs[0].id === excludeUid) {
                     return true;
                 }
@@ -800,11 +751,13 @@
 
             showLoading("Создание аккаунта...");
             try {
-                // Создаем анонимную сессию для получения стабильного уникального ID (UID)
+                // Если осталась старая сессия, сбрасываем её перед анонимным входом
+                if (auth.currentUser) {
+                    await signOut(auth);
+                }
                 const userCredential = await signInAnonymously(auth);
                 const user = userCredential.user;
 
-                // Записываем данные игрока, привязывая ник к его UID
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
                     username_lower: cleanLower,
@@ -821,7 +774,7 @@
 
                 window.totalBank = 0.0;
                 localStorage.setItem("egg_total_ml_bank", "0.0");
-                hideLoggingIfNeeded();
+                hideLoading();
                 alert("Аккаунт успешно создан!");
             } catch (error) {
                 hideLoading();
@@ -848,7 +801,6 @@
 
             showLoading("Вход в аккаунт...");
             try {
-                // Ищем документ пользователя в базе по никнейму
                 const usersRef = collection(db, "users");
                 const q = query(usersRef, where("username_lower", "==", cleanLower));
                 const snapshot = await getDocs(q);
@@ -868,10 +820,10 @@
                     return;
                 }
 
-                // Авторизуемся анонимно на клиенте, если сессия сброшена
-                if (!auth.currentUser) {
-                    await signInAnonymously(auth);
+                if (auth.currentUser) {
+                    await signOut(auth);
                 }
+                await signInAnonymously(auth);
 
                 hideLoading();
                 alert("Вход выполнен успешно!");
@@ -935,7 +887,6 @@
             const isNickChanged = (newLower !== currentUserData.username_lower);
 
             if (isNickChanged) {
-                // Проверяем, свободен ли новый ник (исключая текущего юзера)
                 const available = await isNicknameAvailable(newLower, currentUid);
                 if (!available) {
                     alert("Этот ник уже занят другим игроком!");
@@ -959,7 +910,7 @@
                 const updateData = {};
                 if (isNickChanged) {
                     updateData.username = newNick;
-                    updateData.username_lower = newLower; // Старый ник сразу освобождается, так как поле перезаписывается
+                    updateData.username_lower = newLower; 
                 }
                 if (avatarBase64) {
                     updateData.avatarUrl = avatarBase64;
@@ -1007,7 +958,7 @@
         }
 
         setInterval(() => {
-            const inGame = (gameStarted && !isPaused && !gameOver);
+            const inGame = (window.gameStarted && !window.isPaused && !window.gameOver);
             updateHeartbeat(inGame);
         }, 10000);
 
@@ -1173,17 +1124,6 @@
                 if (burgerBtn) burgerBtn.classList.remove("has-unread-glow");
             }
         }
-
-        setInterval(() => {
-            if (currentUid) checkUnreadChats();
-        }, 2000);
-
-        setInterval(() => {
-            const friendsPanel = document.getElementById("friendsSectionPanel");
-            if (friendsPanel && friendsPanel.style.display === "flex") {
-                loadFriendsList();
-            }
-        }, 1000);
 
         window.onSearchInputChanged = async function(queryText) {
             const container = document.getElementById("searchResultsContainer");
@@ -1643,7 +1583,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v187_full_restored";
+        const CURRENT_APP_VERSION = "v188_full_fixed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1678,9 +1618,9 @@
         window.totalBank = parseFloat(localStorage.getItem("egg_total_ml_bank") || "0.0");
         let lastPromoCode = localStorage.getItem("egg_last_promo_code") || "";
         let mlEarned = 0.0;
-        let gameOver = false;
-        let gameStarted = false; 
-        let isPaused = false;
+        window.gameOver = false;
+        window.gameStarted = false; 
+        window.isPaused = false;
         let hasShield = false;
         let hasHelmet = false;
         let fanExpiresAt = 0; 
@@ -1777,7 +1717,7 @@
         }
 
         function drawGameTimerAndBossHUD() {
-            if (!gameStarted || gameOver) return;
+            if (!window.gameStarted || window.gameOver) return;
 
             let timerLabel = `⏱ ${formatGameTimer(gameElapsedMs)}`;
             let isBossFight = (bossState === "intro" || bossState === "active") && currentBoss !== null;
@@ -1796,19 +1736,14 @@
         }
 
         function handleInstantTabExit() {
-            if (gameStarted && !gameOver && currentUid) {
-                gameStarted = false;
-                gameOver = true;
-                isPaused = false;
+            if (window.gameStarted && !window.gameOver && currentUid) {
+                window.gameStarted = false;
+                window.gameOver = true;
+                window.isPaused = false;
                 gameElapsedMs = 0;
                 currentBoss = null;
                 bossState = "normal";
                 localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
-                
-                try {
-                    const dbRef = doc(db, "users", currentUid);
-                    updateDoc(dbRef, { inGame: false, gameStartTime: null }).catch(() => {});
-                } catch(e) {}
             }
         }
 
@@ -1827,7 +1762,7 @@
         }
 
         window.addEventListener("click", (e) => {
-            if (isDrawerOpen && !gameStarted) {
+            if (isDrawerOpen && !window.gameStarted) {
                 const drawer = document.getElementById("profileDrawer");
                 if (!drawer.contains(e.target)) {
                     isDrawerOpen = false;
@@ -1837,7 +1772,7 @@
         });
 
         function handleMove(e) {
-            if (!gameStarted || isPaused || gameOver || bossState === "intro") return; 
+            if (!window.gameStarted || window.isPaused || window.gameOver || bossState === "intro") return; 
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             if (clientX > W - 70 && clientY < 70) return;
@@ -1847,7 +1782,7 @@
         window.addEventListener("mousemove", handleMove);
         window.addEventListener("touchmove", handleMove);
         window.addEventListener("touchstart", (e) => {
-            if (gameStarted && !isPaused && !gameOver && bossState !== "intro") {
+            if (window.gameStarted && !window.isPaused && !window.gameOver && bossState !== "intro") {
                 const clientX = e.touches[0].clientX;
                 const clientY = e.touches[0].clientY;
                 if (clientX > W - 70 && clientY < 70) return;
@@ -1856,9 +1791,9 @@
         });
 
         function startTheGame() {
-            gameStarted = true;
-            isPaused = false;
-            gameOver = false;
+            window.gameStarted = true;
+            window.isPaused = false;
+            window.gameOver = false;
             isDrawerOpen = false;
             document.getElementById("profileDrawer").classList.remove("open");
             mlEarned = 0.0;
@@ -1908,11 +1843,11 @@
                 e.stopPropagation();
                 e.preventDefault();
             }
-            if (!gameStarted || gameOver || bossState === "intro") return;
-            isPaused = !isPaused;
+            if (!window.gameStarted || window.gameOver || bossState === "intro") return;
+            window.isPaused = !window.isPaused;
             const pauseScreen = document.getElementById("pauseScreen");
             const pBtn = document.getElementById("pauseBtn");
-            if (isPaused) {
+            if (window.isPaused) {
                 pauseScreen.style.display = "flex";
                 pBtn.classList.add("paused");
             } else {
@@ -1933,9 +1868,9 @@
                 mlEarned = 0.0;
             }
 
-            isPaused = false;
-            gameStarted = false;
-            gameOver = false;
+            window.isPaused = false;
+            window.gameStarted = false;
+            window.gameOver = false;
             gameElapsedMs = 0;
             currentBoss = null;
             bossState = "normal";
@@ -2054,7 +1989,7 @@
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
-            if (!gameStarted) {
+            if (!window.gameStarted) {
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
                     item.rotation += item.rotSpeed;
@@ -2121,7 +2056,7 @@
                 return;
             }
 
-            if (isPaused) {
+            if (window.isPaused) {
                 ctx.fillStyle = "#ffffff";
                 ctx.font = "bold 15px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 ctx.textAlign = "left";
@@ -2147,7 +2082,7 @@
                 return;
             }
 
-            if (gameOver) {
+            if (window.gameOver) {
                 requestAnimationFrame(gameLoop);
                 return;
             }
@@ -3077,8 +3012,8 @@
         }
 
         function showGameOver() {
-            if (gameOver) return;
-            gameOver = true;
+            if (window.gameOver) return;
+            window.gameOver = true;
             currentBoss = null;
             bossState = "normal";
             window.totalBank += mlEarned;
