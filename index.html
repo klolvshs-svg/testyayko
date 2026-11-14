@@ -209,7 +209,7 @@
             color: white;
             border: none;
             width: 100%;
-            margin-top: 25px;
+            margin-top: 15px;
             margin-bottom: 25px;
             font-size: 14px;
             padding: 10px;
@@ -589,6 +589,7 @@
                         </div>
                     </div>
 
+                    <!-- РЕЖИМ РЕДАКТИРОВАНИЯ (Без кнопки выйти, но с полями для смены пароля) -->
                     <div id="profileEditMode" style="width: 100%; display: none; flex-direction: column; align-items: center;">
                         <h4 style="margin: 5px 0 10px 0; font-size: 14px; color: #00d2ff;">Редактирование</h4>
                         <input type="text" id="editNicknameInput" class="drawer-input" placeholder="Новый ник (английский)">
@@ -598,13 +599,19 @@
                             <input type="file" id="editAvatarFile" accept="image/*" class="drawer-input" style="padding: 6px; font-size: 11px;" />
                         </div>
 
+                        <hr style="width:100%; border:0; border-top:1px solid rgba(0,210,255,0.2); margin: 6px 0;">
+                        <h4 style="margin: 2px 0 6px 0; font-size: 13px; color: #00d2ff;">Смена пароля</h4>
+                        <input type="password" id="editOldPasswordInput" class="drawer-input" placeholder="Старый пароль">
+                        <input type="password" id="editNewPasswordInput" class="drawer-input" placeholder="Новый пароль (мин. 4 символа)">
+
                         <div style="width: 100%; display: flex; gap: 5px; margin-top: 5px; margin-bottom: 10px;">
                             <button class="btn-drawer-custom" style="background: #28a745; margin: 0;" onclick="saveProfileChanges()">Сохранить</button>
                             <button class="btn-drawer-custom" style="background: #6c757d; margin: 0;" onclick="toggleEditMode(false)">Отмена</button>
                         </div>
                     </div>
 
-                    <button class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
+                    <!-- Кнопка выйти из акка (скрывается в режиме редактирования, видна внизу шторки) -->
+                    <button id="logoutDrawerBtn" class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
                 </div>
             </div>
         </div>
@@ -685,7 +692,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let currentUid = null; // Теперь здесь хранится уникальный ник в нижнем регистре (ID документа)
+        let currentUid = null;
         let currentUserData = null;
         let lastHeartbeatTime = 0;
         let unsubscribeUserDoc = null;
@@ -706,14 +713,12 @@
             return /^[a-zA-Z0-9]+$/.test(nick);
         }
 
-        // Гарантирует, что клиент авторизован в Firebase Auth перед любым запросом к базе
         async function ensureFirebaseAuth() {
             if (!auth.currentUser) {
                 await signInAnonymously(auth);
             }
         }
 
-        // Подписка на профиль игрока по его уникальному нику (ID документа)
         function bindUserProfile(nickId) {
             currentUid = nickId;
             localStorage.setItem("egg_logged_in_nick", nickId);
@@ -743,6 +748,15 @@
             unsubscribeUserDoc = onSnapshot(userRef, (docSnap) => {
                 if (docSnap.exists()) {
                     currentUserData = docSnap.data();
+                    
+                    // Проверка безопасности: если пароль сменили на другом устройстве, текущую сессию выкинет (если токены смены пароля не совпадают)
+                    const localToken = localStorage.getItem("egg_session_token_" + nickId);
+                    if (currentUserData.sessionToken && localToken && currentUserData.sessionToken !== localToken) {
+                        alert("Ваш пароль был изменен на другом устройстве. Пожалуйста, войдите заново.");
+                        clearLocalSession();
+                        return;
+                    }
+
                     document.getElementById("userDisplayNick").innerText = currentUserData.username || nickId;
                     document.getElementById("drawerBalance").innerText = (currentUserData.balance_ml || 0).toFixed(3);
                     window.totalBank = currentUserData.balance_ml || 0;
@@ -752,7 +766,6 @@
                     updateBurgerAndRequestsUI(currentUserData.friendRequests || []);
                     checkUnreadChats();
                 } else {
-                    // Если аккаунт был удалён из базы
                     clearLocalSession();
                 }
             });
@@ -761,6 +774,9 @@
         }
 
         function clearLocalSession() {
+            if (currentUid) {
+                localStorage.removeItem("egg_session_token_" + currentUid);
+            }
             currentUid = null;
             currentUserData = null;
             localStorage.removeItem("egg_logged_in_nick");
@@ -795,13 +811,10 @@
             }
 
             const cleanLower = cleanUsername.toLowerCase();
-
             showLoading("Создание аккаунта...");
-            try {
-                // 1. Сначала получаем права доступа в Firebase Auth
-                await ensureFirebaseAuth();
 
-                // 2. Проверяем документ напрямую по ID = никнейм
+            try {
+                await ensureFirebaseAuth();
                 const userDocRef = doc(db, "users", cleanLower);
                 const existingDoc = await getDoc(userDocRef);
 
@@ -811,11 +824,14 @@
                     return;
                 }
 
-                // 3. Создаём документ с ID = cleanLower
+                const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+                localStorage.setItem("egg_session_token_" + cleanLower, sessionToken);
+
                 await setDoc(userDocRef, {
                     username: cleanUsername,
                     username_lower: cleanLower,
                     password: password,
+                    sessionToken: sessionToken,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -853,13 +869,10 @@
             }
 
             const cleanLower = cleanUsername.toLowerCase();
-
             showLoading("Вход в аккаунт...");
-            try {
-                // 1. Сначала авторизуемся анонимно для доступа к базе
-                await ensureFirebaseAuth();
 
-                // 2. Читаем документ по ID = cleanLower
+            try {
+                await ensureFirebaseAuth();
                 const userDocRef = doc(db, "users", cleanLower);
                 const userDocSnap = await getDoc(userDocRef);
 
@@ -875,6 +888,10 @@
                     alert("Неверный пароль!");
                     return;
                 }
+
+                const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+                localStorage.setItem("egg_session_token_" + cleanLower, sessionToken);
+                await updateDoc(userDocRef, { sessionToken: sessionToken });
 
                 bindUserProfile(cleanLower);
                 hideLoading();
@@ -903,15 +920,20 @@
         window.toggleEditMode = function(isEditing) {
             const viewMode = document.getElementById("profileViewMode");
             const editMode = document.getElementById("profileEditMode");
+            const logoutBtn = document.getElementById("logoutDrawerBtn");
 
             if (isEditing && currentUserData) {
                 document.getElementById("editNicknameInput").value = currentUserData.username || "";
+                document.getElementById("editOldPasswordInput").value = "";
+                document.getElementById("editNewPasswordInput").value = "";
                 document.getElementById("editAvatarFile").value = "";
                 viewMode.style.display = "none";
                 editMode.style.display = "flex";
+                if (logoutBtn) logoutBtn.style.display = "none"; // Скрываем кнопку выхода в режиме редактирования
             } else {
                 viewMode.style.display = "flex";
                 editMode.style.display = "none";
+                if (logoutBtn) logoutBtn.style.display = "block"; // Возвращаем кнопку выхода внизу шторки
             }
         };
 
@@ -919,6 +941,8 @@
             if (!currentUid || !currentUserData) return;
 
             const newNick = document.getElementById("editNicknameInput").value.trim();
+            const oldPassInput = document.getElementById("editOldPasswordInput").value;
+            const newPassInput = document.getElementById("editNewPasswordInput").value;
             const fileInput = document.getElementById("editAvatarFile");
             const hasNewAvatar = fileInput.files && fileInput.files[0];
 
@@ -930,6 +954,21 @@
             if (!isValidEnglishNickname(newNick)) {
                 alert("Никнейм должен содержать только английские буквы и цифры без пробелов!");
                 return;
+            }
+
+            let isPasswordChanging = (oldPassInput !== "" || newPassInput !== "");
+            let newPasswordToSave = currentUserData.password;
+
+            if (isPasswordChanging) {
+                if (oldPassInput !== currentUserData.password) {
+                    alert("Неверный старый пароль!");
+                    return;
+                }
+                if (newPassInput.length < 4) {
+                    alert("Новый пароль должен содержать минимум 4 символа!");
+                    return;
+                }
+                newPasswordToSave = newPassInput;
             }
 
             const newLower = newNick.toLowerCase();
@@ -951,6 +990,15 @@
                     });
                 }
 
+                // Новый токен сессии для этого устройства (другие устройства вылезут, если сменился пароль)
+                const newSessionToken = isPasswordChanging 
+                    ? (Math.random().toString(36).substring(2) + Date.now().toString(36))
+                    : currentUserData.sessionToken;
+
+                if (isPasswordChanging) {
+                    localStorage.setItem("egg_session_token_" + newLower, newSessionToken);
+                }
+
                 if (isNickChanged) {
                     const newDocRef = doc(db, "users", newLower);
                     const checkNewSnap = await getDoc(newDocRef);
@@ -960,30 +1008,33 @@
                         return;
                     }
 
-                    // Создаём новый документ со всеми данными и старым паролем
                     await setDoc(newDocRef, {
                         ...currentUserData,
                         username: newNick,
                         username_lower: newLower,
+                        password: newPasswordToSave,
+                        sessionToken: newSessionToken,
                         avatarUrl: avatarBase64,
                         lastActive: serverTimestamp()
                     });
 
-                    // Удаляем старый документ — старый ник полностью освобождается
                     await deleteDoc(doc(db, "users", oldLower));
+                    localStorage.removeItem("egg_session_token_" + oldLower);
 
                     bindUserProfile(newLower);
                     hideLoading();
                     toggleEditMode(false);
-                    alert("Ник изменён! Старый никнейм полностью освобождён, вход теперь по новому нику со старым паролем.");
+                    alert("Изменения сохранены! Старый ник освобожден.");
                 } else {
                     await updateDoc(doc(db, "users", oldLower), {
                         username: newNick,
+                        password: newPasswordToSave,
+                        sessionToken: newSessionToken,
                         avatarUrl: avatarBase64
                     });
                     hideLoading();
                     toggleEditMode(false);
-                    alert("Изменения сохранены!");
+                    alert("Изменения успешно сохранены!");
                 }
             } catch (error) {
                 hideLoading();
@@ -1016,7 +1067,6 @@
             updateHeartbeat(inGame);
         }, 10000);
 
-        // Автоматическое восстановление сессии при перезагрузке страницы
         onAuthStateChanged(auth, async (user) => {
             const savedNick = localStorage.getItem("egg_logged_in_nick");
             if (savedNick) {
@@ -1586,7 +1636,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v188_full_fixed";
+        const CURRENT_APP_VERSION = "v189_drawer_drawer_bg";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1699,16 +1749,17 @@
             });
         }
 
+        // Падающие мечи, бомбочки и текстурки на фоне открытой шторки
         let drawerDecorItems = [];
-        for (let i = 0; i < 6; i++) {
-            const typesPool = ["sword", "helmet", "bomb", "drop1", "shield"];
+        for (let i = 0; i < 12; i++) {
+            const drawerTypesPool = ["sword", "bomb", "shield", "helmet", "drop1", "snow", "table"];
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
-                speed: 1.2 + Math.random() * 2.0,
-                type: typesPool[Math.floor(Math.random() * typesPool.length)],
+                speed: 1.5 + Math.random() * 2.5,
+                type: drawerTypesPool[Math.floor(Math.random() * drawerTypesPool.length)],
                 rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.03
+                rotSpeed: (Math.random() - 0.5) * 0.04
             });
         }
 
@@ -1760,7 +1811,7 @@
             if (isDrawerOpen) {
                 drawer.classList.add("open");
             } else {
-                drawer.classList.remove("open");
+                drawer.classList.remove("open";
             }
         }
 
@@ -1893,49 +1944,8 @@
             targetCtx.font = customCtx ? "44px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif" : "35px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
             targetCtx.textAlign = "center";
 
-            if (item.type === "sword" && item.subType !== "corner_sword") targetCtx.fillText("🗡", item.x, item.y);
-            else if (item.type === "sword" && item.subType === "corner_sword") {
-                targetCtx.save();
-                targetCtx.translate(item.x, item.y);
-                item.rotation = (item.rotation || 0) + 0.08;
-                targetCtx.rotate(item.rotation);
-                targetCtx.font = "32px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
-                targetCtx.textAlign = "center";
-                targetCtx.fillText("🗡", 0, 0);
-                targetCtx.restore();
-            }
-            else if (item.type === "fan_item") {
-                targetCtx.save();
-                targetCtx.translate(item.x, item.y);
-                item.rotate(item.rotation || 0);
-                targetCtx.font = "26px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif"; 
-                targetCtx.textAlign = "center";
-                targetCtx.fillText("🪭", 0, 0);
-                targetCtx.restore();
-            }
-            else if (item.type === "table") {
-                targetCtx.save();
-                targetCtx.translate(item.x, item.y);
-                item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0.04);
-                targetCtx.rotate(item.rotation);
-                targetCtx.font = "35px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
-                targetCtx.textAlign = "center";
-                targetCtx.fillText("🪑", 0, 10);
-                targetCtx.restore();
-            }
-            else if (item.type === "barricade") targetCtx.fillText("🛢️", item.x, item.y);
-            else if (item.type === "fan") targetCtx.fillText("🪭", item.x, item.y);
-            else if (item.type === "white_drop") {
-                targetCtx.save();
-                targetCtx.translate(item.x, item.y);
-                targetCtx.beginPath();
-                targetCtx.moveTo(0, -12);
-                targetCtx.bezierCurveTo(9, -3, 9, 10, 0, 13);
-                targetCtx.bezierCurveTo(-9, 10, -9, -3, 0, -12);
-                targetCtx.fillStyle = "#ffffff";
-                targetCtx.fill();
-                targetCtx.restore();
-            }
+            if (item.type === "sword") targetCtx.fillText("🗡", item.x, item.y);
+            else if (item.type === "table") targetCtx.fillText("🪑", item.x, item.y);
             else if (item.type === "bomb") {
                 if (bombImg.complete && bombImg.naturalWidth !== 0) {
                     let imgAspect = bombImg.naturalWidth / bombImg.naturalHeight;
@@ -1949,38 +1959,8 @@
             else if (item.type === "shield") targetCtx.fillText("🛡", item.x, item.y);
             else if (item.type === "helmet") targetCtx.fillText("🪖", item.x, item.y);
             else if (item.type === "drop1") targetCtx.fillText("💧", item.x, item.y);
-            else if (item.type === "splash") targetCtx.fillText("💦", item.x, item.y);
-            else if (item.type === "torii") targetCtx.fillText("⛩", item.x, item.y);
-            else if (item.type === "blood") targetCtx.fillText("🩸", item.x, item.y);
             else if (item.type === "snow") targetCtx.fillText("❄️", item.x, item.y);
-            else if (item.type === "egg20") targetCtx.fillText("🥚", item.x, item.y);
-            else if (item.type === "boss_fist") targetCtx.fillText("✊", item.x, item.y);
-            else if (item.type === "yellow_orb") {
-                targetCtx.save();
-                targetCtx.translate(item.x, item.y);
-                if (item.rotationSpeed) {
-                    item.rotation += item.rotationSpeed;
-                    targetCtx.rotate(item.rotation);
-                }
-                targetCtx.beginPath();
-                targetCtx.moveTo(0, -14);
-                targetCtx.bezierCurveTo(12, -2, 12, 12, 0, 14);
-                targetCtx.bezierCurveTo(-12, 12, -12, -2, 0, -14);
-                targetCtx.fillStyle = "#ffcc00";
-                targetCtx.fill();
-                targetCtx.strokeStyle = "#ffffff";
-                targetCtx.lineWidth = 1.5;
-                targetCtx.stroke();
-                targetCtx.restore();
-            } else if (item.type === "random_cube") {
-                if (cubeImg.complete && cubeImg.naturalWidth !== 0) {
-                    targetCtx.drawImage(cubeImg, item.x - 20, item.y - 20, 40, 40);
-                } else {
-                    targetCtx.fillText("🎁", item.x, item.y);
-                }
-            } else {
-                targetCtx.fillText("🗡", item.x, item.y);
-            }
+            else targetCtx.fillText("🗡", item.x, item.y);
         }
 
         function gameLoop() {
@@ -1993,6 +1973,7 @@
             ctx.fillRect(0, 0, W, H);
 
             if (!window.gameStarted) {
+                // Анимация падающих предметов на главном экране
                 menuDecorItems.forEach(item => {
                     item.y += item.speed;
                     item.rotation += item.rotSpeed;
@@ -2024,13 +2005,13 @@
                         else if (item.type === "shield") symbol = "🛡";
                         else if (item.type === "helmet") symbol = "🪖";
                         else if (item.type === "drop1") symbol = "💧";
-                        else if (item.type === "fan") symbol = "🪭";
                         else if (item.type === "snow") symbol = "❄️";
                         ctx.fillText(symbol, 0, 0);
                     }
                     ctx.restore();
                 });
 
+                // Отрисовка падающих мечей, бомбочек и текстур на фоне открытой шторки
                 drawerCtx.clearRect(0, 0, drawerW, drawerH);
                 drawerDecorItems.forEach(item => {
                     item.y += item.speed; 
@@ -3031,7 +3012,7 @@
             localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
 
             document.getElementById("pauseBtn").style.display = "none";
-            document.getElementById("roundScoreText").innerText = "+" + mlEarned.toFixed(3) + " мл 💦";
+            document.getElementById("roundScoreTest").innerText = "+" + mlEarned.toFixed(3) + " мл 💦";
             document.getElementById("totalBankText").innerText = window.totalBank.toFixed(3);
             document.getElementById("gameOverScreen").style.display = "flex";
         }
@@ -3041,7 +3022,7 @@
         }
 
         function showWithdrawModal() {
-            document.getElementById("withdrawBalanceText").innerText = Math.floor(window.totalBank);
+            document.getElementById("withdrawBalanceTest").innerText = Math.floor(window.totalBank);
             document.getElementById("withdrawError").style.display = "none";
             document.getElementById("withdrawAmount").value = "";
 
