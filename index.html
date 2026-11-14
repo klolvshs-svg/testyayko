@@ -714,8 +714,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, increment, arrayUnion, arrayRemove, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDDbjOOmFID0DwVfYoOy6jHtNooXBOFvrk",
@@ -730,7 +730,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const FAKE_EMAIL_DOMAIN = "@save-the-egg.game";
         let currentUid = null;
         let currentUserData = null;
         let lastHeartbeatTime = 0;
@@ -781,22 +780,24 @@
             }
 
             const cleanLower = cleanUsername.toLowerCase();
+            
+            showLoading("Проверка ника...");
             const available = await isNicknameAvailable(cleanLower);
             if (!available) {
-                alert("Этот никнейм уже занят в базе игроков!");
+                hideLoading();
+                alert("Этот никнейм уже занят другим игроком!");
                 return;
             }
 
             showLoading("Создание аккаунта...");
             try {
-                const uniqueAuthEmail = `user_${Math.random().toString(36).substring(2, 10)}_${Date.now()}${FAKE_EMAIL_DOMAIN}`;
-                const userCredential = await createUserWithEmailAndPassword(auth, uniqueAuthEmail, password);
+                const userCredential = await signInAnonymously(auth);
                 const user = userCredential.user;
 
                 await setDoc(doc(db, "users", user.uid), {
                     username: cleanUsername,
                     username_lower: cleanLower,
-                    authEmail: uniqueAuthEmail,
+                    password: password,
                     avatarUrl: "https://via.placeholder.com/70",
                     balance_ml: 0,
                     friends: [],
@@ -846,21 +847,24 @@
                     return;
                 }
 
-                const userData = snapshot.docs[0].data();
-                const loginEmail = userData.authEmail;
+                const userDocSnap = snapshot.docs[0];
+                const userData = userDocSnap.data();
 
-                if (!loginEmail) {
+                if (userData.password !== password) {
                     hideLoading();
-                    alert("Ошибка данных аккаунта.");
+                    alert("Неверный пароль!");
                     return;
                 }
 
-                await signInWithEmailAndPassword(auth, loginEmail, password);
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                }
+
                 hideLoading();
                 alert("Вход выполнен успешно!");
             } catch (error) {
                 hideLoading();
-                alert("Неверный ник или пароль!");
+                alert("Ошибка входа: " + error.message);
             }
         };
 
@@ -961,7 +965,7 @@
 
                 hideLoading();
                 toggleEditMode(false);
-                alert("Изменения успешно сохранены! Старый ник полностью освобожден для других.");
+                alert("Изменения успешно сохранены! Старый никнейм полностью освобожден.");
             } catch (error) {
                 hideLoading();
                 alert("Ошибка обновления: " + error.message);
@@ -1625,7 +1629,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v186_full_restored";
+        const CURRENT_APP_VERSION = "v187_full_restored";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
