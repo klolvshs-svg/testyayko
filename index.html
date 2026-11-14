@@ -707,6 +707,7 @@
         let unsubscribeChat = null;
         let unsubscribePartnerStatus = null;
         let typingTimeout = null;
+        let isIntentionalLogout = false;
 
         let currentDeviceSessionId = localStorage.getItem("egg_device_session_id");
         if (!currentDeviceSessionId) {
@@ -734,6 +735,7 @@
 
         function bindUserProfile(nickId) {
             currentUid = nickId;
+            isIntentionalLogout = false;
             localStorage.setItem("egg_logged_in_nick", nickId);
 
             const loggedOutView = document.getElementById("drawerLoggedOut");
@@ -759,6 +761,8 @@
             const userRef = doc(db, "users", nickId);
 
             unsubscribeUserDoc = onSnapshot(userRef, (docSnap) => {
+                if (isIntentionalLogout) return;
+
                 if (docSnap.exists()) {
                     currentUserData = docSnap.data();
                     
@@ -777,6 +781,12 @@
                     }
                     updateBurgerAndRequestsUI(currentUserData.friendRequests || []);
                     checkUnreadChats();
+
+                    // Если открыта панель друзей — обновляем список живым таймером
+                    const friendsPanel = document.getElementById("friendsSectionPanel");
+                    if (friendsPanel && friendsPanel.style.display === "flex") {
+                        loadFriendsList();
+                    }
                 } else {
                     clearLocalSession();
                 }
@@ -798,7 +808,7 @@
         }
 
         function clearLocalSession() {
-            if (currentUid) {
+            if (currentUid && !isIntentionalLogout) {
                 try {
                     updateDoc(doc(db, "users", currentUid), { 
                         inGame: false, 
@@ -807,8 +817,8 @@
                         lastActive: null
                     }).catch(()=>{});
                 } catch(e){}
-                localStorage.removeItem("egg_logged_in_nick");
             }
+            localStorage.removeItem("egg_logged_in_nick");
             currentUid = null;
             currentUserData = null;
             if (unsubscribeUserDoc) { unsubscribeUserDoc(); unsubscribeUserDoc = null; }
@@ -930,6 +940,7 @@
         window.handleLogout = async function() {
             const confirmed = confirm("Вы уверены, что хотите выйти из аккаунта?");
             if (confirmed) {
+                isIntentionalLogout = true;
                 try {
                     if (currentUid) {
                         await updateDoc(doc(db, "users", currentUid), { 
@@ -1066,7 +1077,7 @@
                     });
                 }
 
-                // МОМЕНТАЛЬНЫЙ СБРОС ДРУГИХ СЕССИЙ ПРИ СМЕНЕ ПАРОЛЯ
+                // СБРОС ВСЕХ ОСТАЛЬНЫХ СЕССИЙ ПРИ СМЕНЕ ПАРОЛЯ
                 let sessionsUpdate = currentUserData.activeSessions || {};
                 if (isPasswordChanging) {
                     let newSessions = {};
@@ -1201,7 +1212,7 @@
         }, 2000);
 
         async function goOfflineInstant() {
-            if (currentUid) {
+            if (currentUid && !isIntentionalLogout) {
                 try {
                     await updateDoc(doc(db, "users", currentUid), {
                         inGame: false,
@@ -1757,7 +1768,7 @@
 
             if (!timestamp) return { text: "Не в сети", color: "#888888" };
             const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-            if (diffSec < 15) return { text: "В сети", color: "#a5d6a7" };
+            if (diffSec < 20) return { text: "В сети", color: "#a5d6a7" };
             if (diffSec < 60) return { text: `Был в сети меньше минуты назад`, color: "#888888" };
             if (diffSec < 3600) return { text: `Был в сети ${Math.floor(diffSec / 60)} мин. назад`, color: "#888888" };
             if (diffSec < 86400) return { text: `Был в сети ${Math.floor(diffSec / 3600)} ч. назад`, color: "#888888" };
@@ -1786,7 +1797,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v195_speed_and_status_fix";
+        const CURRENT_APP_VERSION = "v196_all_fixes_final";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1886,10 +1897,10 @@
         let items = [];
         let spawnTimer = 0;
 
-        // ЕДИНАЯ КОМФОРТНАЯ МЕДЛЕННАЯ СКОРОСТЬ АНИМАЦИИ ДЕКОРА (ПК И ТЕЛЕФОН)
+        // ДЕКОР ФОНА С БОМБОЧКАМИ
         let menuDecorItems = [];
-        for (let i = 0; i < 10; i++) {
-            const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow"];
+        for (let i = 0; i < 11; i++) {
+            const typesPool = ["sword", "table", "bomb", "shield", "helmet", "drop1", "fan", "snow", "bomb"];
             menuDecorItems.push({
                 x: Math.random() * W,
                 y: Math.random() * H,
@@ -1902,7 +1913,7 @@
 
         let drawerDecorItems = [];
         for (let i = 0; i < 12; i++) {
-            const drawerTypesPool = ["sword", "bomb", "shield", "helmet", "drop1", "snow", "table"];
+            const drawerTypesPool = ["sword", "bomb", "shield", "helmet", "drop1", "snow", "table", "bomb"];
             drawerDecorItems.push({
                 x: Math.random() * drawerW,
                 y: Math.random() * drawerH,
@@ -1912,6 +1923,14 @@
                 rotSpeed: (Math.random() - 0.5) * 0.025
             });
         }
+
+        // Авто-обновление таймеров друзей в панели каждые 1000мс
+        setInterval(() => {
+            const friendsPanel = document.getElementById("friendsSectionPanel");
+            if (friendsPanel && friendsPanel.style.display === "flex" && typeof window.loadFriendsList === "function") {
+                window.loadFriendsList();
+            }
+        }, 1000);
 
         function formatGameTimer(ms) {
             const totalSeconds = Math.floor(ms / 1000);
@@ -1940,7 +1959,7 @@
         }
 
         function handleInstantTabExit() {
-            if (window.gameStarted && !window.gameOver && currentUid) {
+            if (window.gameStarted && !window.gameOver && currentUid && !isIntentionalLogout) {
                 window.gameStarted = false;
                 window.gameOver = true;
                 window.isPaused = false;
