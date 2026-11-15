@@ -45,11 +45,11 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(15, 23, 33, 0.75);
+            background: rgba(15, 23, 33, 0.85);
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 999;
+            z-index: 9999;
         }
         #startScreen {
             display: flex;
@@ -364,7 +364,7 @@
         .btn-mini-gray { background: #555; color: #ccc; cursor: default; }
         .chat-messages-box {
             width: 100%;
-            height: 270px;
+            height: 235px;
             background: rgba(0,0,0,0.3);
             border-radius: 6px;
             padding: 6px;
@@ -397,13 +397,14 @@
             position: relative;
             cursor: pointer;
             border-radius: 8px;
+            padding: 2px;
             transition: background 0.2s;
         }
         .chat-msg-row.me { align-self: flex-end; flex-direction: row-reverse; }
         .chat-msg-row.partner { align-self: flex-start; }
         .chat-msg-row.selected {
-            background: rgba(0, 210, 255, 0.25);
-            box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+            background: rgba(0, 210, 255, 0.35);
+            border: 1px dashed #00d2ff;
         }
         
         .chat-msg {
@@ -426,23 +427,6 @@
         }
         .chat-msg.partner .chat-msg-meta { right: 6px; color: #cbd5e1; }
         
-        .btn-delete-msg {
-            background: rgba(244, 67, 54, 0.85);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 6px;
-            display: none;
-            align-items: center;
-            gap: 4px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-            z-index: 10;
-        }
-        .chat-msg-row:hover .btn-delete-msg { display: flex; }
-        .chat-msg-row.selected .btn-delete-msg { display: flex; }
-
         .btn {
             background: #248bda;
             color: white;
@@ -629,6 +613,13 @@
                                 </div>
                                 <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()" style="flex-shrink:0;">✕ Назад</button>
                             </div>
+                            
+                            <!-- ПАНЕЛЬ МАССОВОГО УДАЛЕНИЯ СООБЩЕНИЙ -->
+                            <div id="chatBatchActionsBar" style="display:none; justify-content:space-between; align-items:center; width:100%; background:rgba(244,67,54,0.25); padding:4px 8px; border-radius:6px; margin-bottom:4px; box-sizing:border-box;">
+                                <span id="selectedCountText" style="font-size:11px; color:#fff; font-weight:bold;">Выбрано: 0</span>
+                                <button class="btn-mini-action btn-mini-danger" onclick="deleteSelectedChatMessages()">🗑 Удалить выбранные</button>
+                            </div>
+
                             <div id="chatMessagesBox" class="chat-messages-box"></div>
                             <div id="chatInputArea" style="display:flex; width:100%; gap:4px; align-items:center;">
                                 <input type="text" id="chatMessageInput" class="drawer-input" style="margin:0; font-size:12px; padding:6px;" placeholder="Сообщение..." oninput="onMyTypingInput()" />
@@ -691,20 +682,20 @@
         </div>
     </div>
 
-    <!-- ЭКРАН ПОРАЖЕНИЯ -->
+    <!-- ЭКРАН ПОРАЖЕНИЯ (ГАРАНТИРОВАННО ОТОБРАЖАЕТСЯ) -->
     <div id="gameOverScreen">
         <h1 style="font-size: 36px; margin: 0; color: #ff4d4d; text-shadow: 0 0 15px rgba(255,77,77,0.5);">💀 ИГРА ОКОНЧЕНА</h1>
         <p style="font-size: 18px; color: #aaa; margin: 10px 0 5px 0;">Заработано за раунд:</p>
         <p style="font-size: 26px; color: #00d2ff; font-weight: bold; margin: 0 0 15px 0;" id="roundScoreText">+0.000 мл</p>
         <p style="font-size: 18px; color: #fff; margin: 0 0 20px 0;">Общий баланс на сайте: <b id="totalBankText">0.000</b> мл</p>
         
-        <div style="position: relative; z-index: 1005;">
-            <button class="btn" onclick="restartGame()">Заново 🔄</button>
+        <div style="position: relative; z-index: 10005;">
+            <button class="btn btn-withdraw" onclick="restartGame()">Заново 🔄</button>
             <button id="withdrawGameOverBtn" class="btn btn-withdraw" onclick="showWithdrawModal()">Вывести мл 🎁</button>
         </div>
     </div>
 
-    <div id="withdrawModal" class="modal" style="z-index: 1010;">
+    <div id="withdrawModal" class="modal" style="z-index: 10010;">
         <h2>🎁 Вывод миллилитров</h2>
         <p style="color: #aaa; font-size: 14px; max-width: 80%;">
             Доступно: <b id="withdrawBalanceText" style="color: #00d2ff;">0</b> мл<br>
@@ -721,7 +712,7 @@
         </div>
     </div>
 
-    <div id="promoModal" class="modal" style="z-index: 1020;">
+    <div id="promoModal" class="modal" style="z-index: 10020;">
         <h2>🎉 Код начисления готов!</h2>
         <p style="color: #aaa;">Скопируйте код и отправьте боту командой:</p>
         <div class="promo-box" id="promoCodeDisplay">EGG-XXXX-XXXX-XXXX</div>
@@ -758,6 +749,8 @@
         let typingTimeout = null;
         let isIntentionalLogout = false;
         let sessionLoginTimestamp = parseInt(localStorage.getItem("egg_session_login_ts") || Date.now().toString(), 10);
+
+        let selectedMessageIndices = new Set();
 
         let currentDeviceSessionId = localStorage.getItem("egg_device_session_id");
         if (!currentDeviceSessionId) {
@@ -1328,6 +1321,7 @@
             if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
             if (unsubscribePartnerStatus) { unsubscribePartnerStatus(); unsubscribePartnerStatus = null; }
             activeChatFriendUid = null;
+            selectedMessageIndices.clear();
         }
 
         window.toggleSearchPanel = function() {
@@ -1671,6 +1665,8 @@
 
         window.openChatWith = async function(friendUid, friendNick, friendAvatar) {
             activeChatFriendUid = friendUid;
+            selectedMessageIndices.clear();
+            updateBatchActionsBar();
             document.getElementById("friendsSectionPanel").style.display = "none";
             document.getElementById("chatListSectionPanel").style.display = "none";
             
@@ -1776,12 +1772,13 @@
                     }
 
                     let timeStr = msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    let isSelected = selectedMessageIndices.has(idx);
 
                     html += `
-                        <div class="chat-msg-row ${isMe ? 'me' : 'partner'}" 
-                             onclick="toggleSelectMessage(this)" 
-                             oncontextmenu="event.preventDefault(); selectAndPromptDelete(${idx});">
-                            <button class="btn-delete-msg" onclick="event.stopPropagation(); deleteChatMessage(${idx})" title="Удалить сообщение">🗑 Удалить</button>
+                        <div class="chat-msg-row ${isMe ? 'me' : 'partner'} ${isSelected ? 'selected' : ''}" 
+                             data-msg-idx="${idx}"
+                             onclick="toggleMessageSelection(${idx}, event)"
+                             oncontextmenu="event.preventDefault(); toggleMessageSelection(${idx}, event);">
                             <div class="chat-msg ${isMe ? 'me' : 'partner'}">
                                 ${msg.text}
                                 <div class="chat-msg-meta">
@@ -1797,24 +1794,42 @@
             });
         };
 
-        window.toggleSelectMessage = function(rowElement) {
-            const allRows = document.querySelectorAll('.chat-msg-row');
-            allRows.forEach(r => {
-                if (r !== rowElement) r.classList.remove('selected');
-            });
-            rowElement.classList.toggle('selected');
-        };
-
-        window.selectAndPromptDelete = function(msgIndex) {
-            const confirmed = confirm("Удалить это сообщение?");
-            if (confirmed) {
-                window.deleteChatMessage(msgIndex);
+        window.toggleMessageSelection = function(idx, event) {
+            if (event) event.stopPropagation();
+            if (selectedMessageIndices.has(idx)) {
+                selectedMessageIndices.delete(idx);
+            } else {
+                selectedMessageIndices.add(idx);
             }
+
+            const row = document.querySelector(`.chat-msg-row[data-msg-idx="${idx}"]`);
+            if (row) {
+                if (selectedMessageIndices.has(idx)) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            }
+            updateBatchActionsBar();
         };
 
-        window.deleteChatMessage = async function(msgIndex) {
-            if (!activeChatFriendUid || !currentUid) return;
-            const confirmed = confirm("Вы уверены, что хотите полностью удалить это сообщение для всех?");
+        function updateBatchActionsBar() {
+            const bar = document.getElementById("chatBatchActionsBar");
+            const countText = document.getElementById("selectedCountText");
+            const count = selectedMessageIndices.size;
+
+            if (count > 0) {
+                bar.style.display = "flex";
+                countText.innerText = `Выбрано: ${count}`;
+            } else {
+                bar.style.display = "none";
+            }
+        }
+
+        window.deleteSelectedChatMessages = async function() {
+            if (selectedMessageIndices.size === 0 || !activeChatFriendUid || !currentUid) return;
+            const count = selectedMessageIndices.size;
+            const confirmed = confirm(`Удалить выбранные сообщения (${count} шт.) для всех?`);
             if (!confirmed) return;
 
             const chatId = [currentUid, activeChatFriendUid].sort().join("_");
@@ -1824,10 +1839,17 @@
                 const chatSnap = await getDoc(chatRef);
                 if (chatSnap.exists()) {
                     let messages = chatSnap.data().messages || [];
-                    if (msgIndex >= 0 && msgIndex < messages.length) {
-                        messages.splice(msgIndex, 1);
-                        await setDoc(chatRef, { messages: messages }, { merge: true });
-                    }
+                    
+                    let sortedIndices = Array.from(selectedMessageIndices).sort((a, b) => b - a);
+                    sortedIndices.forEach(idx => {
+                        if (idx >= 0 && idx < messages.length) {
+                            messages.splice(idx, 1);
+                        }
+                    });
+
+                    await setDoc(chatRef, { messages: messages }, { merge: true });
+                    selectedMessageIndices.clear();
+                    updateBatchActionsBar();
                 }
             } catch (e) {
                 alert("Ошибка удаления: " + e.message);
@@ -1838,6 +1860,7 @@
             if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
             if (unsubscribePartnerStatus) { unsubscribePartnerStatus(); unsubscribePartnerStatus = null; }
             activeChatFriendUid = null;
+            selectedMessageIndices.clear();
             document.getElementById("chatSectionPanel").style.display = "none";
             document.getElementById("friendsSectionPanel").style.display = "flex";
         };
@@ -1945,7 +1968,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v200_fixes_final_fixed";
+        const CURRENT_APP_VERSION = "v201_fixes_final_fixed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
