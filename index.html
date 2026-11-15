@@ -40,12 +40,12 @@
         }
         #gameOverScreen {
             display: none;
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(15, 23, 33, 0.88);
+            background: rgba(15, 23, 33, 0.75);
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -377,23 +377,59 @@
             text-align: left;
             font-size: 12px;
         }
-        .chat-msg {
-            padding: 4px 8px;
-            border-radius: 6px;
-            max-width: 85%;
+        .chat-date-separator {
+            text-align: center;
+            font-size: 10px;
+            color: #94a3b8;
+            background: rgba(15, 23, 33, 0.6);
+            padding: 2px 8px;
+            border-radius: 10px;
+            align-self: center;
+            margin: 6px 0;
+            border: 1px solid rgba(0,210,255,0.15);
+        }
+        .chat-msg-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            max-width: 92%;
             word-break: break-word;
             position: relative;
-            padding-bottom: 14px;
         }
-        .chat-msg-status {
+        .chat-msg-row.me { align-self: flex-end; flex-direction: row-reverse; }
+        .chat-msg-row.partner { align-self: flex-start; }
+        
+        .chat-msg {
+            padding: 5px 8px 16px 8px;
+            border-radius: 8px;
+            position: relative;
+            flex-grow: 1;
+        }
+        .chat-msg.me { background: #248bda; color: #fff; }
+        .chat-msg.partner { background: #334155; color: #fff; }
+        
+        .chat-msg-meta {
             position: absolute;
-            bottom: 1px;
+            bottom: 2px;
             right: 6px;
             font-size: 8px;
             color: #b0e0e6;
+            display: flex;
+            gap: 4px;
         }
-        .chat-msg.me { background: #248bda; color: #fff; align-self: flex-end; }
-        .chat-msg.partner { background: #334155; color: #fff; align-self: flex-start; }
+        .chat-msg.partner .chat-msg-meta { right: 6px; color: #cbd5e1; }
+        
+        .btn-delete-msg {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            opacity: 0.5;
+            padding: 0 2px;
+            transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-delete-msg:hover { opacity: 1; }
         .btn {
             background: #248bda;
             color: white;
@@ -1093,7 +1129,6 @@
                     });
                 }
 
-                // РЕАЛИЗАЦИЯ ИЗ ПРОШЛОГО УСПЕШНОГО КОДА:
                 let sessionsUpdate = { ...(currentUserData.activeSessions || {}) };
                 let passChangedAt = currentUserData.passwordChangedAt || 0;
                 let passChangedBy = currentUserData.passwordChangedBy || "";
@@ -1700,22 +1735,73 @@
                 }
 
                 let html = "";
-                messages.forEach(msg => {
+                let lastDateStr = "";
+
+                messages.forEach((msg, idx) => {
                     const isMe = (msg.sender === currentUid);
-                    let readStatusText = "";
-                    if (isMe) {
-                        readStatusText = msg.read ? "✓✓ Просмотрено" : "✓";
+                    let readStatusText = isMe ? (msg.read ? "✓✓" : "✓") : "";
+                    
+                    let msgDate = new Date(msg.timestamp || Date.now());
+                    let today = new Date();
+                    let dateStr = "";
+                    
+                    if (msgDate.toDateString() === today.toDateString()) {
+                        dateStr = "Сегодня";
+                    } else {
+                        let yesterday = new Date();
+                        yesterday.setDate(today.getDate() - 1);
+                        if (msgDate.toDateString() === yesterday.toDateString()) {
+                            dateStr = "Вчера";
+                        } else {
+                            dateStr = msgDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+                        }
                     }
+
+                    if (dateStr !== lastDateStr) {
+                        html += `<div class="chat-date-separator">${dateStr}</div>`;
+                        lastDateStr = dateStr;
+                    }
+
+                    let timeStr = msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
                     html += `
-                        <div class="chat-msg ${isMe ? 'me' : 'partner'}">
-                            ${msg.text}
-                            ${isMe ? `<div class="chat-msg-status">${readStatusText}</div>` : ''}
+                        <div class="chat-msg-row ${isMe ? 'me' : 'partner'}">
+                            <button class="btn-delete-msg" onclick="deleteChatMessage(${idx})" title="Удалить сообщение">🗑</button>
+                            <div class="chat-msg ${isMe ? 'me' : 'partner'}">
+                                ${msg.text}
+                                <div class="chat-msg-meta">
+                                    <span>${timeStr}</span>
+                                    <span>${readStatusText}</span>
+                                </div>
+                            </div>
                         </div>
                     `;
                 });
                 box.innerHTML = html;
                 box.scrollTop = box.scrollHeight;
             });
+        };
+
+        window.deleteChatMessage = async function(msgIndex) {
+            if (!activeChatFriendUid || !currentUid) return;
+            const confirmed = confirm("Удалить это сообщение для всех?");
+            if (!confirmed) return;
+
+            const chatId = [currentUid, activeChatFriendUid].sort().join("_");
+            const chatRef = doc(db, "chats", chatId);
+
+            try {
+                const chatSnap = await getDoc(chatRef);
+                if (chatSnap.exists()) {
+                    let messages = chatSnap.data().messages || [];
+                    if (msgIndex >= 0 && msgIndex < messages.length) {
+                        messages.splice(msgIndex, 1);
+                        await setDoc(chatRef, { messages: messages }, { merge: true });
+                    }
+                }
+            } catch (e) {
+                alert("Ошибка удаления: " + e.message);
+            }
         };
 
         window.closeChatPanel = function() {
@@ -1829,7 +1915,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v198_fixes_final_fixed";
+        const CURRENT_APP_VERSION = "v199_fixes_final_fixed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -1881,7 +1967,6 @@
         let fanWindAnimation = null;
         let isDrawerOpen = false;
 
-        // ПОЛОЖЕНИЕ ЯЙЦА ВЫШЕ (H - 100)
         const player = { x: W / 2, y: H - 100, radius: 25 };
 
         window.addEventListener("resize", () => {
@@ -3238,7 +3323,6 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // ИСПРАВЛЕННОЕ ОКНО ПОРАЖЕНИЯ С ПОЛНЫМ ОТОБРАЖЕНИЕМ И КНОПКАМИ
         function showGameOver() {
             if (window.gameOver) return;
             window.gameOver = true;
@@ -3267,7 +3351,6 @@
             if (gameOverEl) {
                 gameOverEl.style.setProperty("display", "flex", "important");
             }
-            requestAnimationFrame(gameLoop);
         }
 
         function restartGame() {
