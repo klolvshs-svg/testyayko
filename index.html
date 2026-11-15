@@ -395,9 +395,16 @@
             max-width: 92%;
             word-break: break-word;
             position: relative;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.2s;
         }
         .chat-msg-row.me { align-self: flex-end; flex-direction: row-reverse; }
         .chat-msg-row.partner { align-self: flex-start; }
+        .chat-msg-row.selected {
+            background: rgba(0, 210, 255, 0.25);
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+        }
         
         .chat-msg {
             padding: 5px 8px 16px 8px;
@@ -420,16 +427,22 @@
         .chat-msg.partner .chat-msg-meta { right: 6px; color: #cbd5e1; }
         
         .btn-delete-msg {
-            background: transparent;
+            background: rgba(244, 67, 54, 0.85);
+            color: white;
             border: none;
             cursor: pointer;
-            font-size: 13px;
-            opacity: 0.5;
-            padding: 0 2px;
-            transition: opacity 0.2s;
-            flex-shrink: 0;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: none;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            z-index: 10;
         }
-        .btn-delete-msg:hover { opacity: 1; }
+        .chat-msg-row:hover .btn-delete-msg { display: flex; }
+        .chat-msg-row.selected .btn-delete-msg { display: flex; }
+
         .btn {
             background: #248bda;
             color: white;
@@ -1765,8 +1778,10 @@
                     let timeStr = msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                     html += `
-                        <div class="chat-msg-row ${isMe ? 'me' : 'partner'}">
-                            <button class="btn-delete-msg" onclick="deleteChatMessage(${idx})" title="Удалить сообщение">🗑</button>
+                        <div class="chat-msg-row ${isMe ? 'me' : 'partner'}" 
+                             onclick="toggleSelectMessage(this)" 
+                             oncontextmenu="event.preventDefault(); selectAndPromptDelete(${idx});">
+                            <button class="btn-delete-msg" onclick="event.stopPropagation(); deleteChatMessage(${idx})" title="Удалить сообщение">🗑 Удалить</button>
                             <div class="chat-msg ${isMe ? 'me' : 'partner'}">
                                 ${msg.text}
                                 <div class="chat-msg-meta">
@@ -1782,9 +1797,24 @@
             });
         };
 
+        window.toggleSelectMessage = function(rowElement) {
+            const allRows = document.querySelectorAll('.chat-msg-row');
+            allRows.forEach(r => {
+                if (r !== rowElement) r.classList.remove('selected');
+            });
+            rowElement.classList.toggle('selected');
+        };
+
+        window.selectAndPromptDelete = function(msgIndex) {
+            const confirmed = confirm("Удалить это сообщение?");
+            if (confirmed) {
+                window.deleteChatMessage(msgIndex);
+            }
+        };
+
         window.deleteChatMessage = async function(msgIndex) {
             if (!activeChatFriendUid || !currentUid) return;
-            const confirmed = confirm("Удалить это сообщение для всех?");
+            const confirmed = confirm("Вы уверены, что хотите полностью удалить это сообщение для всех?");
             if (!confirmed) return;
 
             const chatId = [currentUid, activeChatFriendUid].sort().join("_");
@@ -1915,7 +1945,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v199_fixes_final_fixed";
+        const CURRENT_APP_VERSION = "v200_fixes_final_fixed";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
