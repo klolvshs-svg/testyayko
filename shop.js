@@ -1,4 +1,4 @@
-// shop.js — Исправленный магазин рамок (моментальное скрытие + рабочий выбор/покупка)
+// shop.js — Полностью рабочий магазин рамок с прямой загрузкой из Firebase и скрытием кнопки
 
 (function() {
     // 1. Создаем прозрачную кнопку магазина вверху экрана
@@ -68,7 +68,7 @@
                 <div id="shopPreviewBorder" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #fff; box-sizing: border-box; position: absolute; top:0; left:0; transition: all 0.3s;"></div>
                 <img id="shopPreviewAvatar" src="https://via.placeholder.com/80" style="width: 74px; height: 74px; border-radius: 50%; object-fit: cover; position: absolute; top: 3px; left: 3px;">
             </div>
-            <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: 0 мл</div>
+            <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: загрузка...</div>
 
             <button class="btn-drawer-custom" style="margin-bottom: 10px; background: #248bda; cursor:default;">✨ Рамки для аватара</button>
 
@@ -118,7 +118,7 @@
         }, 50);
     }
 
-    window.toggleShopDrawer = function() {
+    window.toggleShopDrawer = async function() {
         const drawer = document.getElementById("shopDrawer");
         if (!drawer) return;
         const isOpen = drawer.style.left === "0px";
@@ -128,11 +128,11 @@
             const profileDrawer = document.getElementById("profileDrawer");
             if (profileDrawer) profileDrawer.classList.remove("open");
             drawer.style.left = "0px";
-            updateShopUI();
+            await window.updateShopUI();
         }
     };
 
-    // Мгновенное скрытие/показ кнопки магазина
+    // Скрытие кнопки магазина во время игры или когда открыты шторки
     function checkShopButtonVisibility() {
         const shopBtn = document.getElementById("menuShopBtn");
         const profileDrawer = document.getElementById("profileDrawer");
@@ -142,8 +142,9 @@
 
         const isProfileOpen = profileDrawer && profileDrawer.classList.contains("open");
         const isShopOpen = shopDrawer && shopDrawer.style.left === "0px";
+        const isGamePlaying = (window.gameStarted && !window.isPaused && !window.gameOver);
 
-        if (isProfileOpen || isShopOpen || (window.gameStarted && !window.isPaused && !window.gameOver)) {
+        if (isProfileOpen || isShopOpen || isGamePlaying) {
             shopBtn.style.display = "none";
         } else {
             shopBtn.style.display = "flex";
@@ -152,25 +153,44 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    window.updateShopUI = function() {
+    // Подгружаем актуальные данные пользователя напрямую из Firebase
+    window.updateShopUI = async function() {
         const activeNick = localStorage.getItem("egg_logged_in_nick");
-        if (!activeNick || !window.currentUserData) return;
-        
-        const balance = window.currentUserData.balance_ml || 0;
-        document.getElementById("shopCurrentBalance").innerText = `Баланс: ${balance.toFixed(3)} мл`;
+        if (!activeNick) {
+            document.getElementById("shopCurrentBalance").innerText = "Войдите в аккаунт!";
+            return;
+        }
 
-        const avatarImg = document.getElementById("userAvatarImg");
-        if (avatarImg) document.getElementById("shopPreviewAvatar").src = avatarImg.src;
+        try {
+            const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            const db = getFirestore();
+            const userSnap = await getDoc(doc(db, "users", activeNick));
 
-        const unlocked = window.currentUserData.unlockedFrames || ["default"];
-        const currentFrame = window.currentUserData.selectedFrame || "default";
+            if (!userSnap.exists()) return;
+            const userData = userSnap.data();
 
-        applyBorderToElement(document.getElementById("shopPreviewBorder"), currentFrame);
+            const balance = userData.balance_ml || 0;
+            document.getElementById("shopCurrentBalance").innerText = `Баланс: ${balance.toFixed(3)} мл`;
 
-        renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
-        renderItemAction("red", 1.0, "Красная", unlocked, currentFrame);
-        renderItemAction("purple", 1.0, "Фиолетовая", unlocked, currentFrame);
-        renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
+            // Берем аватарку из профиля или с экрана
+            const mainAvatarImg = document.getElementById("userAvatarImg");
+            const previewAvatar = document.getElementById("shopPreviewAvatar");
+            if (previewAvatar) {
+                previewAvatar.src = (userData.avatarUrl && userData.avatarUrl !== "") ? userData.avatarUrl : (mainAvatarImg ? mainAvatarImg.src : "https://via.placeholder.com/80");
+            }
+
+            const unlocked = userData.unlockedFrames || ["default"];
+            const currentFrame = userData.selectedFrame || "default";
+
+            applyBorderToElement(document.getElementById("shopPreviewBorder"), currentFrame);
+
+            renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
+            renderItemAction("red", 1.0, "Красная", unlocked, currentFrame);
+            renderItemAction("purple", 1.0, "Фиолетовая", unlocked, currentFrame);
+            renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
+        } catch (e) {
+            console.error("Ошибка загрузки магазина:", e);
+        }
     };
 
     function applyBorderToElement(el, frameName) {
@@ -203,41 +223,47 @@
 
     window.buyAndUnlockFrame = async function(frameId, price) {
         const activeNick = localStorage.getItem("egg_logged_in_nick");
-        if (!activeNick || !window.currentUserData) {
+        if (!activeNick) {
             alert("Сначала войдите в аккаунт!");
             return;
         }
 
-        const balance = window.currentUserData.balance_ml || 0;
-        if (balance < price) {
-            alert("❌ Недостаточно миллилитров в банке!");
-            return;
-        }
-
         try {
-            window.totalBank -= price;
-            if (typeof window.subtractServerMilliliters === "function") {
-                window.subtractServerMilliliters(price);
-            }
-
-            let unlocked = window.currentUserData.unlockedFrames || ["default"];
-            if (!unlocked.includes(frameId)) unlocked.push(frameId);
-
-            const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            const { getFirestore, doc, getDoc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
             const userRef = doc(db, "users", activeNick);
+            const userSnap = await getDoc(userRef);
 
+            if (!userSnap.exists()) return;
+            const userData = userSnap.data();
+            const currentBalance = userData.balance_ml || 0;
+
+            if (currentBalance < price) {
+                alert("❌ Недостаточно миллилитров в банке!");
+                return;
+            }
+
+            const newBalance = currentBalance - price;
+            let unlocked = userData.unlockedFrames || ["default"];
+            if (!unlocked.includes(frameId)) unlocked.push(frameId);
+
+            // Обновляем базу данных
             await updateDoc(userRef, {
-                balance_ml: window.totalBank,
+                balance_ml: newBalance,
                 unlockedFrames: unlocked,
                 selectedFrame: frameId
             });
 
-            window.currentUserData.balance_ml = window.totalBank;
-            window.currentUserData.unlockedFrames = unlocked;
-            window.currentUserData.selectedFrame = frameId;
+            // Синхронизируем глобальные переменные игры
+            window.totalBank = newBalance;
+            localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
+            if (window.currentUserData) {
+                window.currentUserData.balance_ml = newBalance;
+                window.currentUserData.unlockedFrames = unlocked;
+                window.currentUserData.selectedFrame = frameId;
+            }
 
-            updateShopUI();
+            await window.updateShopUI();
             alert("🎉 Рамка успешно куплена и установлена!");
         } catch (e) {
             alert("Ошибка при покупке: " + e.message);
@@ -246,7 +272,7 @@
 
     window.applyAndSaveFrame = async function(frameId) {
         const activeNick = localStorage.getItem("egg_logged_in_nick");
-        if (!activeNick || !window.currentUserData) return;
+        if (!activeNick) return;
 
         try {
             const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
@@ -257,8 +283,11 @@
                 selectedFrame: frameId
             });
 
-            window.currentUserData.selectedFrame = frameId;
-            updateShopUI();
+            if (window.currentUserData) {
+                window.currentUserData.selectedFrame = frameId;
+            }
+
+            await window.updateShopUI();
             alert("✅ Рамка успешно применена!");
         } catch (e) {
             alert("Ошибка выбора рамки: " + e.message);
