@@ -1,4 +1,4 @@
-// shop.js — Плавный радужный перелив и реальная синхронизация рамок для всех игроков и друзей
+// shop.js — Точная привязка рамки только к вашему аккаунту и корректный дефолтный вид для друзей
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 (видна только при входе в аккаунт)
@@ -249,6 +249,8 @@
             el.style.borderStyle = "solid";
         } else {
             el.style.borderColor = "#ffffff";
+            el.style.borderWidth = "2px";
+            el.style.borderStyle = "solid";
         }
     };
 
@@ -256,20 +258,23 @@
 
     async function fetchUserFrame(nick) {
         if (!nick) return "default";
+        if (usersFramesCache[nick]) return usersFramesCache[nick];
         try {
             const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
             const snap = await getDoc(doc(db, "users", nick));
             if (snap.exists()) {
-                return snap.data().selectedFrame || "default";
+                const frame = snap.data().selectedFrame || "default";
+                usersFramesCache[nick] = frame;
+                return frame;
             }
         } catch(e) {}
         return "default";
     }
 
-    // Живой цикл: очень плавный перелив (делим на 30 вместо 10) и синхронизация для всех игроков
+    // Живой цикл обновления: плавная смена цветов и точная проверка аккаунтов
     setInterval(async () => {
-        const hue = (Date.now() / 30) % 360; // Плавная смена цветов
+        const hue = (Date.now() / 30) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = localStorage.getItem("egg_logged_in_nick");
 
@@ -283,23 +288,19 @@
 
         if (!activeNick) return;
 
-        // 2. Ваша личная рамка в вашем профиле
+        // 2. Ваша личная рамка в профиле
         let myCurrentFrame = await fetchUserFrame(activeNick);
         document.querySelectorAll(".drawer-avatar-wrap, #userAvatarImg, .profile-avatar-container").forEach(el => {
-            if (myCurrentFrame !== "default") {
-                window.applyFrameColor(el, myCurrentFrame, rainbowColor);
-            }
+            window.applyFrameColor(el, myCurrentFrame, rainbowColor);
         });
 
-        // 3. Рамки друзей в списке и в чатах (автоматически видны всем в реальном времени)
+        // 3. Рамки друзей в списке и в чатах (применяем ТОЛЬКО если у этого конкретного игрока есть купленная рамка)
         const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar, img[data-friend-nick], .friend-item img");
         for (let imgEl of avatars) {
             let friendNick = imgEl.dataset.friendNick || imgEl.getAttribute("alt") || imgEl.title || imgEl.dataset.nick;
-            if (friendNick) {
+            if (friendNick && friendNick !== activeNick) {
                 let fFrame = await fetchUserFrame(friendNick);
-                if (fFrame && fFrame !== "default") {
-                    window.applyFrameColor(imgEl, fFrame, rainbowColor);
-                }
+                window.applyFrameColor(imgEl, fFrame, rainbowColor);
             }
         }
     }, 100);
@@ -328,6 +329,7 @@
 
             const unlocked = userData.unlockedFrames || ["default"];
             const currentFrame = userData.selectedFrame || "default";
+            usersFramesCache[activeNick] = currentFrame;
 
             const previewBorder = document.getElementById("shopPreviewBorder");
             if (previewBorder) {
@@ -391,6 +393,7 @@
 
             window.totalBank = newBalance;
             localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
+            usersFramesCache[activeNick] = frameId;
 
             await window.updateShopUI();
             alert("🎉 Рамка успешно куплена и установлена!");
@@ -412,6 +415,7 @@
                 selectedFrame: frameId
             });
 
+            usersFramesCache[activeNick] = frameId;
             await window.updateShopUI();
             alert("✅ Рамка успешно применена!");
         } catch (e) {
