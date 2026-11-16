@@ -1,38 +1,41 @@
-// shop.js — Полностью рабочий магазин рамок с прямой загрузкой из Firebase и скрытием кнопки
+// shop.js — Финальная версия магазина рамок (живой перелив, раскрывающийся список, скрытие на паузе)
 
 (function() {
-    // 1. Создаем прозрачную кнопку магазина вверху экрана
+    // 1. Создаем стильную кнопку "Магазин" (без смайлика) в главном меню
     function injectShopButton() {
         if (document.getElementById("menuShopBtn")) return;
 
         const shopBtn = document.createElement("button");
         shopBtn.id = "menuShopBtn";
-        shopBtn.innerHTML = "🎁";
+        shopBtn.innerHTML = "Магазин";
         shopBtn.title = "Магазин рамок";
+        // Используем ваши классы и стили кнопок шторки для гармоничного вида
+        shopBtn.className = "btn-drawer-custom";
         shopBtn.style.cssText = `
             position: absolute;
             top: 15px;
             left: 70px;
-            background: rgba(24, 34, 45, 0.55);
-            border: 2px solid transparent;
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            cursor: pointer;
+            width: auto;
+            min-width: 90px;
+            padding: 10px 14px;
+            margin: 0;
             z-index: 30;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 20px;
-            outline: none;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+            font-size: 14px;
+            font-weight: bold;
+            background: rgba(20, 70, 110, 0.85);
+            border: 1px solid rgba(0, 210, 255, 0.4);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            cursor: pointer;
             -webkit-tap-highlight-color: transparent;
         `;
         shopBtn.onclick = toggleShopDrawer;
         document.body.appendChild(shopBtn);
     }
 
-    // 2. Создаем шторку магазина
+    // 2. Создаем шторку магазина с раскрывающимся списком рамок
     function createShopDrawer() {
         if (document.getElementById("shopDrawer")) return;
 
@@ -70,53 +73,64 @@
             </div>
             <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: загрузка...</div>
 
-            <button class="btn-drawer-custom" style="margin-bottom: 10px; background: #248bda; cursor:default;">✨ Рамки для аватара</button>
+            <!-- Раскрывающаяся кнопка-аккордеон для рамок -->
+            <button class="btn-drawer-custom" style="margin-bottom: 5px; background: #248bda; display:flex; justify-content:space-between; align-items:center;" onclick="toggleShopFramesAccordion()">
+                <span>✨ Рамки для аватара</span>
+                <span id="accordionArrow">▼</span>
+            </button>
 
-            <div id="shopFramesContainer" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-                <div style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <div style="width:28px; height:28px; border-radius:50%; border:3px solid #fff;"></div>
-                        <span style="font-size:12px; font-weight:bold; color:#fff;">Стандартная</span>
+            <!-- Выпадающий блок с рамками (скрыт по умолчанию, как ваши шторки) -->
+            <div id="shopFramesContainer" class="drawer-section-panel" style="display:none; max-height:280px; margin-top:0; margin-bottom:15px;">
+                <div style="width:100%; display:flex; flex-direction:column; gap:6px;">
+                    
+                    <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:24px; height:24px; border-radius:50%; border:3px solid #fff;"></div>
+                            <span style="font-size:11px; font-weight:bold; color:#fff;">Стандартная</span>
+                        </div>
+                        <div id="action_default"></div>
                     </div>
-                    <div id="action_default"></div>
-                </div>
 
-                <div style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <div style="width:28px; height:28px; border-radius:50%; border:3px solid #ff4d4d;"></div>
-                        <span style="font-size:12px; font-weight:bold; color:#fff;">Красная (1 мл)</span>
+                    <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:24px; height:24px; border-radius:50%; border:3px solid #ff4d4d;"></div>
+                            <span style="font-size:11px; font-weight:bold; color:#fff;">Красная (1 мл)</span>
+                        </div>
+                        <div id="action_red"></div>
                     </div>
-                    <div id="action_red"></div>
-                </div>
 
-                <div style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <div style="width:28px; height:28px; border-radius:50%; border:3px solid #9c27b0;"></div>
-                        <span style="font-size:12px; font-weight:bold; color:#fff;">Фиолетовая (1 мл)</span>
+                    <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:24px; height:24px; border-radius:50%; border:3px solid #9c27b0;"></div>
+                            <span style="font-size:11px; font-weight:bold; color:#fff;">Фиолетовая (1 мл)</span>
+                        </div>
+                        <div id="action_purple"></div>
                     </div>
-                    <div id="action_purple"></div>
-                </div>
 
-                <div style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <div id="rainbowDemo" style="width:28px; height:28px; border-radius:50%; border:3px solid red;"></div>
-                        <span style="font-size:12px; font-weight:bold; color:#fff;">Радужная (2 мл)</span>
+                    <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div id="rainbowDemo" style="width:24px; height:24px; border-radius:50%; border:3px solid red;"></div>
+                            <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (2 мл)</span>
+                        </div>
+                        <div id="action_rainbow"></div>
                     </div>
-                    <div id="action_rainbow"></div>
+
                 </div>
             </div>
         `;
 
         document.body.appendChild(shopDrawer);
-
-        setInterval(() => {
-            const demo = document.getElementById("rainbowDemo");
-            if (demo) {
-                const hue = (Date.now() / 10) % 360;
-                demo.style.borderColor = `hsl(${hue}, 100%, 50%)`;
-            }
-        }, 50);
     }
+
+    // Логика раскрытия списка рамок
+    window.toggleShopFramesAccordion = function() {
+        const container = document.getElementById("shopFramesContainer");
+        const arrow = document.getElementById("accordionArrow");
+        if (!container) return;
+        const isVisible = container.style.display === "flex";
+        container.style.display = isVisible ? "none" : "flex";
+        if (arrow) arrow.innerText = isVisible ? "▼" : "▲";
+    };
 
     window.toggleShopDrawer = async function() {
         const drawer = document.getElementById("shopDrawer");
@@ -132,7 +146,7 @@
         }
     };
 
-    // Скрытие кнопки магазина во время игры или когда открыты шторки
+    // Строгая проверка видимости кнопки (видна ТОЛЬКО в главном меню)
     function checkShopButtonVisibility() {
         const shopBtn = document.getElementById("menuShopBtn");
         const profileDrawer = document.getElementById("profileDrawer");
@@ -142,9 +156,12 @@
 
         const isProfileOpen = profileDrawer && profileDrawer.classList.contains("open");
         const isShopOpen = shopDrawer && shopDrawer.style.left === "0px";
-        const isGamePlaying = (window.gameStarted && !window.isPaused && !window.gameOver);
+        const isGamePlaying = window.gameStarted === true;
+        const isGamePaused = window.isPaused === true;
+        const isGameOver = window.gameOver === true;
 
-        if (isProfileOpen || isShopOpen || isGamePlaying) {
+        // Если идет игра, пауза, поражение или открыта любая шторка — скрываем кнопку магазина
+        if (isProfileOpen || isShopOpen || isGamePlaying || isGamePaused || isGameOver) {
             shopBtn.style.display = "none";
         } else {
             shopBtn.style.display = "flex";
@@ -153,7 +170,28 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Подгружаем актуальные данные пользователя напрямую из Firebase
+    // Живой цикл обновления переливов радужной рамки везде
+    setInterval(() => {
+        const hue = (Date.now() / 10) % 360;
+        const rainbowColor = `hsl(${hue}, 100%, 50%)`;
+
+        // В магазине (демо и превью)
+        const demo = document.getElementById("rainbowDemo");
+        if (demo) demo.style.borderColor = rainbowColor;
+
+        const previewBorder = document.getElementById("shopPreviewBorder");
+        if (previewBorder && previewBorder.dataset.frame === "rainbow") {
+            previewBorder.style.borderColor = rainbowColor;
+        }
+
+        // В профиле игрока (если установлена радужная рамка)
+        const profileWrap = document.querySelector(".drawer-avatar-wrap");
+        if (profileWrap && profileWrap.dataset.frame === "rainbow") {
+            profileWrap.style.borderColor = rainbowColor;
+        }
+    }, 50);
+
+    // Загрузка данных из Firebase
     window.updateShopUI = async function() {
         const activeNick = localStorage.getItem("egg_logged_in_nick");
         if (!activeNick) {
@@ -172,7 +210,6 @@
             const balance = userData.balance_ml || 0;
             document.getElementById("shopCurrentBalance").innerText = `Баланс: ${balance.toFixed(3)} мл`;
 
-            // Берем аватарку из профиля или с экрана
             const mainAvatarImg = document.getElementById("userAvatarImg");
             const previewAvatar = document.getElementById("shopPreviewAvatar");
             if (previewAvatar) {
@@ -188,6 +225,9 @@
             renderItemAction("red", 1.0, "Красная", unlocked, currentFrame);
             renderItemAction("purple", 1.0, "Фиолетовая", unlocked, currentFrame);
             renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
+
+            // Сразу применяем рамку к аватару в профиле
+            applyFrameToProfileAvatar(currentFrame);
         } catch (e) {
             console.error("Ошибка загрузки магазина:", e);
         }
@@ -195,14 +235,23 @@
 
     function applyBorderToElement(el, frameName) {
         if (!el) return;
+        el.dataset.frame = frameName;
         if (frameName === "red") el.style.borderColor = "#ff4d4d";
         else if (frameName === "purple") el.style.borderColor = "#9c27b0";
         else if (frameName === "rainbow") {
-            const hue = (Date.now() / 10) % 360;
-            el.style.borderColor = `hsl(${hue}, 100%, 50%)`;
+            // Цвет задается динамически в setInterval
         } else {
             el.style.borderColor = "#ffffff";
         }
+    }
+
+    function applyFrameToProfileAvatar(frameName) {
+        const profileWrap = document.querySelector(".drawer-avatar-wrap");
+        if (!profileWrap) return;
+        profileWrap.dataset.frame = frameName;
+        if (frameName === "red") profileWrap.style.borderColor = "#ff4d4d";
+        else if (frameName === "purple") profileWrap.style.borderColor = "#9c27b0";
+        else if (frameName === "default") profileWrap.style.borderColor = "#ffffff";
     }
 
     function renderItemAction(frameId, price, name, unlocked, current) {
@@ -247,14 +296,12 @@
             let unlocked = userData.unlockedFrames || ["default"];
             if (!unlocked.includes(frameId)) unlocked.push(frameId);
 
-            // Обновляем базу данных
             await updateDoc(userRef, {
                 balance_ml: newBalance,
                 unlockedFrames: unlocked,
                 selectedFrame: frameId
             });
 
-            // Синхронизируем глобальные переменные игры
             window.totalBank = newBalance;
             localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
             if (window.currentUserData) {
