@@ -1,7 +1,7 @@
-// shop.js — Защищенное сохранение и мгновенное применение рамок без сбросов
+// shop.js — Абсолютно прямая запись в Firebase и мгновенное применение рамок
 
 (function() {
-    // 1. Внедряем глобальные стили для рамок
+    // 1. Внедряем глобальные стили для отображения рамок
     if (!document.getElementById("shopGlobalStyles")) {
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
@@ -268,11 +268,10 @@
         }
     };
 
-    // Главная функция получения выбранной рамки с приоритетом локального сохранения
+    // Надежная функция получения рамки с приоритетом свежего локального выбора
     async function fetchUserFrame(nick) {
         if (!nick) return "default";
         
-        // 1. Сначала проверяем жесткий локальный выбор, чтобы исключить любые сетевые задержки и сбросы
         const localSaved = localStorage.getItem(`egg_frame_${nick}`);
         if (localSaved) return localSaved;
 
@@ -282,14 +281,13 @@
             const snap = await getDoc(doc(db, "users", nick));
             if (snap.exists()) {
                 const frame = snap.data().selectedFrame || "default";
-                localStorage.setItem(`egg_frame_${nick}`, frame);
                 return frame;
             }
         } catch(e) {}
         return "default";
     }
 
-    // Живой цикл обновления рамок
+    // Живой цикл обновления рамок и перелива
     setInterval(async () => {
         const hue = (Date.now() / 4) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
@@ -409,7 +407,6 @@
             let unlocked = userData.unlockedFrames || ["default"];
             if (!unlocked.includes(frameId)) unlocked.push(frameId);
 
-            // Мгновенно сохраняем локально, блокируя любые сбросы
             localStorage.setItem(`egg_frame_${activeNick}`, frameId);
 
             await updateDoc(userRef, {
@@ -439,10 +436,10 @@
         }
 
         try {
-            // 1. Мгновенно фиксируем выбор локально
+            // 1. Фиксируем выбор локально
             localStorage.setItem(`egg_frame_${activeNick}`, frameId);
 
-            // 2. Сразу применяем визуал на аватарки
+            // 2. Моментально красим аватарку и превью
             const hue = (Date.now() / 4) % 360;
             const rainbowColor = `hsl(${hue}, 100%, 50%)`;
             window.applyStaticFrameColor(document.getElementById("userAvatarImg"), frameId, rainbowColor);
@@ -451,7 +448,7 @@
             // 3. Обновляем интерфейс кнопок в магазине
             await window.updateShopUI();
 
-            // 4. Отправляем в фоновом режиме в базу данных
+            // 4. Отправляем в Firebase
             const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
             await updateDoc(doc(db, "users", activeNick), {
