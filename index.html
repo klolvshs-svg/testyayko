@@ -873,7 +873,8 @@
                         inGame: false, 
                         gameStartTime: null, 
                         currentBossName: null, 
-                        lastActive: null
+                        lastActive: null,
+                        typingInChats: {}
                     }).catch(()=>{});
                 } catch(e){}
             }
@@ -1015,6 +1016,7 @@
                             inGame: false, 
                             gameStartTime: null, 
                             currentBossName: null,
+                            typingInChats: {},
                             [`activeSessions.${currentDeviceSessionId}`]: false 
                         });
                     }
@@ -1368,7 +1370,8 @@
                         inGame: false,
                         gameStartTime: null,
                         currentBossName: null,
-                        lastActive: null
+                        lastActive: null,
+                        typingInChats: {}
                     });
                 } catch (e) {}
             }
@@ -1376,6 +1379,11 @@
 
         window.addEventListener("pagehide", goOfflineInstant);
         window.addEventListener("beforeunload", goOfflineInstant);
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "hidden") {
+                goOfflineInstant();
+            }
+        });
 
         onAuthStateChanged(auth, async (user) => {
             const savedNick = localStorage.getItem("egg_logged_in_nick");
@@ -1424,12 +1432,28 @@
             if (!isVisible) loadFriendsList();
         }
 
+        // ИСПРАВЛЕНИЕ #1: Обычный стабильный переключатель без ложных циклов и миганий
         window.toggleChatListPanel = function() {
             const panel = document.getElementById("chatListSectionPanel");
-            const isVisible = panel.style.display === "flex";
-            closeAllDrawerPanels();
-            panel.style.display = isVisible ? "none" : "flex";
-            if (!isVisible) loadChatList();
+            const isVisible = (panel.style.display === "flex");
+            
+            // Сначала закрываем все другие панели
+            document.getElementById("searchSectionPanel").style.display = "none";
+            document.getElementById("requestsSectionPanel").style.display = "none";
+            document.getElementById("friendsSectionPanel").style.display = "none";
+            document.getElementById("chatSectionPanel").style.display = "none";
+            if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
+            if (unsubscribePartnerStatus) { unsubscribePartnerStatus(); unsubscribePartnerStatus = null; }
+            activeChatFriendUid = null;
+            selectedMessageIndices.clear();
+
+            // Если панель была открыта — закрываем, если была закрыта — открываем
+            if (isVisible) {
+                panel.style.display = "none";
+            } else {
+                panel.style.display = "flex";
+                loadChatList();
+            }
         }
 
         function updateBurgerAndRequestsUI(requestsArray) {
@@ -1670,7 +1694,7 @@
                         statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime, data.currentBossName);
                         
                         const diffSec = lastActiveTime ? Math.floor((Date.now() - lastActiveTime) / 1000) : 999999;
-                        isOnline = (diffSec < 30);
+                        isOnline = (diffSec < 40 && data.inGame !== undefined);
                     }
 
                     friendsDataList.push({
@@ -1684,17 +1708,14 @@
                     });
                 }
 
-                // СОРТИРОВКА ДРУЗЕЙ:
-                // 1. Онлайн-друзья первыми, отсортированные по миллилитрам по убыванию (у кого больше, тот выше)
-                // 2. Оффлайн-друзья ниже, отсортированные по времени активности
                 friendsDataList.sort((a, b) => {
                     if (a.isOnline && !b.isOnline) return -1;
                     if (!a.isOnline && b.isOnline) return 1;
 
                     if (a.isOnline && b.isOnline) {
-                        return b.balance - a.balance; // По убыванию миллилитров
+                        return b.balance - a.balance;
                     } else {
-                        return b.lastActiveTime - a.lastActiveTime; // Кто новее был оффлайн
+                        return b.lastActiveTime - a.lastActiveTime;
                     }
                 });
 
@@ -1771,7 +1792,6 @@
                     });
                 }
 
-                // СОРТИРОВКА ЧАТОВ ПО ВРЕМЕНИ ДЕЙСТВИЙ (САМЫЙ СВЕЖИЙ ВВЕРХУ)
                 chatsWithInfo.sort((a, b) => b.lastMessageTimestamp - a.lastMessageTimestamp);
 
                 let html = "";
@@ -1858,7 +1878,10 @@
                         const typingMap = pData.typingInChats || {};
                         const isTyping = typingMap[currentUid] === true;
 
-                        if (isTyping) {
+                        // Также проверим, не ушел ли партнер в оффлайн (если прошло больше 4 секунд с последней активности)
+                        const isReallyOnline = lastActiveTime && (Date.now() - lastActiveTime < 4000);
+
+                        if (isTyping && isReallyOnline) {
                             document.getElementById("chatWithStatus").innerText = "печатает...";
                             document.getElementById("chatWithStatus").style.color = "#00ffcc";
                         } else {
@@ -1876,7 +1899,6 @@
             const chatId = [currentUid, friendUid].sort().join("_");
             const chatRef = doc(db, "chats", chatId);
 
-            // Если чат открывается впервые, создадим документ с временем создания для сортировки
             const chatInitSnap = await getDoc(chatRef);
             if (!chatInitSnap.exists()) {
                 await setDoc(chatRef, { messages: [], createdAt: serverTimestamp() }, { merge: true });
@@ -2110,14 +2132,17 @@
                     timestamp: Date.now()
                 });
 
-                // Обновляем сообщения и сохраняем актуальный timestamp для сортировки чатов
                 await setDoc(chatRef, { messages: messages, createdAt: serverTimestamp() }, { merge: true });
                 input.value = "";
             } catch (e) {}
         };
 
         function formatStatusObj(timestamp, inGame, gameStartTime, bossName) {
-            if (inGame) {
+            // ИСПРАВЛЕНИЕ #3: Если с момента последней активности прошло больше 4 секунд, считаем, что пользователь оффлайн
+            const diffFromLastActive = timestamp ? (Date.now() - timestamp) : 999999;
+            const isOnlineNow = (diffFromLastActive < 4000);
+
+            if (inGame && isOnlineNow) {
                 if (bossName) {
                     return { text: `Спасает кожицу от ${bossName}`, color: "#00d2ff" };
                 }
@@ -2131,13 +2156,16 @@
                 return { text: `Спасает кожицу [${mins}:${secs}]`, color: "#a5d6a7" };
             }
 
-            if (!timestamp) return { text: "Не в сети", color: "#888888" };
-            const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-            if (diffSec < 30) return { text: "В сети", color: "#a5d6a7" };
-            if (diffSec < 60) return { text: `Был в сети меньше минуты назад`, color: "#888888" };
-            if (diffSec < 3600) return { text: `Был в сети ${Math.floor(diffSec / 60)} мин. назад`, color: "#888888" };
-            if (diffSec < 86400) return { text: `Был в сети ${Math.floor(diffSec / 3600)} ч. назад`, color: "#888888" };
-            return { text: `Был в сети ${Math.floor(diffSec / 86400)} дн. назад`, color: "#888888" };
+            if (!timestamp || !isOnlineNow) {
+                if (!timestamp) return { text: "Не в сети", color: "#888888" };
+                const diffSec = Math.floor((Date.now() - timestamp) / 1000);
+                if (diffSec < 60) return { text: `Был в сети меньше минуты назад`, color: "#888888" };
+                if (diffSec < 3600) return { text: `Был в сети ${Math.floor(diffSec / 60)} мин. назад`, color: "#888888" };
+                if (diffSec < 86400) return { text: `Был в сети ${Math.floor(diffSec / 3600)} ч. назад`, color: "#888888" };
+                return { text: `Был в сети ${Math.floor(diffSec / 86400)} дн. назад`, color: "#888888" };
+            }
+
+            return { text: "В сети", color: "#a5d6a7" };
         }
 
         window.addServerMilliliters = async function(amount) {
@@ -2162,7 +2190,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v203_chats_and_friends_sorting_final";
+        const CURRENT_APP_VERSION = "v204_bugs_fixed_final";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -3587,7 +3615,7 @@
             }
             if (currentUid) {
                 try {
-                    updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null, currentBossName: null }).catch(() => {});
+                    updateDoc(doc(db, "users", currentUid), { inGame: false, gameStartTime: null, currentBossName: null, typingInChats: {} }).catch(() => {});
                 } catch(e) {}
             }
             localStorage.setItem("egg_total_ml_bank", window.totalBank.toFixed(3));
