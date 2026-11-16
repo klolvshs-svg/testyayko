@@ -611,7 +611,10 @@
                                         <div id="chatWithStatus" style="font-size:9px; color:#a5d6a7;">В сети</div>
                                     </div>
                                 </div>
-                                <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()" style="flex-shrink:0;">✕ Назад</button>
+                                <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
+                                    <button class="btn-mini-action btn-mini-danger" onclick="deleteEntireChatForBoth()" title="Удалить чат у двоих">🗑️</button>
+                                    <button class="btn-mini-action btn-mini-danger" onclick="closeChatPanel()">✕ Назад</button>
+                                </div>
                             </div>
                             
                             <!-- ПАНЕЛЬ МАССОВОГО УДАЛЕНИЯ СООБЩЕНИЙ -->
@@ -651,10 +654,13 @@
                             <div id="sessionsResultsContainer" style="width: 100%;"></div>
                         </div>
 
-                        <div style="width: 100%; display: flex; gap: 5px; margin-top: 10px; margin-bottom: 10px;">
+                        <div style="width: 100%; display: flex; gap: 5px; margin-top: 10px; margin-bottom: 5px;">
                             <button class="btn-drawer-custom" style="background: #28a745; margin: 0;" onclick="saveProfileChanges()">Сохранить</button>
                             <button class="btn-drawer-custom" style="background: #6c757d; margin: 0;" onclick="toggleEditMode(false)">Отмена</button>
                         </div>
+
+                        <!-- КНОПКА УДАЛЕНИЯ АККАУНТА -->
+                        <button class="btn-drawer-custom" style="background: #d32f2f; margin-top: 8px; margin-bottom: 5px;" onclick="promptDeleteAccount()">🗑️ Удалить аккаунт</button>
                     </div>
 
                     <button id="logoutDrawerBtn" class="btn-logout-custom" onclick="handleLogout()">Выйти с акка</button>
@@ -682,7 +688,7 @@
         </div>
     </div>
 
-    <!-- ЭКРАН ПОРАЖЕНИЯ (ГАРАНТИРОВАННО ОТОБРАЖАЕТСЯ) -->
+    <!-- ЭКРАН ПОРАЖЕНИЯ -->
     <div id="gameOverScreen">
         <h1 style="font-size: 36px; margin: 0; color: #ff4d4d; text-shadow: 0 0 15px rgba(255,77,77,0.5);">💀 ИГРА ОКОНЧЕНА</h1>
         <p style="font-size: 18px; color: #aaa; margin: 10px 0 5px 0;">Заработано за раунд:</p>
@@ -1013,6 +1019,75 @@
                 window.totalBank = 0;
                 localStorage.setItem("egg_total_ml_bank", "0.0");
                 alert("Вы вышли из аккаунта");
+            }
+        };
+
+        window.promptDeleteAccount = async function() {
+            if (!currentUid || !currentUserData) return;
+
+            const passwordPrompt = prompt("Введите ваш пароль для подтверждения удаления аккаунта:");
+            if (passwordPrompt === null) return; // Нажали Отмена
+
+            if (passwordPrompt !== currentUserData.password) {
+                alert("Неверный пароль! Удаление отменено.");
+                return;
+            }
+
+            const confirmedFinal = confirm("⚠️ ВНИМАНИЕ! Аккаунт будет удален навсегда без возможности восстановления. Вы абсолютно уверены?");
+            if (!confirmedFinal) return;
+
+            showLoading("Удаление аккаунта и очистка данных...");
+
+            try {
+                const myUid = currentUid;
+
+                // 1. Убираем себя из друзей и входящих заявок всех пользователей
+                if (currentUserData.friends && currentUserData.friends.length > 0) {
+                    for (let fUid of currentUserData.friends) {
+                        try {
+                            const fRef = doc(db, "users", fUid);
+                            const fSnap = await getDoc(fRef);
+                            if (fSnap.exists()) {
+                                let fData = fSnap.data();
+                                let fFriends = fData.friends || [];
+                                if (fFriends.includes(myUid)) {
+                                    fFriends = fFriends.filter(id => id !== myUid);
+                                    await updateDoc(fRef, { friends: fFriends });
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                }
+
+                if (currentUserData.friendRequests && currentUserData.friendRequests.length > 0) {
+                    for (let rUid of currentUserData.friendRequests) {
+                        try {
+                            const rRef = doc(db, "users", rUid);
+                            const rSnap = await getDoc(rRef);
+                            if (rSnap.exists()) {
+                                let rData = rSnap.data();
+                                let rReqs = rData.friendRequests || [];
+                                if (rReqs.includes(myUid)) {
+                                    rReqs = rReqs.filter(id => id !== myUid);
+                                    await updateDoc(rRef, { friendRequests: rReqs });
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                }
+
+                // 2. Удаляем сам документ пользователя в базе (ник освобождается мгновенно)
+                await deleteDoc(doc(db, "users", myUid));
+
+                hideLoading();
+                isIntentionalLogout = true;
+                clearLocalSession();
+                window.totalBank = 0;
+                localStorage.setItem("egg_total_ml_bank", "0.0");
+                alert("Аккаунт успешно удален. Ник освобожден.");
+            } catch (error) {
+                hideLoading();
+                alert("Ошибка при удалении аккаунта: " + error.message);
             }
         };
 
@@ -1573,14 +1648,23 @@
                 let html = "";
                 for (let friendUid of currentUserData.friends) {
                     const friendDoc = await getDoc(doc(db, "users", friendUid));
-                    if (!friendDoc.exists()) continue;
-                    const data = friendDoc.data();
-                    const nick = data.username || "Игрок";
-                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
-                    const balance = (data.balance_ml || 0).toFixed(3);
-                    const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
-                    const gameStartTime = data.gameStartTime ? data.gameStartTime.toMillis() : 0;
-                    const statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime, data.currentBossName);
+                    
+                    let nick, ava, balanceStr, statusObj;
+                    if (!friendDoc.exists()) {
+                        // Аккаунт друга удален
+                        nick = "Удаленный аккаунт";
+                        ava = "https://via.placeholder.com/70";
+                        balanceStr = "0.000";
+                        statusObj = { text: "В сети давно", color: "#888888" };
+                    } else {
+                        const data = friendDoc.data();
+                        nick = data.username || "Игрок";
+                        ava = data.avatarUrl || "https://via.placeholder.com/70";
+                        balanceStr = (data.balance_ml || 0).toFixed(3);
+                        const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
+                        const gameStartTime = data.gameStartTime ? data.gameStartTime.toMillis() : 0;
+                        statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime, data.currentBossName);
+                    }
 
                     html += `
                         <div class="user-result-card">
@@ -1588,7 +1672,7 @@
                                 <img src="${ava}" class="user-result-ava">
                                 <div>
                                     <div class="user-result-name">${nick}</div>
-                                    <div class="user-result-meta">💧 ${balance} мл | <span style="color:${statusObj.color}">${statusObj.text}</span></div>
+                                    <div class="user-result-meta">💧 ${balanceStr} мл | <span style="color:${statusObj.color}">${statusObj.text}</span></div>
                                 </div>
                             </div>
                             <div style="display:flex; gap:4px;">
@@ -1615,10 +1699,16 @@
                 let html = "";
                 for (let friendUid of currentUserData.friends) {
                     const friendDoc = await getDoc(doc(db, "users", friendUid));
-                    if (!friendDoc.exists()) continue;
-                    const data = friendDoc.data();
-                    const nick = data.username || "Игрок";
-                    const ava = data.avatarUrl || "https://via.placeholder.com/70";
+                    
+                    let nick, ava;
+                    if (!friendDoc.exists()) {
+                        nick = "Удаленный аккаунт";
+                        ava = "https://via.placeholder.com/70";
+                    } else {
+                        const data = friendDoc.data();
+                        nick = data.username || "Игрок";
+                        ava = data.avatarUrl || "https://via.placeholder.com/70";
+                    }
 
                     const chatId = [currentUid, friendUid].sort().join("_");
                     const chatSnap = await getDoc(doc(db, "chats", chatId));
@@ -1654,10 +1744,12 @@
 
             try {
                 const myRef = doc(db, "users", currentUid);
-                const friendRef = doc(db, "users", friendUid);
-
                 await updateDoc(myRef, { friends: arrayRemove(friendUid) });
-                await updateDoc(friendRef, { friends: arrayRemove(currentUid) });
+
+                try {
+                    const friendRef = doc(db, "users", friendUid);
+                    await updateDoc(friendRef, { friends: arrayRemove(currentUid) });
+                } catch(e) {}
 
                 loadFriendsList();
             } catch (e) {}
@@ -1670,6 +1762,13 @@
             document.getElementById("friendsSectionPanel").style.display = "none";
             document.getElementById("chatListSectionPanel").style.display = "none";
             
+            // Проверим, существует ли партнер
+            const friendDoc = await getDoc(doc(db, "users", friendUid));
+            if (!friendDoc.exists()) {
+                friendNick = "Удаленный аккаунт";
+                friendAvatar = "https://via.placeholder.com/30";
+            }
+
             document.getElementById("chatWithTitle").innerText = friendNick;
             document.getElementById("activeChatAvatar").src = friendAvatar || "https://via.placeholder.com/30";
             document.getElementById("chatWithStatus").innerText = "Загрузка...";
@@ -1680,7 +1779,7 @@
             const chatInputArea = document.getElementById("chatInputArea");
             const chatWarning = document.getElementById("chatNotFriendWarning");
 
-            if (isFriend) {
+            if (isFriend || !friendDoc.exists()) {
                 chatInputArea.style.display = "flex";
                 chatWarning.style.display = "none";
             } else {
@@ -1691,26 +1790,31 @@
             if (unsubscribeChat) unsubscribeChat();
             if (unsubscribePartnerStatus) unsubscribePartnerStatus();
 
-            const partnerRef = doc(db, "users", friendUid);
-            unsubscribePartnerStatus = onSnapshot(partnerRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const pData = docSnap.data();
-                    const lastActiveTime = pData.lastActive ? pData.lastActive.toMillis() : 0;
-                    const gameStartTime = pData.gameStartTime ? pData.gameStartTime.toMillis() : 0;
-                    
-                    const typingMap = pData.typingInChats || {};
-                    const isTyping = typingMap[currentUid] === true;
+            if (friendDoc.exists()) {
+                const partnerRef = doc(db, "users", friendUid);
+                unsubscribePartnerStatus = onSnapshot(partnerRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const pData = docSnap.data();
+                        const lastActiveTime = pData.lastActive ? pData.lastActive.toMillis() : 0;
+                        const gameStartTime = pData.gameStartTime ? pData.gameStartTime.toMillis() : 0;
+                        
+                        const typingMap = pData.typingInChats || {};
+                        const isTyping = typingMap[currentUid] === true;
 
-                    if (isTyping) {
-                        document.getElementById("chatWithStatus").innerText = "печатает...";
-                        document.getElementById("chatWithStatus").style.color = "#00ffcc";
-                    } else {
-                        const statusObj = formatStatusObj(lastActiveTime, pData.inGame, gameStartTime, pData.currentBossName);
-                        document.getElementById("chatWithStatus").innerText = statusObj.text;
-                        document.getElementById("chatWithStatus").style.color = statusObj.color;
+                        if (isTyping) {
+                            document.getElementById("chatWithStatus").innerText = "печатает...";
+                            document.getElementById("chatWithStatus").style.color = "#00ffcc";
+                        } else {
+                            const statusObj = formatStatusObj(lastActiveTime, pData.inGame, gameStartTime, pData.currentBossName);
+                            document.getElementById("chatWithStatus").innerText = statusObj.text;
+                            document.getElementById("chatWithStatus").style.color = statusObj.color;
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                document.getElementById("chatWithStatus").innerText = "В сети давно";
+                document.getElementById("chatWithStatus").style.color = "#888888";
+            }
 
             const chatId = [currentUid, friendUid].sort().join("_");
             const chatRef = doc(db, "chats", chatId);
@@ -1856,6 +1960,25 @@
             }
         };
 
+        window.deleteEntireChatForBoth = async function() {
+            if (!activeChatFriendUid || !currentUid) return;
+            const confirmed = confirm("Вы действительно хотите удалить этот чат у двоих?");
+            if (!confirmed) return;
+
+            const chatId = [currentUid, activeChatFriendUid].sort().join("_");
+            const chatRef = doc(db, "chats", chatId);
+
+            try {
+                await deleteDoc(chatRef);
+                selectedMessageIndices.clear();
+                updateBatchActionsBar();
+                alert("Чат успешно удален у двоих.");
+                closeChatPanel();
+            } catch (e) {
+                alert("Ошибка удаления чата: " + e.message);
+            }
+        };
+
         window.closeChatPanel = function() {
             if (unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
             if (unsubscribePartnerStatus) { unsubscribePartnerStatus(); unsubscribePartnerStatus = null; }
@@ -1885,7 +2008,12 @@
         window.sendChatMessage = async function() {
             if (!activeChatFriendUid || !currentUid) return;
             
-            if (!currentUserData.friends || !currentUserData.friends.includes(activeChatFriendUid)) {
+            const friendDoc = await getDoc(doc(db, "users", activeChatFriendUid));
+            const isFriend = currentUserData.friends && currentUserData.friends.includes(activeChatFriendUid);
+
+            if (isFriend || !friendDoc.exists()) {
+                // Разрешаем писать, если в друзьях либо если аккаунт друга удален (чтобы пользователь мог писать удаленному акку)
+            } else {
                 alert("Нельзя писать пользователям, которых нет в друзьях!");
                 return;
             }
@@ -1894,11 +2022,13 @@
             const text = input.value.trim();
             if (!text) return;
 
-            try {
-                await updateDoc(doc(db, "users", currentUid), {
-                    [`typingInChats.${activeChatFriendUid}`]: false
-                });
-            } catch (e) {}
+            if (friendDoc.exists()) {
+                try {
+                    await updateDoc(doc(db, "users", currentUid), {
+                        [`typingInChats.${activeChatFriendUid}`]: false
+                    });
+                } catch (e) {}
+            }
 
             const chatId = [currentUid, activeChatFriendUid].sort().join("_");
             const chatRef = doc(db, "chats", chatId);
@@ -1968,7 +2098,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v201_fixes_final_fixed";
+        const CURRENT_APP_VERSION = "v202_delete_acc_and_chat_final";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
