@@ -1,16 +1,15 @@
-// shop.js — Магазин рамок и превью
+// shop.js — Магазин рамок с покупкой, сохранением и скрытием кнопки при открытии шторки
 
-(function () {
-  // 1. Создаем прозрачную кнопку магазина вверху экрана (рядом с бургером)
-  function injectShopButton() {
-    if (document.getElementById("menuShopBtn")) return;
+(function() {
+    // 1. Создаем прозрачную кнопку магазина вверху экрана (рядом с бургером)
+    function injectShopButton() {
+        if (document.getElementById("menuShopBtn")) return;
 
-    const shopBtn = document.createElement("button");
-    shopBtn.id = "menuShopBtn";
-    shopBtn.innerHTML = "🎁";
-    shopBtn.title = "Магазин рамок";
-    // Стилизуем ровно под вашу кнопку бургера (#menuBurgerBtn)
-    shopBtn.style.cssText = `
+        const shopBtn = document.createElement("button");
+        shopBtn.id = "menuShopBtn";
+        shopBtn.innerHTML = "🎁";
+        shopBtn.title = "Магазин рамок";
+        shopBtn.style.cssText = `
             position: absolute;
             top: 15px;
             left: 70px;
@@ -28,21 +27,19 @@
             outline: none;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
             -webkit-tap-highlight-color: transparent;
-            transition: transform 0.1s, background 0.3s;
+            transition: transform 0.1s, background 0.3s, opacity 0.3s;
         `;
-    shopBtn.onactive = () => (shopBtn.style.transform = "scale(0.92)");
-    shopBtn.onclick = toggleShopDrawer;
+        shopBtn.onclick = toggleShopDrawer;
+        document.body.appendChild(shopBtn);
+    }
 
-    document.body.appendChild(shopBtn);
-  }
+    // 2. Создаем шторку магазина
+    function createShopDrawer() {
+        if (document.getElementById("shopDrawer")) return;
 
-  // 2. Создаем шторку магазина
-  function createShopDrawer() {
-    if (document.getElementById("shopDrawer")) return;
-
-    const shopDrawer = document.createElement("div");
-    shopDrawer.id = "shopDrawer";
-    shopDrawer.style.cssText = `
+        const shopDrawer = document.createElement("div");
+        shopDrawer.id = "shopDrawer";
+        shopDrawer.style.cssText = `
             position: absolute;
             top: 0;
             left: -380px;
@@ -61,7 +58,7 @@
             text-align: center;
         `;
 
-    shopDrawer.innerHTML = `
+        shopDrawer.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h3 style="margin:0; color:#00d2ff;">🎁 Магазин рамок</h3>
                 <button class="btn-mini-action btn-mini-danger" onclick="toggleShopDrawer()">✕</button>
@@ -74,10 +71,19 @@
             </div>
             <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: 0 мл</div>
 
-            <button class="btn-drawer-custom" style="margin-bottom: 10px; background: #248bda;" onclick="switchShopTab('frames')">✨ Рамки для аватара</button>
+            <button class="btn-drawer-custom" style="margin-bottom: 10px; background: #248bda; cursor:default;">✨ Рамки для аватара</button>
 
             <div id="shopFramesContainer" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-                <!-- Товар 1: Красная рамка -->
+                <!-- Товар 1: Дефолтная -->
+                <div class="shop-item-card" style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="width:28px; height:28px; border-radius:50%; border:3px solid #fff;"></div>
+                        <span style="font-size:12px; font-weight:bold; color:#fff;">Стандартная</span>
+                    </div>
+                    <div id="action_default"></div>
+                </div>
+
+                <!-- Товар 2: Красная рамка -->
                 <div class="shop-item-card" style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div style="width:28px; height:28px; border-radius:50%; border:3px solid #ff4d4d;"></div>
@@ -86,7 +92,7 @@
                     <div id="action_red"></div>
                 </div>
 
-                <!-- Товар 2: Фиолетовая рамка -->
+                <!-- Товар 3: Фиолетовая рамка -->
                 <div class="shop-item-card" style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div style="width:28px; height:28px; border-radius:50%; border:3px solid #9c27b0;"></div>
@@ -95,7 +101,7 @@
                     <div id="action_purple"></div>
                 </div>
 
-                <!-- Товар 3: Радужная переливающаяся рамка -->
+                <!-- Товар 4: Радужная переливающаяся рамка -->
                 <div class="shop-item-card" style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div id="rainbowDemo" style="width:28px; height:28px; border-radius:50%; border:3px solid red;"></div>
@@ -106,116 +112,177 @@
             </div>
         `;
 
-    document.body.appendChild(shopDrawer);
+        document.body.appendChild(shopDrawer);
 
-    // Анимация радужной рамки в магазине
-    setInterval(() => {
-      const demo = document.getElementById("rainbowDemo");
-      if (demo) {
-        const hue = (Date.now() / 10) % 360;
-        demo.style.borderColor = `hsl(${hue}, 100%, 50%)`;
-      }
-    }, 50);
-  }
-
-  window.toggleShopDrawer = function () {
-    const drawer = document.getElementById("shopDrawer");
-    if (!drawer) return;
-    const isOpen = drawer.style.left === "0px";
-    drawer.style.left = isOpen ? "-380px" : "0px";
-    if (!isOpen) updateShopUI();
-  };
-
-  // Обновление кнопок и баланса в магазине
-  window.updateShopUI = function () {
-    if (!window.currentUserData) return;
-
-    const balance = window.currentUserData.balance_ml || 0;
-    document.getElementById("shopCurrentBalance").innerText =
-      `Баланс: ${balance.toFixed(3)} мл`;
-
-    const avatarImg = document.getElementById("userAvatarImg");
-    if (avatarImg)
-      document.getElementById("shopPreviewAvatar").src = avatarImg.src;
-
-    const unlocked = window.currentUserData.unlockedFrames || ["default"];
-    const currentFrame = window.currentUserData.selectedFrame || "default";
-
-    // Обновляем вид превью рамки
-    applyBorderToElement(
-      document.getElementById("shopPreviewBorder"),
-      currentFrame,
-    );
-
-    renderItemAction("red", 1.0, "Красная", unlocked, currentFrame);
-    renderItemAction("purple", 1.0, "Фиолетовая", unlocked, currentFrame);
-    renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
-  };
-
-  function applyBorderToElement(el, frameName) {
-    if (!el) return;
-    if (frameName === "red") el.style.borderColor = "#ff4d4d";
-    else if (frameName === "purple") el.style.borderColor = "#9c27b0";
-    else if (frameName === "rainbow") {
-      const hue = (Date.now() / 10) % 360;
-      el.style.borderColor = `hsl(${hue}, 100%, 50%)`;
-    } else {
-      el.style.borderColor = "#ffffff";
-    }
-  }
-
-  function renderItemAction(frameId, price, name, unlocked, current) {
-    const container = document.getElementById(`action_${frameId}`);
-    if (!container) return;
-
-    const hasIt = unlocked.includes(frameId);
-    const isSelected = current === frameId;
-
-    if (isSelected) {
-      container.innerHTML = `<button class="btn-mini-action btn-mini-gray" disabled>Выбрано ✅</button>`;
-    } else if (hasIt) {
-      container.innerHTML = `<button class="btn-mini-action btn-mini-success" onclick="selectFrame('${frameId}')">Выбрать</button>`;
-    } else {
-      container.innerHTML = `<button class="btn-mini-action" onclick="buyFrame('${frameId}', ${price})">Купить (${price} мл)</button>`;
-    }
-  }
-
-  // Покупка рамки
-  window.buyFrame = async function (frameId, price) {
-    if (!window.currentUid || !window.currentUserData) return;
-    const balance = window.currentUserData.balance_ml || 0;
-
-    if (balance < price) {
-      alert("Недостаточно миллилитров!");
-      return;
+        // Анимация радужной рамки в магазине
+        setInterval(() => {
+            const demo = document.getElementById("rainbowDemo");
+            if (demo) {
+                const hue = (Date.now() / 10) % 360;
+                demo.style.borderColor = `hsl(${hue}, 100%, 50%)`;
+            }
+        }, 50);
     }
 
-    try {
-      // Импортируем Firestore методы из глобальной среды если доступны или через firebase
-      const { getFirestore, doc, updateDoc, increment } =
-        await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-      // Инициализируем ссылки через те же объекты что и в главном файле
-      // Но проще использовать встроенную функцию списания, если она есть, или напрямую через инкремент:
-      window.totalBank -= price;
-      if (typeof window.subtractServerMilliliters === "function") {
-        window.subtractServerMilliliters(price);
-      }
+    window.toggleShopDrawer = function() {
+        const drawer = document.getElementById("shopDrawer");
+        const shopBtn = document.getElementById("menuShopBtn");
+        if (!drawer) return;
 
-      let unlocked = window.currentUserData.unlockedFrames || ["default"];
-      if (!unlocked.includes(frameId)) unlocked.push(frameId);
+        const isOpen = drawer.style.left === "0px";
+        if (isOpen) {
+            drawer.style.left = "-380px";
+            if (shopBtn) shopBtn.style.display = "flex";
+        } else {
+            // Закрываем основную шторку игры, если она была открыта
+            const profileDrawer = document.getElementById("profileDrawer");
+            if (profileDrawer) profileDrawer.classList.remove("open");
 
-      // Сохраняем в Firebase
-      // (Используем firebase модули напрямую)
-    } catch (e) {}
-  };
+            drawer.style.left = "0px";
+            if (shopBtn) shopBtn.style.display = "none";
+            updateShopUI();
+        }
+    };
 
-  window.selectFrame = async function (frameId) {
-    // Логика выбора рамки и отправки в профиль
-  };
+    // Функция проверки видимости кнопки магазина (скрываем, если открыта любая шторка)
+    function checkShopButtonVisibility() {
+        const shopBtn = document.getElementById("menuShopBtn");
+        const profileDrawer = document.getElementById("profileDrawer");
+        const shopDrawer = document.getElementById("shopDrawer");
+        
+        if (!shopBtn) return;
 
-  // Запуск при загрузке
-  setTimeout(() => {
-    injectShopButton();
-    createShopDrawer();
-  }, 1000);
+        const isProfileOpen = profileDrawer && profileDrawer.classList.contains("open");
+        const isShopOpen = shopDrawer && shopDrawer.style.left === "0px";
+
+        if (isProfileOpen || isShopOpen) {
+            shopBtn.style.opacity = "0";
+            shopBtn.style.pointerEvents = "none";
+        } else {
+            shopBtn.style.opacity = "1";
+            shopBtn.style.pointerEvents = "auto";
+        }
+    }
+
+    // Запускаем проверку видимости кнопки каждые 200мс
+    setInterval(checkShopButtonVisibility, 200);
+
+    window.updateShopUI = function() {
+        if (!window.currentUserData) return;
+        
+        const balance = window.currentUserData.balance_ml || 0;
+        document.getElementById("shopCurrentBalance").innerText = `Баланс: ${balance.toFixed(3)} мл`;
+
+        const avatarImg = document.getElementById("userAvatarImg");
+        if (avatarImg) document.getElementById("shopPreviewAvatar").src = avatarImg.src;
+
+        const unlocked = window.currentUserData.unlockedFrames || ["default"];
+        const currentFrame = window.currentUserData.selectedFrame || "default";
+
+        applyBorderToElement(document.getElementById("shopPreviewBorder"), currentFrame);
+
+        renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
+        renderItemAction("red", 1.0, "Красная", unlocked, currentFrame);
+        renderItemAction("purple", 1.0, "Фиолетовая", unlocked, currentFrame);
+        renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
+    };
+
+    function applyBorderToElement(el, frameName) {
+        if (!el) return;
+        if (frameName === "red") el.style.borderColor = "#ff4d4d";
+        else if (frameName === "purple") el.style.borderColor = "#9c27b0";
+        else if (frameName === "rainbow") {
+            const hue = (Date.now() / 10) % 360;
+            el.style.borderColor = `hsl(${hue}, 100%, 50%)`;
+        } else {
+            el.style.borderColor = "#ffffff";
+        }
+    }
+
+    function renderItemAction(frameId, price, name, unlocked, current) {
+        const container = document.getElementById(`action_${frameId}`);
+        if (!container) return;
+
+        const hasIt = unlocked.includes(frameId);
+        const isSelected = (current === frameId);
+
+        if (isSelected) {
+            container.innerHTML = `<button class="btn-mini-action btn-mini-gray" disabled>Выбрано ✅</button>`;
+        } else if (hasIt) {
+            container.innerHTML = `<button class="btn-mini-action btn-mini-success" onclick="applyAndSaveFrame('${frameId}')">Выбрать</button>`;
+        } else {
+            container.innerHTML = `<button class="btn-mini-action" onclick="buyAndUnlockFrame('${frameId}', ${price})">Купить (${price} мл)</button>`;
+        }
+    }
+
+    // Покупка рамки со списанием баланса через Firebase
+    window.buyAndUnlockFrame = async function(frameId, price) {
+        if (!window.currentUid || !window.currentUserData) {
+            alert("Сначала войдите в аккаунт!");
+            return;
+        }
+
+        const balance = window.currentUserData.balance_ml || 0;
+        if (balance < price) {
+            alert("❌ Недостаточно миллилитров в банке!");
+            return;
+        }
+
+        try {
+            // Списываем через глобальные функции вашей игры
+            window.totalBank -= price;
+            if (typeof window.subtractServerMilliliters === "function") {
+                window.subtractServerMilliliters(price);
+            }
+
+            let unlocked = window.currentUserData.unlockedFrames || ["default"];
+            if (!unlocked.includes(frameId)) unlocked.push(frameId);
+
+            // Сохраняем в Firebase
+            const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            const db = getFirestore();
+            const userRef = doc(db, "users", window.currentUid);
+
+            await updateDoc(userRef, {
+                balance_ml: window.totalBank,
+                unlockedFrames: unlocked,
+                selectedFrame: frameId
+            });
+
+            window.currentUserData.balance_ml = window.totalBank;
+            window.currentUserData.unlockedFrames = unlocked;
+            window.currentUserData.selectedFrame = frameId;
+
+            updateShopUI();
+            alert("🎉 Рамка успешно куплена и установлена!");
+        } catch (e) {
+            alert("Ошибка при покупке: " + e.message);
+        }
+    };
+
+    // Выбор уже купленной рамки
+    window.applyAndSaveFrame = async function(frameId) {
+        if (!window.currentUid || !window.currentUserData) return;
+
+        try {
+            const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            const db = getFirestore();
+            const userRef = doc(db, "users", window.currentUid);
+
+            await updateDoc(userRef, {
+                selectedFrame: frameId
+            });
+
+            window.currentUserData.selectedFrame = frameId;
+            updateShopUI();
+        } catch (e) {
+            alert("Ошибка выбора рамки: " + e.message);
+        }
+    };
+
+    // Инициализация при загрузке
+    setTimeout(() => {
+        injectShopButton();
+        createShopDrawer();
+    }, 1000);
 })();
