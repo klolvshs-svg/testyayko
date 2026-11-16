@@ -1432,12 +1432,11 @@
             if (!isVisible) loadFriendsList();
         }
 
-        // ИСПРАВЛЕНИЕ #1: Обычный стабильный переключатель без ложных циклов и миганий
+        // НАДЕЖНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ЧАТОВ ДЛЯ ПК И МОБИЛЬНЫХ (исправление бага бесконечного моргания)
         window.toggleChatListPanel = function() {
             const panel = document.getElementById("chatListSectionPanel");
             const isVisible = (panel.style.display === "flex");
             
-            // Сначала закрываем все другие панели
             document.getElementById("searchSectionPanel").style.display = "none";
             document.getElementById("requestsSectionPanel").style.display = "none";
             document.getElementById("friendsSectionPanel").style.display = "none";
@@ -1447,7 +1446,6 @@
             activeChatFriendUid = null;
             selectedMessageIndices.clear();
 
-            // Если панель была открыта — закрываем, если была закрыта — открываем
             if (isVisible) {
                 panel.style.display = "none";
             } else {
@@ -1878,7 +1876,6 @@
                         const typingMap = pData.typingInChats || {};
                         const isTyping = typingMap[currentUid] === true;
 
-                        // Также проверим, не ушел ли партнер в оффлайн (если прошло больше 4 секунд с последней активности)
                         const isReallyOnline = lastActiveTime && (Date.now() - lastActiveTime < 4000);
 
                         if (isTyping && isReallyOnline) {
@@ -2138,7 +2135,6 @@
         };
 
         function formatStatusObj(timestamp, inGame, gameStartTime, bossName) {
-            // ИСПРАВЛЕНИЕ #3: Если с момента последней активности прошло больше 4 секунд, считаем, что пользователь оффлайн
             const diffFromLastActive = timestamp ? (Date.now() - timestamp) : 999999;
             const isOnlineNow = (diffFromLastActive < 4000);
 
@@ -2190,7 +2186,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v204_bugs_fixed_final";
+        const CURRENT_APP_VERSION = "v205_clean_hud_final";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -2352,21 +2348,16 @@
             return `${mins}:${secs}`;
         }
 
+        // УДАЛЕНО УПОМИНАНИЕ И ОТОБРАЖЕНИЕ БОССА С ЭКРАНА ИГРЫ (ОСТАЛСЯ ТОЛЬКО ТАЙМЕР)
         function drawGameTimerAndBossHUD() {
             if (!window.gameStarted || window.gameOver) return;
 
             let timerLabel = `⏱ ${formatGameTimer(gameElapsedMs)}`;
-            let isBossFight = (bossState === "intro" || bossState === "active") && currentBoss !== null;
-
-            if (isBossFight) {
-                let bName = (currentBoss === "dasha") ? "ДАША" : "РИТА";
-                timerLabel += `  |  👑 Босс: ${bName}`;
-            }
 
             ctx.save();
             ctx.font = "bold 14px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
             ctx.textAlign = "left";
-            ctx.fillStyle = isBossFight ? "#00d2ff" : "#a5d6a7";
+            ctx.fillStyle = "#a5d6a7";
             ctx.fillText(timerLabel, 12, 72);
             ctx.restore();
         }
