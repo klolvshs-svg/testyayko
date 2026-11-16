@@ -1,21 +1,30 @@
-// shop.js — Абсолютное исправление отображения рамок по классам и стилям
+// shop.js — Плавный радужный перелив через CSS-анимацию и полная идентичность на ПК и телефонах
 
 (function() {
-    // 1. Внедряем мощные стили с поддержкой классов рамок
+    // 1. Внедряем CSS-классы и аппаратную анимацию радуги для ПК и телефонов
     if (!document.getElementById("shopGlobalStyles")) {
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.innerHTML = `
+            @keyframes rainbowGlow {
+                0% { border-color: #ff0000 !important; }
+                16% { border-color: #ff7f00 !important; }
+                33% { border-color: #ffff00 !important; }
+                50% { border-color: #00ff00 !important; }
+                66% { border-color: #0000ff !important; }
+                83% { border-color: #4b0082 !important; }
+                100% { border-color: #ff0000 !important; }
+            }
             img.user-result-ava, #userAvatarImg, #activeChatAvatar, #shopPreviewAvatar, .profile-avatar-container img, .user-card img {
                 box-sizing: border-box !important;
                 border-style: solid !important;
                 border-width: 3px !important;
                 border-radius: 50% !important;
-                transition: border-color 0.1s linear !important;
             }
-            .frame-default { border-color: #1a365d !important; }
-            .frame-red { border-color: #ff4d4d !important; }
-            .frame-purple { border-color: #9c27b0 !important; }
+            .frame-default { border-color: #1a365d !important; animation: none !important; }
+            .frame-red { border-color: #ff4d4d !important; animation: none !important; }
+            .frame-purple { border-color: #9c27b0 !important; animation: none !important; }
+            .frame-rainbow { animation: rainbowGlow 6s linear infinite !important; }
         `;
         document.head.appendChild(style);
     }
@@ -128,7 +137,7 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div id="rainbowShopDemo" style="width:24px; height:24px; border-radius:50%; border:3px solid red; box-sizing:border-box;"></div>
+                                <div id="rainbowShopDemo" class="frame-rainbow" style="width:24px; height:24px; border-radius:50%; border:3px solid red; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (2 мл)</span>
                             </div>
                             <div id="action_rainbow"></div>
@@ -253,22 +262,20 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Функция применения рамки через классы и стили
-    window.applyFrameToElement = function(imgEl, frameName, rainbowColor) {
+    // Функция применения рамки через CSS-классы
+    window.applyFrameClass = function(imgEl, frameName) {
         if (!imgEl) return;
-        imgEl.classList.remove("frame-default", "frame-red", "frame-purple");
-        
+        imgEl.classList.remove("frame-default", "frame-red", "frame-purple", "frame-rainbow");
+        imgEl.style.borderColor = "";
+
         if (frameName === "red") {
             imgEl.classList.add("frame-red");
-            imgEl.style.borderColor = "";
         } else if (frameName === "purple") {
             imgEl.classList.add("frame-purple");
-            imgEl.style.borderColor = "";
         } else if (frameName === "rainbow") {
-            imgEl.style.borderColor = rainbowColor;
+            imgEl.classList.add("frame-rainbow");
         } else {
             imgEl.classList.add("frame-default");
-            imgEl.style.borderColor = "";
         }
     };
 
@@ -290,24 +297,18 @@
         return "default";
     }
 
-    // Живой цикл обновления рамок и радужного перелива
+    // Фоновый цикл синхронизации рамок для всех игроков
     setInterval(async () => {
-        const hue = (Date.now() / 3) % 360;
-        const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = getActiveUserNick();
-
-        const demo = document.getElementById("rainbowShopDemo");
-        if (demo) demo.style.borderColor = rainbowColor;
-
         if (!activeNick) return;
 
         let myCurrentFrame = localStorage.getItem(`egg_frame_${activeNick}`) || "default";
         
         const profileImg = document.getElementById("userAvatarImg");
-        if (profileImg) window.applyFrameToElement(profileImg, myCurrentFrame, rainbowColor);
+        if (profileImg) window.applyFrameClass(profileImg, myCurrentFrame);
 
         const previewAvatar = document.getElementById("shopPreviewAvatar");
-        if (previewAvatar) window.applyFrameToElement(previewAvatar, myCurrentFrame, rainbowColor);
+        if (previewAvatar) window.applyFrameClass(previewAvatar, myCurrentFrame);
 
         // Список друзей
         const cards = document.querySelectorAll(".user-result-card, .friend-item, .user-card");
@@ -318,17 +319,17 @@
                 let friendNick = nameEl.innerText.trim();
                 if (friendNick && friendNick !== activeNick) {
                     let fFrame = await fetchUserFrame(friendNick);
-                    window.applyFrameToElement(imgEl, fFrame, rainbowColor);
+                    window.applyFrameClass(imgEl, fFrame);
                 } else if (friendNick === activeNick) {
-                    window.applyFrameToElement(imgEl, myCurrentFrame, rainbowColor);
+                    window.applyFrameClass(imgEl, myCurrentFrame);
                 }
             }
         }
 
         document.querySelectorAll("img.user-result-ava, #activeChatAvatar").forEach(imgEl => {
-            window.applyFrameToElement(imgEl, myCurrentFrame, rainbowColor);
+            window.applyFrameClass(imgEl, myCurrentFrame);
         });
-    }, 50);
+    }, 200);
 
     // Загрузка интерфейса магазина
     window.updateShopUI = async function() {
@@ -357,8 +358,8 @@
             localStorage.setItem(`egg_frame_${activeNick}`, currentFrame);
 
             if (previewAvatar) {
-                const hue = (Date.now() / 3) % 360;
-                window.applyFrameToElement(previewAvatar, currentFrame, `hsl(${hue}, 100%, 50%)`);
+                previewAvatar.dataset.frame = currentFrame;
+                window.applyFrameClass(previewAvatar, currentFrame);
             }
 
             renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
@@ -433,19 +434,17 @@
         if (!activeNick) return;
 
         try {
-            // 1. Моментально фиксируем локально в памяти
+            // 1. Фиксируем локально
             localStorage.setItem(`egg_frame_${activeNick}`, frameId);
 
-            // 2. Сразу применяем визуал на аватаре и превью
-            const hue = (Date.now() / 3) % 360;
-            const rainbowColor = `hsl(${hue}, 100%, 50%)`;
-            window.applyFrameToElement(document.getElementById("userAvatarImg"), frameId, rainbowColor);
-            window.applyFrameToElement(document.getElementById("shopPreviewAvatar"), frameId, rainbowColor);
+            // 2. Мгновенно применяем визуал
+            window.applyFrameClass(document.getElementById("userAvatarImg"), frameId);
+            window.applyFrameClass(document.getElementById("shopPreviewAvatar"), frameId);
 
-            // 3. Обновляем интерфейс кнопок магазина
+            // 3. Обновляем магазин
             await window.updateShopUI();
 
-            // 4. Отправляем в Firebase
+            // 4. Пишем в Firebase
             const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
             await updateDoc(doc(db, "users", activeNick), {
