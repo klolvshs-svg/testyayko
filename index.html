@@ -1432,7 +1432,7 @@
             if (!isVisible) loadFriendsList();
         }
 
-        // НАДЕЖНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ЧАТОВ БЕЗ МОРГАНИЯ И ЗАЦИКЛИВАНИЯ
+        // АБСОЛЮТНО СТАБИЛЬНЫЙ ОТКРЫВАТЕЛЬ СПИСКА ЧАТОВ БЕЗ МОРГАНИЯ
         window.toggleChatListPanel = function() {
             const panel = document.getElementById("chatListSectionPanel");
             const isVisible = (panel.style.display === "flex");
@@ -1681,7 +1681,7 @@
                         balance = 0;
                         lastActiveTime = 0;
                         isOnline = false;
-                        statusObj = { text: "В сети давно", color: "#888888" };
+                        statusObj = { text: "Не в сети", color: "#888888" };
                     } else {
                         const data = friendDoc.data();
                         nick = data.username || "Игрок";
@@ -1889,7 +1889,7 @@
                     }
                 });
             } else {
-                document.getElementById("chatWithStatus").innerText = "В сети давно";
+                document.getElementById("chatWithStatus").innerText = "Не в сети";
                 document.getElementById("chatWithStatus").style.color = "#888888";
             }
 
@@ -2134,6 +2134,7 @@
             } catch (e) {}
         };
 
+        // ВОЗВРАЩЕНЫ СТАНДАРТНЫЕ СТАТУСЫ "БЫЛ В СЕТИ X НАЗАД" И ИГРОВЫЕ ТАЙМЕРЫ
         function formatStatusObj(timestamp, inGame, gameStartTime, bossName) {
             const diffFromLastActive = timestamp ? (Date.now() - timestamp) : 999999;
             const isOnlineNow = (diffFromLastActive < 4000);
@@ -2186,7 +2187,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v206_clean_hud_final";
+        const CURRENT_APP_VERSION = "v207_fix_chat_and_status";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -2348,7 +2349,6 @@
             return `${mins}:${secs}`;
         }
 
-        // ОТОБРАЖЕНИЕ ТОЛЬКО ЛАЙВ ТАЙМЕРА (ИНФОРМАЦИЯ О БОССЕ УБРАНА С ЭКРАНА ИГРЫ)
         function drawGameTimerAndBossHUD() {
             if (!window.gameStarted || window.gameOver) return;
 
