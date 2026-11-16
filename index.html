@@ -1432,7 +1432,7 @@
             if (!isVisible) loadFriendsList();
         }
 
-        // НАДЕЖНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ЧАТОВ ДЛЯ ПК И МОБИЛЬНЫХ (исправление бага бесконечного моргания)
+        // НАДЕЖНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ЧАТОВ БЕЗ МОРГАНИЯ И ЗАЦИКЛИВАНИЯ
         window.toggleChatListPanel = function() {
             const panel = document.getElementById("chatListSectionPanel");
             const isVisible = (panel.style.display === "flex");
@@ -2186,7 +2186,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v205_clean_hud_final";
+        const CURRENT_APP_VERSION = "v206_clean_hud_final";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -2348,7 +2348,7 @@
             return `${mins}:${secs}`;
         }
 
-        // УДАЛЕНО УПОМИНАНИЕ И ОТОБРАЖЕНИЕ БОССА С ЭКРАНА ИГРЫ (ОСТАЛСЯ ТОЛЬКО ТАЙМЕР)
+        // ОТОБРАЖЕНИЕ ТОЛЬКО ЛАЙВ ТАЙМЕРА (ИНФОРМАЦИЯ О БОССЕ УБРАНА С ЭКРАНА ИГРЫ)
         function drawGameTimerAndBossHUD() {
             if (!window.gameStarted || window.gameOver) return;
 
