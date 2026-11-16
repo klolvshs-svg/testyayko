@@ -842,6 +842,10 @@
                     if (friendsPanel && friendsPanel.style.display === "flex") {
                         loadFriendsList();
                     }
+                    const chatListPanel = document.getElementById("chatListSectionPanel");
+                    if (chatListPanel && chatListPanel.style.display === "flex") {
+                        loadChatList();
+                    }
                 } else {
                     clearLocalSession();
                 }
@@ -1026,7 +1030,7 @@
             if (!currentUid || !currentUserData) return;
 
             const passwordPrompt = prompt("Введите ваш пароль для подтверждения удаления аккаунта:");
-            if (passwordPrompt === null) return; // Нажали Отмена
+            if (passwordPrompt === null) return;
 
             if (passwordPrompt !== currentUserData.password) {
                 alert("Неверный пароль! Удаление отменено.");
@@ -1041,7 +1045,6 @@
             try {
                 const myUid = currentUid;
 
-                // 1. Убираем себя из друзей и входящих заявок всех пользователей
                 if (currentUserData.friends && currentUserData.friends.length > 0) {
                     for (let fUid of currentUserData.friends) {
                         try {
@@ -1076,7 +1079,6 @@
                     }
                 }
 
-                // 2. Удаляем сам документ пользователя в базе (ник освобождается мгновенно)
                 await deleteDoc(doc(db, "users", myUid));
 
                 hideLoading();
@@ -1645,39 +1647,71 @@
             }
 
             try {
-                let html = "";
+                let friendsDataList = [];
+
                 for (let friendUid of currentUserData.friends) {
                     const friendDoc = await getDoc(doc(db, "users", friendUid));
                     
-                    let nick, ava, balanceStr, statusObj;
+                    let nick, ava, balance, lastActiveTime, isOnline, statusObj;
                     if (!friendDoc.exists()) {
-                        // Аккаунт друга удален
                         nick = "Удаленный аккаунт";
                         ava = "https://via.placeholder.com/70";
-                        balanceStr = "0.000";
+                        balance = 0;
+                        lastActiveTime = 0;
+                        isOnline = false;
                         statusObj = { text: "В сети давно", color: "#888888" };
                     } else {
                         const data = friendDoc.data();
                         nick = data.username || "Игрок";
                         ava = data.avatarUrl || "https://via.placeholder.com/70";
-                        balanceStr = (data.balance_ml || 0).toFixed(3);
-                        const lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
+                        balance = data.balance_ml || 0;
+                        lastActiveTime = data.lastActive ? data.lastActive.toMillis() : 0;
                         const gameStartTime = data.gameStartTime ? data.gameStartTime.toMillis() : 0;
                         statusObj = formatStatusObj(lastActiveTime, data.inGame, gameStartTime, data.currentBossName);
+                        
+                        const diffSec = lastActiveTime ? Math.floor((Date.now() - lastActiveTime) / 1000) : 999999;
+                        isOnline = (diffSec < 30);
                     }
 
+                    friendsDataList.push({
+                        uid: friendUid,
+                        nick: nick,
+                        ava: ava,
+                        balance: balance,
+                        lastActiveTime: lastActiveTime,
+                        isOnline: isOnline,
+                        statusObj: statusObj
+                    });
+                }
+
+                // СОРТИРОВКА ДРУЗЕЙ:
+                // 1. Онлайн-друзья первыми, отсортированные по миллилитрам по убыванию (у кого больше, тот выше)
+                // 2. Оффлайн-друзья ниже, отсортированные по времени активности
+                friendsDataList.sort((a, b) => {
+                    if (a.isOnline && !b.isOnline) return -1;
+                    if (!a.isOnline && b.isOnline) return 1;
+
+                    if (a.isOnline && b.isOnline) {
+                        return b.balance - a.balance; // По убыванию миллилитров
+                    } else {
+                        return b.lastActiveTime - a.lastActiveTime; // Кто новее был оффлайн
+                    }
+                });
+
+                let html = "";
+                for (let f of friendsDataList) {
                     html += `
                         <div class="user-result-card">
                             <div class="user-result-info">
-                                <img src="${ava}" class="user-result-ava">
+                                <img src="${f.ava}" class="user-result-ava">
                                 <div>
-                                    <div class="user-result-name">${nick}</div>
-                                    <div class="user-result-meta">💧 ${balanceStr} мл | <span style="color:${statusObj.color}">${statusObj.text}</span></div>
+                                    <div class="user-result-name">${f.nick}</div>
+                                    <div class="user-result-meta">💧 ${f.balance.toFixed(3)} мл | <span style="color:${f.statusObj.color}">${f.statusObj.text}</span></div>
                                 </div>
                             </div>
                             <div style="display:flex; gap:4px;">
-                                <button class="btn-mini-action btn-mini-success" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')">💬 Чат</button>
-                                <button class="btn-mini-action btn-mini-danger" onclick="removeFriend('${friendUid}')" title="Удалить">🗑</button>
+                                <button class="btn-mini-action btn-mini-success" onclick="openChatWith('${f.uid}', '${f.nick}', '${f.ava}')">💬 Чат</button>
+                                <button class="btn-mini-action btn-mini-danger" onclick="removeFriend('${f.uid}')" title="Удалить">🗑</button>
                             </div>
                         </div>
                     `;
@@ -1696,7 +1730,8 @@
             }
 
             try {
-                let html = "";
+                let chatsWithInfo = [];
+
                 for (let friendUid of currentUserData.friends) {
                     const friendDoc = await getDoc(doc(db, "users", friendUid));
                     
@@ -1713,22 +1748,45 @@
                     const chatId = [currentUid, friendUid].sort().join("_");
                     const chatSnap = await getDoc(doc(db, "chats", chatId));
                     let hasUnreadHere = false;
+                    let lastMessageTimestamp = 0;
+
                     if (chatSnap.exists()) {
-                        const msgs = chatSnap.data().messages || [];
+                        const chatData = chatSnap.data();
+                        const msgs = chatData.messages || [];
                         hasUnreadHere = msgs.some(m => m.sender !== currentUid && !m.read);
+                        
+                        if (msgs.length > 0) {
+                            lastMessageTimestamp = msgs[msgs.length - 1].timestamp || 0;
+                        } else if (chatData.createdAt) {
+                            lastMessageTimestamp = chatData.createdAt.toMillis ? chatData.createdAt.toMillis() : 0;
+                        }
                     }
 
+                    chatsWithInfo.push({
+                        friendUid: friendUid,
+                        nick: nick,
+                        ava: ava,
+                        hasUnreadHere: hasUnreadHere,
+                        lastMessageTimestamp: lastMessageTimestamp
+                    });
+                }
+
+                // СОРТИРОВКА ЧАТОВ ПО ВРЕМЕНИ ДЕЙСТВИЙ (САМЫЙ СВЕЖИЙ ВВЕРХУ)
+                chatsWithInfo.sort((a, b) => b.lastMessageTimestamp - a.lastMessageTimestamp);
+
+                let html = "";
+                for (let c of chatsWithInfo) {
                     html += `
-                        <div class="user-result-card" onclick="openChatWith('${friendUid}', '${nick}', '${ava}')" style="cursor:pointer; ${hasUnreadHere ? 'border:1px solid #ff4444;' : ''}">
-                            <div class="friend-chat-item-badge" id="friend_badge_${friendUid}" style="display:${hasUnreadHere ? 'block' : 'none'};"></div>
+                        <div class="user-result-card" onclick="openChatWith('${c.friendUid}', '${c.nick}', '${c.ava}')" style="cursor:pointer; ${c.hasUnreadHere ? 'border:1px solid #ff4444;' : ''}">
+                            <div class="friend-chat-item-badge" id="friend_badge_${c.friendUid}" style="display:${c.hasUnreadHere ? 'block' : 'none'};"></div>
                             <div class="user-result-info">
-                                <img src="${ava}" class="user-result-ava">
+                                <img src="${c.ava}" class="user-result-ava">
                                 <div>
-                                    <div class="user-result-name">${nick}</div>
-                                    <div class="user-result-meta">${hasUnreadHere ? '<span style="color:#ff5252; font-weight:bold;">Новое сообщение!</span>' : 'Нажмите, чтобы открыть чат'}</div>
+                                    <div class="user-result-name">${c.nick}</div>
+                                    <div class="user-result-meta">${c.hasUnreadHere ? '<span style="color:#ff5252; font-weight:bold;">Новое сообщение!</span>' : 'Нажмите, чтобы открыть чат'}</div>
                                 </div>
                             </div>
-                            <button class="btn-mini-action ${hasUnreadHere ? 'btn-mini-danger' : 'btn-mini-success'}">💬</button>
+                            <button class="btn-mini-action ${c.hasUnreadHere ? 'btn-mini-danger' : 'btn-mini-success'}">💬</button>
                         </div>
                     `;
                 }
@@ -1762,7 +1820,6 @@
             document.getElementById("friendsSectionPanel").style.display = "none";
             document.getElementById("chatListSectionPanel").style.display = "none";
             
-            // Проверим, существует ли партнер
             const friendDoc = await getDoc(doc(db, "users", friendUid));
             if (!friendDoc.exists()) {
                 friendNick = "Удаленный аккаунт";
@@ -1818,6 +1875,12 @@
 
             const chatId = [currentUid, friendUid].sort().join("_");
             const chatRef = doc(db, "chats", chatId);
+
+            // Если чат открывается впервые, создадим документ с временем создания для сортировки
+            const chatInitSnap = await getDoc(chatRef);
+            if (!chatInitSnap.exists()) {
+                await setDoc(chatRef, { messages: [], createdAt: serverTimestamp() }, { merge: true });
+            }
 
             unsubscribeChat = onSnapshot(chatRef, async (docSnap) => {
                 const box = document.getElementById("chatMessagesBox");
@@ -2012,7 +2075,7 @@
             const isFriend = currentUserData.friends && currentUserData.friends.includes(activeChatFriendUid);
 
             if (isFriend || !friendDoc.exists()) {
-                // Разрешаем писать, если в друзьях либо если аккаунт друга удален (чтобы пользователь мог писать удаленному акку)
+                // Разрешаем писать
             } else {
                 alert("Нельзя писать пользователям, которых нет в друзьях!");
                 return;
@@ -2047,7 +2110,8 @@
                     timestamp: Date.now()
                 });
 
-                await setDoc(chatRef, { messages: messages }, { merge: true });
+                // Обновляем сообщения и сохраняем актуальный timestamp для сортировки чатов
+                await setDoc(chatRef, { messages: messages, createdAt: serverTimestamp() }, { merge: true });
                 input.value = "";
             } catch (e) {}
         };
@@ -2098,7 +2162,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v202_delete_acc_and_chat_final";
+        const CURRENT_APP_VERSION = "v203_chats_and_friends_sorting_final";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -2246,6 +2310,10 @@
             const friendsPanel = document.getElementById("friendsSectionPanel");
             if (friendsPanel && friendsPanel.style.display === "flex" && typeof window.loadFriendsList === "function") {
                 window.loadFriendsList();
+            }
+            const chatListPanel = document.getElementById("chatListSectionPanel");
+            if (chatListPanel && chatListPanel.style.display === "flex" && typeof window.loadChatList === "function") {
+                window.loadChatList();
             }
         }, 1000);
 
