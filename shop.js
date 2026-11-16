@@ -1,4 +1,4 @@
-// shop.js — Финальное исправление: чужие аватарки не ломаются, а ваши рамки и переливы видны везде
+// shop.js — Полная синхронизация: рамки и радужный перелив работают в магазине, в профиле и у всех друзей
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 в главном меню
@@ -230,21 +230,24 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Функция применения цвета рамки
+    // Функция применения цвета рамки к любому элементу
     window.applyFrameColor = function(el, frameName, rainbowColor) {
         if (!el) return;
         el.dataset.frame = frameName;
         if (frameName === "red") {
             el.style.borderColor = "#ff4d4d";
             el.style.borderWidth = "3px";
+            el.style.borderStyle = "solid";
         } else if (frameName === "purple") {
             el.style.borderColor = "#9c27b0";
             el.style.borderWidth = "3px";
+            el.style.borderStyle = "solid";
         } else if (frameName === "rainbow") {
             el.style.borderColor = rainbowColor || "#ff0000";
             el.style.borderWidth = "3px";
+            el.style.borderStyle = "solid";
         } else {
-            // Если дефолтная — оставляем стандартный стиль игры, не ломая чужие аватарки
+            el.style.borderColor = "#ffffff";
         }
     };
 
@@ -266,12 +269,12 @@
         return "default";
     }
 
-    // Живой цикл обновления рамок только для тех, у кого куплена кастомная рамка
+    // Живой цикл обновления рамок в магазине, в вашей шторке профиля и у всех игроков/друзей
     setInterval(async () => {
         const hue = (Date.now() / 10) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
 
-        // 1. В магазине
+        // 1. В магазине (превью и демо)
         const demo = document.getElementById("rainbowShopDemo");
         if (demo) demo.style.borderColor = rainbowColor;
         const previewBorder = document.getElementById("shopPreviewBorder");
@@ -279,30 +282,31 @@
             previewBorder.style.borderColor = rainbowColor;
         }
 
-        // 2. В вашем профиле
-        const profileWrap = document.querySelector(".drawer-avatar-wrap");
-        if (profileWrap) {
-            const myFrame = window.currentUserData?.selectedFrame || "default";
-            if (myFrame !== "default") {
-                window.applyFrameColor(profileWrap, myFrame, rainbowColor);
+        // 2. В вашем главном профиле (все возможные блоки аватарок в шторке аккаунта)
+        const activeNick = localStorage.getItem("egg_logged_in_nick");
+        const myCurrentFrame = window.currentUserData?.selectedFrame || "default";
+        
+        // Ищем все обертки и изображения аватарок в шторке профиля
+        document.querySelectorAll(".drawer-avatar-wrap, #userAvatarImg, .profile-avatar-container").forEach(el => {
+            if (myCurrentFrame !== "default") {
+                window.applyFrameColor(el, myCurrentFrame, rainbowColor);
             }
-        }
+        });
 
-        // 3. У друзей и в чатах (применяем рамку строго если она куплена и установлена)
-        const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar");
+        // 3. У друзей в списке и в чатах в реальном времени
+        const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar, img[data-friend-nick]");
         for (let imgEl of avatars) {
             let friendNick = imgEl.dataset.friendNick || imgEl.getAttribute("alt") || imgEl.title;
-            if (friendNick) {
+            if (friendNick && friendNick !== activeNick) {
                 let fFrame = await fetchUserFrame(friendNick);
                 if (fFrame && fFrame !== "default") {
-                    imgEl.style.borderRadius = "50%";
                     window.applyFrameColor(imgEl, fFrame, rainbowColor);
                 }
             }
         }
     }, 200);
 
-    // Подгрузка данных из Firebase
+    // Загрузка данных из Firebase
     window.updateShopUI = async function() {
         const activeNick = localStorage.getItem("egg_logged_in_nick");
         if (!activeNick) {
@@ -340,10 +344,11 @@
             renderItemAction("purple", 1.0, "Фиолетовая", unlocked, currentFrame);
             renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
 
-            const profileWrap = document.querySelector(".drawer-avatar-wrap");
-            if (profileWrap && currentFrame !== "default") {
-                window.applyFrameColor(profileWrap, currentFrame);
-            }
+            // Обновляем глобальные данные
+            if (!window.currentUserData) window.currentUserData = {};
+            window.currentUserData.selectedFrame = currentFrame;
+            window.currentUserData.balance_ml = balance;
+
         } catch (e) {
             console.error("Ошибка загрузки магазина:", e);
         }
@@ -399,11 +404,10 @@
 
             window.totalBank = newBalance;
             localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
-            if (window.currentUserData) {
-                window.currentUserData.balance_ml = newBalance;
-                window.currentUserData.unlockedFrames = unlocked;
-                window.currentUserData.selectedFrame = frameId;
-            }
+            if (!window.currentUserData) window.currentUserData = {};
+            window.currentUserData.balance_ml = newBalance;
+            window.currentUserData.unlockedFrames = unlocked;
+            window.currentUserData.selectedFrame = frameId;
             usersFramesCache[activeNick] = frameId;
 
             await window.updateShopUI();
@@ -426,9 +430,8 @@
                 selectedFrame: frameId
             });
 
-            if (window.currentUserData) {
-                window.currentUserData.selectedFrame = frameId;
-            }
+            if (!window.currentUserData) window.currentUserData = {};
+            window.currentUserData.selectedFrame = frameId;
             usersFramesCache[activeNick] = frameId;
 
             await window.updateShopUI();
