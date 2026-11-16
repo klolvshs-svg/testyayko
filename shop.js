@@ -1,4 +1,4 @@
-// shop.js — Финальная версия магазина рамок с падающими предметами, смайликом на кнопке и синхронизацией рамок
+// shop.js — Финальное исправление: рамки и радужный перелив теперь видны в профиле, у друзей и в чатах
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 в главном меню
@@ -9,7 +9,6 @@
         shopBtn.id = "menuShopBtn";
         shopBtn.innerHTML = "🏪";
         shopBtn.title = "Магазин рамок";
-        // Стилизуем ровно под вашу кнопку бургера (#menuBurgerBtn)
         shopBtn.style.cssText = `
             position: absolute;
             top: 15px;
@@ -34,7 +33,7 @@
         document.body.appendChild(shopBtn);
     }
 
-    // 2. Создаем шторку магазина с холстом для падающих предметов и заголовком по центру
+    // 2. Создаем шторку магазина с падающими предметами и заголовком по центру
     function createShopDrawer() {
         if (document.getElementById("shopDrawer")) return;
 
@@ -57,32 +56,27 @@
         `;
 
         shopDrawer.innerHTML = `
-            <!-- Холст для падающих предметов на заднем фоне шторки магазина -->
             <canvas id="shopDrawerCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></canvas>
 
             <div class="shop-drawer-content" style="position: relative; z-index: 2; padding: 15px 20px; display: flex; flex-direction: column; align-items: center; height: 100%; box-sizing: border-box; overflow-y: auto;">
                 
-                <!-- Шапка: Название по центру и кнопка закрытия -->
                 <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <div style="width: 24px;"></div> <!-- Пустой блок для балансировки -->
+                    <div style="width: 24px;"></div>
                     <h3 style="margin: 0; color: #00d2ff; font-size: 18px; text-align: center; flex-grow: 1;">Магазин</h3>
                     <button class="btn-mini-action btn-mini-danger" onclick="toggleShopDrawer()" style="z-index: 5;">✕</button>
                 </div>
 
-                <!-- Превью вашей аватарки строго по центру -->
                 <div style="margin: 10px auto; position: relative; width: 80px; height: 80px;">
                     <div id="shopPreviewBorder" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #fff; box-sizing: border-box; position: absolute; top:0; left:0; transition: all 0.3s;"></div>
                     <img id="shopPreviewAvatar" src="https://via.placeholder.com/80" style="width: 74px; height: 74px; border-radius: 50%; object-fit: cover; position: absolute; top: 3px; left: 3px;">
                 </div>
                 <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: загрузка...</div>
 
-                <!-- Раскрывающаяся кнопка-аккордеон для рамок -->
                 <button class="btn-drawer-custom" style="margin-bottom: 5px; background: #248bda; display:flex; justify-content:space-between; align-items:center;" onclick="toggleShopFramesAccordion()">
                     <span>✨ Рамки для аватара</span>
                     <span id="accordionArrow">▼</span>
                 </button>
 
-                <!-- Выпадающий блок с рамками -->
                 <div id="shopFramesContainer" class="drawer-section-panel" style="display:none; max-height:260px; margin-top:0; margin-bottom:15px; width:100%;">
                     <div style="width:100%; display:flex; flex-direction:column; gap:6px;">
                         
@@ -128,7 +122,6 @@
         initShopDrawerCanvas();
     }
 
-    // Анимация падающих предметов на фоне шторки магазина
     function initShopDrawerCanvas() {
         const sCanvas = document.getElementById("shopDrawerCanvas");
         if (!sCanvas) return;
@@ -215,7 +208,6 @@
         }
     };
 
-    // Строгая проверка видимости кнопки (видна ТОЛЬКО в главном меню)
     function checkShopButtonVisibility() {
         const shopBtn = document.getElementById("menuShopBtn");
         const profileDrawer = document.getElementById("profileDrawer");
@@ -238,15 +230,29 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Глобальный цикл живого перелива радужной рамки везде (в магазине, в профиле, у друзей)
+    // Глобальная функция применения рамки к любой аватарке по названию рамки и цвету
+    window.applyFrameColorToElement = function(el, frameName, rainbowColor) {
+        if (!el) return;
+        el.dataset.frame = frameName;
+        if (frameName === "red") {
+            el.style.borderColor = "#ff4d4d";
+        } else if (frameName === "purple") {
+            el.style.borderColor = "#9c27b0";
+        } else if (frameName === "rainbow") {
+            el.style.borderColor = rainbowColor || "#ff0000";
+        } else {
+            el.style.borderColor = "#ffffff";
+        }
+    };
+
+    // Живой цикл обновления рамок в профиле, у друзей, в чатах и в магазине
     setInterval(() => {
         const hue = (Date.now() / 10) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
 
-        // 1. В магазине
+        // 1. В магазине (демо и превью)
         const demo = document.getElementById("rainbowShopDemo");
         if (demo) demo.style.borderColor = rainbowColor;
-
         const previewBorder = document.getElementById("shopPreviewBorder");
         if (previewBorder && previewBorder.dataset.frame === "rainbow") {
             previewBorder.style.borderColor = rainbowColor;
@@ -254,12 +260,35 @@
 
         // 2. В боковом меню профиля
         const profileWrap = document.querySelector(".drawer-avatar-wrap");
-        if (profileWrap && profileWrap.dataset.frame === "rainbow") {
-            profileWrap.style.borderColor = rainbowColor;
+        if (profileWrap) {
+            const myFrame = window.currentUserData?.selectedFrame || "default";
+            window.applyFrameColorToElement(profileWrap, myFrame, rainbowColor);
         }
+
+        // 3. У всех друзей в списке друзей и в чатах (динамический обход всех аватарок)
+        document.querySelectorAll(".user-result-ava, #activeChatAvatar").forEach(imgEl => {
+            if (!imgEl.dataset.frameInitialized) {
+                imgEl.dataset.frameInitialized = "true";
+                // Оборачиваем аватарку в контейнер с рамкой, если еще не обернута
+                if (!imgEl.parentElement.classList.contains("dynamic-frame-wrap")) {
+                    const wrap = document.createElement("div");
+                    wrap.className = "dynamic-frame-wrap";
+                    wrap.style.cssText = `width: ${imgEl.style.width || '34px'}; height: ${imgEl.style.height || '34px'}; border-radius: 50%; border: 2.5px solid #fff; box-sizing: border-box; position: relative; overflow: hidden; flex-shrink: 0;`;
+                    imgEl.parentNode.insertBefore(wrap, imgEl);
+                    wrap.appendChild(imgEl);
+                    imgEl.style.position = "absolute";
+                    imgEl.style.top = "0";
+                    imgEl.style.left = "0";
+                    imgEl.style.width = "100%";
+                    imgEl.style.height = "100%";
+                    imgEl.style.border = "none";
+                }
+            }
+        });
+
     }, 50);
 
-    // Загрузка данных из Firebase и применение рамок
+    // Подгрузка данных из Firebase
     window.updateShopUI = async function() {
         const activeNick = localStorage.getItem("egg_logged_in_nick");
         if (!activeNick) {
@@ -287,40 +316,24 @@
             const unlocked = userData.unlockedFrames || ["default"];
             const currentFrame = userData.selectedFrame || "default";
 
-            applyBorderToElement(document.getElementById("shopPreviewBorder"), currentFrame);
+            const previewBorder = document.getElementById("shopPreviewBorder");
+            if (previewBorder) {
+                previewBorder.dataset.frame = currentFrame;
+            }
 
             renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
             renderItemAction("red", 1.0, "Красная", unlocked, currentFrame);
             renderItemAction("purple", 1.0, "Фиолетовая", unlocked, currentFrame);
             renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
 
-            // Применяем рамку к аватару в профиле
-            applyFrameToProfileAvatar(currentFrame);
+            const profileWrap = document.querySelector(".drawer-avatar-wrap");
+            if (profileWrap) {
+                window.applyFrameColorToElement(profileWrap, currentFrame);
+            }
         } catch (e) {
             console.error("Ошибка загрузки магазина:", e);
         }
     };
-
-    function applyBorderToElement(el, frameName) {
-        if (!el) return;
-        el.dataset.frame = frameName;
-        if (frameName === "red") el.style.borderColor = "#ff4d4d";
-        else if (frameName === "purple") el.style.borderColor = "#9c27b0";
-        else if (frameName === "rainbow") {
-            // Цвет задается динамически в глобальном setInterval
-        } else {
-            el.style.borderColor = "#ffffff";
-        }
-    }
-
-    function applyFrameToProfileAvatar(frameName) {
-        const profileWrap = document.querySelector(".drawer-avatar-wrap");
-        if (!profileWrap) return;
-        profileWrap.dataset.frame = frameName;
-        if (frameName === "red") profileWrap.style.borderColor = "#ff4d4d";
-        else if (frameName === "purple") profileWrap.style.borderColor = "#9c27b0";
-        else if (frameName === "default") profileWrap.style.borderColor = "#ffffff";
-    }
 
     function renderItemAction(frameId, price, name, unlocked, current) {
         const container = document.getElementById(`action_${frameId}`);
