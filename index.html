@@ -1432,7 +1432,7 @@
             if (!isVisible) loadFriendsList();
         }
 
-        // АБСОЛЮТНО СТАБИЛЬНЫЙ ОТКРЫВАТЕЛЬ СПИСКА ЧАТОВ БЕЗ МОРГАНИЯ
+        // ОТКРЫТИЕ СПИСКА ЧАТОВ БЕЗ МИГАНИЯ И ПЕРЕСОЗДАНИЯ DOM
         window.toggleChatListPanel = function() {
             const panel = document.getElementById("chatListSectionPanel");
             const isVisible = (panel.style.display === "flex");
@@ -1741,7 +1741,7 @@
 
         window.loadChatList = async function() {
             const container = document.getElementById("chatListContainer");
-            container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Загрузка...</div>`;
+            if (!container) return;
 
             if (!currentUid || !currentUserData.friends || currentUserData.friends.length === 0) {
                 container.innerHTML = `<div style="font-size:11px; color:#777; padding:5px;">Нет друзей для общения</div>`;
@@ -2187,7 +2187,7 @@
     </script>
 
     <script>
-        const CURRENT_APP_VERSION = "v207_fix_chat_and_status";
+        const CURRENT_APP_VERSION = "v208_fix_chat_list_blinking";
         if (localStorage.getItem("egg_app_ver") !== CURRENT_APP_VERSION) {
             localStorage.setItem("egg_app_ver", CURRENT_APP_VERSION);
             window.location.reload(true);
@@ -2331,16 +2331,7 @@
             });
         }
 
-        setInterval(() => {
-            const friendsPanel = document.getElementById("friendsSectionPanel");
-            if (friendsPanel && friendsPanel.style.display === "flex" && typeof window.loadFriendsList === "function") {
-                window.loadFriendsList();
-            }
-            const chatListPanel = document.getElementById("chatListSectionPanel");
-            if (chatListPanel && chatListPanel.style.display === "flex" && typeof window.loadChatList === "function") {
-                window.loadChatList();
-            }
-        }, 1000);
+        // УДАЛЕНА ИНТЕРВАЛЬНАЯ ПЕРЕРИСОВКА СПИСКОВ ЧАТОВ И ДРУЗЕЙ (ИСПРАВЛЕНИЕ МИГАНИЯ)
 
         function formatGameTimer(ms) {
             const totalSeconds = Math.floor(ms / 1000);
