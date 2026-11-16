@@ -1,4 +1,4 @@
-// shop.js — Стабильные рамки без скачков, с фиксированной синей/цветной обводкой и плавным переливом
+// shop.js — Чистые стабильные рамки без оберток и конфликтов с темно-синим дефолтом
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 (видна только при входе в аккаунт)
@@ -67,7 +67,7 @@
                 </div>
 
                 <div style="margin: 10px auto; position: relative; width: 80px; height: 80px;">
-                    <div id="shopPreviewBorder" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #00d2ff; box-sizing: border-box; position: absolute; top:0; left:0;"></div>
+                    <div id="shopPreviewBorder" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #1a365d; box-sizing: border-box; position: absolute; top:0; left:0;"></div>
                     <img id="shopPreviewAvatar" src="https://via.placeholder.com/80" style="width: 74px; height: 74px; border-radius: 50%; object-fit: cover; position: absolute; top: 3px; left: 3px;">
                 </div>
                 <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: загрузка...</div>
@@ -82,8 +82,8 @@
                         
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="width:24px; height:24px; border-radius:50%; border:3px solid #00d2ff;"></div>
-                                <span style="font-size:11px; font-weight:bold; color:#fff;">Стандартная (синяя)</span>
+                                <div style="width:24px; height:24px; border-radius:50%; border:3px solid #1a365d;"></div>
+                                <span style="font-size:11px; font-weight:bold; color:#fff;">Стандартная (темно-синяя)</span>
                             </div>
                             <div id="action_default"></div>
                         </div>
@@ -231,56 +231,25 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Функция абсолютной стабильности рамки (без изменения размеров и сдвигов)
-    window.applyStableFrame = function(imgEl, frameName, rainbowColor) {
+    // Безопасное применение рамки напрямую к картинке через box-sizing и border (без вложенных контейнеров и скачков)
+    window.applyDirectFrame = function(imgEl, frameName, rainbowColor) {
         if (!imgEl) return;
-        
-        let parent = imgEl.parentElement;
-        let wrap = parent;
-        
-        // Если элемент еще не обернут, оборачиваем один раз и фиксируем размеры
-        if (!parent.classList.contains("stable-frame-wrap")) {
-            wrap = document.createElement("div");
-            wrap.className = "stable-frame-wrap";
-            
-            // Берем исходные размеры картинки чтобы обертка встала ровно на ее место
-            let w = imgEl.offsetWidth || imgEl.clientWidth || 40;
-            let h = imgEl.offsetHeight || imgEl.clientHeight || 40;
 
-            wrap.style.cssText = `
-                width: ${w}px;
-                height: ${h}px;
-                min-width: ${w}px;
-                min-height: ${h}px;
-                border-radius: 50%;
-                border-width: 3px;
-                border-style: solid;
-                box-sizing: border-box;
-                position: relative;
-                overflow: hidden;
-                flex-shrink: 0;
-                display: inline-block;
-                vertical-align: middle;
-                margin: 0;
-            `;
-            imgEl.parentNode.insertBefore(wrap, imgEl);
-            wrap.appendChild(imgEl);
-            
-            imgEl.style.position = "absolute";
-            imgEl.style.top = "-3px";
-            imgEl.style.left = "-3px";
-            imgEl.style.width = "calc(100% + 6px)";
-            imgEl.style.height = "calc(100% + 6px)";
-            imgEl.style.border = "none";
-            imgEl.style.borderRadius = "50%";
-            imgEl.style.margin = "0";
+        // Фиксируем стили рамки прямо на элементе картинки, не меняя размеры блока
+        imgEl.style.boxSizing = "border-box";
+        imgEl.style.borderRadius = "50%";
+        imgEl.style.borderStyle = "solid";
+        imgEl.style.borderWidth = "3px";
+
+        if (frameName === "red") {
+            imgEl.style.borderColor = "#ff4d4d";
+        } else if (frameName === "purple") {
+            imgEl.style.borderColor = "#9c27b0";
+        } else if (frameName === "rainbow") {
+            imgEl.style.borderColor = rainbowColor;
+        } else {
+            imgEl.style.borderColor = "#1a365d"; // Классическая темно-синяя рамка
         }
-
-        // Присваиваем цвет рамки без пересоздания контейнера
-        if (frameName === "red") wrap.style.borderColor = "#ff4d4d";
-        else if (frameName === "purple") wrap.style.borderColor = "#9c27b0";
-        else if (frameName === "rainbow") wrap.style.borderColor = rainbowColor;
-        else wrap.style.borderColor = "#00d2ff"; // Фирменная синяя рамка по умолчанию
     };
 
     const usersFramesCache = {};
@@ -301,9 +270,9 @@
         return "default";
     }
 
-    // Живой цикл: очень быстрый и плавный радужный перелив (делитель 5 для высокой скорости) + стабильные аватарки
+    // Живой цикл: очень быстрый и плавный радужный перелив (делитель 5) без конфликтов и сдвигов
     setInterval(async () => {
-        const hue = (Date.now() / 5) % 360; // Ускоренный перелив цветов
+        const hue = (Date.now() / 5) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = localStorage.getItem("egg_logged_in_nick");
 
@@ -320,9 +289,9 @@
         // 2. Ваша личная рамка в профиле
         let myCurrentFrame = await fetchUserFrame(activeNick);
         const profileImg = document.getElementById("userAvatarImg");
-        if (profileImg) window.applyStableFrame(profileImg, myCurrentFrame, rainbowColor);
+        if (profileImg) window.applyDirectFrame(profileImg, myCurrentFrame, rainbowColor);
 
-        // 3. Рамки друзей в списке друзей (исправлено исчезновение и мерцание)
+        // 3. Рамки в списке друзей (работает стабильно для всех карточек)
         const cards = document.querySelectorAll(".user-result-card");
         for (let card of cards) {
             const nameEl = card.querySelector(".user-result-name");
@@ -331,9 +300,9 @@
                 let friendNick = nameEl.innerText.trim();
                 if (friendNick && friendNick !== activeNick) {
                     let fFrame = await fetchUserFrame(friendNick);
-                    window.applyStableFrame(imgEl, fFrame, rainbowColor);
+                    window.applyDirectFrame(imgEl, fFrame, rainbowColor);
                 } else if (friendNick === activeNick) {
-                    window.applyStableFrame(imgEl, myCurrentFrame, rainbowColor);
+                    window.applyDirectFrame(imgEl, myCurrentFrame, rainbowColor);
                 }
             }
         }
@@ -345,7 +314,7 @@
             let partnerNick = chatTitle.innerText.trim();
             if (partnerNick && partnerNick !== "Чат" && partnerNick !== "Загрузка...") {
                 let pFrame = await fetchUserFrame(partnerNick);
-                window.applyStableFrame(chatAvatar, pFrame, rainbowColor);
+                window.applyDirectFrame(chatAvatar, pFrame, rainbowColor);
             }
         }
     }, 50);
@@ -383,7 +352,7 @@
                 previewBorder.style.borderStyle = "solid";
                 if (currentFrame === "red") previewBorder.style.borderColor = "#ff4d4d";
                 else if (currentFrame === "purple") previewBorder.style.borderColor = "#9c27b0";
-                else if (currentFrame !== "rainbow") previewBorder.style.borderColor = "#00d2ff";
+                else if (currentFrame !== "rainbow") previewBorder.style.borderColor = "#1a365d";
             }
 
             renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
