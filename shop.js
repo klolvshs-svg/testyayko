@@ -1,4 +1,4 @@
-// shop.js — Абсолютно надежное сохранение и мгновенное применение рамок
+// shop.js — Защищенное сохранение и мгновенное применение рамок без сбросов
 
 (function() {
     // 1. Внедряем глобальные стили для рамок
@@ -17,7 +17,6 @@
         document.head.appendChild(style);
     }
 
-    // Вспомогательная функция для точного определения вашего никнейма
     function getActiveUserNick() {
         return localStorage.getItem("egg_logged_in_nick") || localStorage.getItem("egg_current_user") || window.currentUserNick || "";
     }
@@ -251,7 +250,6 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Применение рамки
     window.applyStaticFrameColor = function(imgEl, frameName, rainbowColor) {
         if (!imgEl) return;
         imgEl.style.boxSizing = "border-box";
@@ -270,19 +268,21 @@
         }
     };
 
-    const usersFramesCache = {};
-
+    // Главная функция получения выбранной рамки с приоритетом локального сохранения
     async function fetchUserFrame(nick) {
         if (!nick) return "default";
-        // Принудительно отдаем локально закэшированный выбор, если он есть
-        if (usersFramesCache[nick]) return usersFramesCache[nick];
+        
+        // 1. Сначала проверяем жесткий локальный выбор, чтобы исключить любые сетевые задержки и сбросы
+        const localSaved = localStorage.getItem(`egg_frame_${nick}`);
+        if (localSaved) return localSaved;
+
         try {
             const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
             const snap = await getDoc(doc(db, "users", nick));
             if (snap.exists()) {
                 const frame = snap.data().selectedFrame || "default";
-                usersFramesCache[nick] = frame;
+                localStorage.setItem(`egg_frame_${nick}`, frame);
                 return frame;
             }
         } catch(e) {}
@@ -295,18 +295,17 @@
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = getActiveUserNick();
 
-        // 1. Демо в магазине
         const demo = document.getElementById("rainbowShopDemo");
         if (demo) demo.style.borderColor = rainbowColor;
 
         if (!activeNick) return;
 
-        // 2. Ваша личная аватарка
-        let myCurrentFrame = usersFramesCache[activeNick] || await fetchUserFrame(activeNick);
+        let myCurrentFrame = localStorage.getItem(`egg_frame_${activeNick}`) || await fetchUserFrame(activeNick);
+        
         const profileImg = document.getElementById("userAvatarImg");
         if (profileImg) window.applyStaticFrameColor(profileImg, myCurrentFrame, rainbowColor);
 
-        // 3. Список друзей
+        // Список друзей
         const cards = document.querySelectorAll(".user-result-card, .friend-item, .user-card");
         for (let card of cards) {
             const nameEl = card.querySelector(".user-result-name, .friend-name, span, b");
@@ -350,8 +349,7 @@
             }
 
             const unlocked = userData.unlockedFrames || ["default"];
-            const currentFrame = userData.selectedFrame || "default";
-            usersFramesCache[activeNick] = currentFrame;
+            const currentFrame = localStorage.getItem(`egg_frame_${activeNick}`) || userData.selectedFrame || "default";
 
             if (previewAvatar) {
                 previewAvatar.dataset.frame = currentFrame;
@@ -411,13 +409,15 @@
             let unlocked = userData.unlockedFrames || ["default"];
             if (!unlocked.includes(frameId)) unlocked.push(frameId);
 
+            // Мгновенно сохраняем локально, блокируя любые сбросы
+            localStorage.setItem(`egg_frame_${activeNick}`, frameId);
+
             await updateDoc(userRef, {
                 balance_ml: newBalance,
                 unlockedFrames: unlocked,
                 selectedFrame: frameId
             });
 
-            usersFramesCache[activeNick] = frameId;
             window.totalBank = newBalance;
             localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
 
@@ -439,24 +439,25 @@
         }
 
         try {
-            const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-            const db = getFirestore();
-            const userRef = doc(db, "users", activeNick);
+            // 1. Мгновенно фиксируем выбор локально
+            localStorage.setItem(`egg_frame_${activeNick}`, frameId);
 
-            // Сохраняем в кэш и в базу
-            usersFramesCache[activeNick] = frameId;
-
-            await updateDoc(userRef, {
-                selectedFrame: frameId
-            });
-
-            // Мгновенно применяем локально
+            // 2. Сразу применяем визуал на аватарки
             const hue = (Date.now() / 4) % 360;
             const rainbowColor = `hsl(${hue}, 100%, 50%)`;
             window.applyStaticFrameColor(document.getElementById("userAvatarImg"), frameId, rainbowColor);
             window.applyStaticFrameColor(document.getElementById("shopPreviewAvatar"), frameId, rainbowColor);
 
+            // 3. Обновляем интерфейс кнопок в магазине
             await window.updateShopUI();
+
+            // 4. Отправляем в фоновом режиме в базу данных
+            const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            const db = getFirestore();
+            await updateDoc(doc(db, "users", activeNick), {
+                selectedFrame: frameId
+            });
+
             alert("✅ Рамка успешно применена!");
         } catch (e) {
             alert("Ошибка выбора рамки: " + e.message);
