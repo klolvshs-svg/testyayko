@@ -1,4 +1,4 @@
-// shop.js — Точная привязка рамки только к вашему аккаунту и корректный дефолтный вид для друзей
+// shop.js — Жесткое принудительное применение рамки к вашей аватарке в списке друзей и в профиле
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 (видна только при входе в аккаунт)
@@ -231,26 +231,26 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Применение цвета рамки
-    window.applyFrameColor = function(el, frameName, rainbowColor) {
+    // Функция принудительной установки рамки (с прерыванием стандартных стилей через !important)
+    window.applyForcedFrame = function(el, frameName, rainbowColor) {
         if (!el) return;
         el.dataset.frame = frameName;
         if (frameName === "red") {
-            el.style.borderColor = "#ff4d4d";
-            el.style.borderWidth = "3px";
-            el.style.borderStyle = "solid";
+            el.style.setProperty("border-color", "#ff4d4d", "important");
+            el.style.setProperty("border-width", "3px", "important");
+            el.style.setProperty("border-style", "solid", "important");
         } else if (frameName === "purple") {
-            el.style.borderColor = "#9c27b0";
-            el.style.borderWidth = "3px";
-            el.style.borderStyle = "solid";
+            el.style.setProperty("border-color", "#9c27b0", "important");
+            el.style.setProperty("border-width", "3px", "important");
+            el.style.setProperty("border-style", "solid", "important");
         } else if (frameName === "rainbow") {
-            el.style.borderColor = rainbowColor || "#ff0000";
-            el.style.borderWidth = "3px";
-            el.style.borderStyle = "solid";
+            el.style.setProperty("border-color", rainbowColor || "#ff0000", "important");
+            el.style.setProperty("border-width", "3px", "important");
+            el.style.setProperty("border-style", "solid", "important");
         } else {
-            el.style.borderColor = "#ffffff";
-            el.style.borderWidth = "2px";
-            el.style.borderStyle = "solid";
+            el.style.setProperty("border-color", "#ffffff", "important");
+            el.style.setProperty("border-width", "2px", "important");
+            el.style.setProperty("border-style", "solid", "important");
         }
     };
 
@@ -272,13 +272,13 @@
         return "default";
     }
 
-    // Живой цикл обновления: плавная смена цветов и точная проверка аккаунтов
+    // Живой цикл: применение рамок к вашему профилю, списку друзей и чатам
     setInterval(async () => {
         const hue = (Date.now() / 30) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = localStorage.getItem("egg_logged_in_nick");
 
-        // 1. В магазине
+        // 1. Демо в магазине
         const demo = document.getElementById("rainbowShopDemo");
         if (demo) demo.style.borderColor = rainbowColor;
         const previewBorder = document.getElementById("shopPreviewBorder");
@@ -288,19 +288,27 @@
 
         if (!activeNick) return;
 
-        // 2. Ваша личная рамка в профиле
+        // 2. Ваша личная рамка (применяем везде, включая кнопку друзей и шторку профиля)
         let myCurrentFrame = await fetchUserFrame(activeNick);
-        document.querySelectorAll(".drawer-avatar-wrap, #userAvatarImg, .profile-avatar-container").forEach(el => {
-            window.applyFrameColor(el, myCurrentFrame, rainbowColor);
+        document.querySelectorAll(".drawer-avatar-wrap, #userAvatarImg, .profile-avatar-container, .user-result-ava").forEach(el => {
+            // Проверяем, ваша ли это аватарка (если есть атрибут с ником или это ваш профиль)
+            let elNick = el.dataset.friendNick || el.dataset.nick || el.getAttribute("alt") || el.title;
+            if (!elNick || elNick === activeNick) {
+                if (myCurrentFrame !== "default") {
+                    window.applyForcedFrame(el, myCurrentFrame, rainbowColor);
+                }
+            }
         });
 
-        // 3. Рамки друзей в списке и в чатах (применяем ТОЛЬКО если у этого конкретного игрока есть купленная рамка)
+        // 3. Рамки друзей в списке друзей и чатах
         const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar, img[data-friend-nick], .friend-item img");
         for (let imgEl of avatars) {
             let friendNick = imgEl.dataset.friendNick || imgEl.getAttribute("alt") || imgEl.title || imgEl.dataset.nick;
             if (friendNick && friendNick !== activeNick) {
                 let fFrame = await fetchUserFrame(friendNick);
-                window.applyFrameColor(imgEl, fFrame, rainbowColor);
+                if (fFrame && fFrame !== "default") {
+                    window.applyForcedFrame(imgEl, fFrame, rainbowColor);
+                }
             }
         }
     }, 100);
