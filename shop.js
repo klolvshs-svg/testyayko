@@ -1,7 +1,7 @@
-// shop.js — Магазин рамок с покупкой, сохранением и скрытием кнопки при открытии шторки
+// shop.js — Исправленный магазин рамок (моментальное скрытие + рабочий выбор/покупка)
 
 (function() {
-    // 1. Создаем прозрачную кнопку магазина вверху экрана (рядом с бургером)
+    // 1. Создаем прозрачную кнопку магазина вверху экрана
     function injectShopButton() {
         if (document.getElementById("menuShopBtn")) return;
 
@@ -27,7 +27,6 @@
             outline: none;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
             -webkit-tap-highlight-color: transparent;
-            transition: transform 0.1s, background 0.3s, opacity 0.3s;
         `;
         shopBtn.onclick = toggleShopDrawer;
         document.body.appendChild(shopBtn);
@@ -74,8 +73,7 @@
             <button class="btn-drawer-custom" style="margin-bottom: 10px; background: #248bda; cursor:default;">✨ Рамки для аватара</button>
 
             <div id="shopFramesContainer" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-                <!-- Товар 1: Дефолтная -->
-                <div class="shop-item-card" style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div style="width:28px; height:28px; border-radius:50%; border:3px solid #fff;"></div>
                         <span style="font-size:12px; font-weight:bold; color:#fff;">Стандартная</span>
@@ -83,8 +81,7 @@
                     <div id="action_default"></div>
                 </div>
 
-                <!-- Товар 2: Красная рамка -->
-                <div class="shop-item-card" style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div style="width:28px; height:28px; border-radius:50%; border:3px solid #ff4d4d;"></div>
                         <span style="font-size:12px; font-weight:bold; color:#fff;">Красная (1 мл)</span>
@@ -92,8 +89,7 @@
                     <div id="action_red"></div>
                 </div>
 
-                <!-- Товар 3: Фиолетовая рамка -->
-                <div class="shop-item-card" style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div style="width:28px; height:28px; border-radius:50%; border:3px solid #9c27b0;"></div>
                         <span style="font-size:12px; font-weight:bold; color:#fff;">Фиолетовая (1 мл)</span>
@@ -101,8 +97,7 @@
                     <div id="action_purple"></div>
                 </div>
 
-                <!-- Товар 4: Радужная переливающаяся рамка -->
-                <div class="shop-item-card" style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="background:rgba(25,35,48,0.8); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                     <div style="display:flex; align-items:center; gap:8px;">
                         <div id="rainbowDemo" style="width:28px; height:28px; border-radius:50%; border:3px solid red;"></div>
                         <span style="font-size:12px; font-weight:bold; color:#fff;">Радужная (2 мл)</span>
@@ -114,7 +109,6 @@
 
         document.body.appendChild(shopDrawer);
 
-        // Анимация радужной рамки в магазине
         setInterval(() => {
             const demo = document.getElementById("rainbowDemo");
             if (demo) {
@@ -126,25 +120,19 @@
 
     window.toggleShopDrawer = function() {
         const drawer = document.getElementById("shopDrawer");
-        const shopBtn = document.getElementById("menuShopBtn");
         if (!drawer) return;
-
         const isOpen = drawer.style.left === "0px";
         if (isOpen) {
             drawer.style.left = "-380px";
-            if (shopBtn) shopBtn.style.display = "flex";
         } else {
-            // Закрываем основную шторку игры, если она была открыта
             const profileDrawer = document.getElementById("profileDrawer");
             if (profileDrawer) profileDrawer.classList.remove("open");
-
             drawer.style.left = "0px";
-            if (shopBtn) shopBtn.style.display = "none";
             updateShopUI();
         }
     };
 
-    // Функция проверки видимости кнопки магазина (скрываем, если открыта любая шторка)
+    // Мгновенное скрытие/показ кнопки магазина
     function checkShopButtonVisibility() {
         const shopBtn = document.getElementById("menuShopBtn");
         const profileDrawer = document.getElementById("profileDrawer");
@@ -155,20 +143,18 @@
         const isProfileOpen = profileDrawer && profileDrawer.classList.contains("open");
         const isShopOpen = shopDrawer && shopDrawer.style.left === "0px";
 
-        if (isProfileOpen || isShopOpen) {
-            shopBtn.style.opacity = "0";
-            shopBtn.style.pointerEvents = "none";
+        if (isProfileOpen || isShopOpen || (window.gameStarted && !window.isPaused && !window.gameOver)) {
+            shopBtn.style.display = "none";
         } else {
-            shopBtn.style.opacity = "1";
-            shopBtn.style.pointerEvents = "auto";
+            shopBtn.style.display = "flex";
         }
     }
 
-    // Запускаем проверку видимости кнопки каждые 200мс
-    setInterval(checkShopButtonVisibility, 200);
+    setInterval(checkShopButtonVisibility, 100);
 
     window.updateShopUI = function() {
-        if (!window.currentUserData) return;
+        const activeNick = localStorage.getItem("egg_logged_in_nick");
+        if (!activeNick || !window.currentUserData) return;
         
         const balance = window.currentUserData.balance_ml || 0;
         document.getElementById("shopCurrentBalance").innerText = `Баланс: ${balance.toFixed(3)} мл`;
@@ -215,9 +201,9 @@
         }
     }
 
-    // Покупка рамки со списанием баланса через Firebase
     window.buyAndUnlockFrame = async function(frameId, price) {
-        if (!window.currentUid || !window.currentUserData) {
+        const activeNick = localStorage.getItem("egg_logged_in_nick");
+        if (!activeNick || !window.currentUserData) {
             alert("Сначала войдите в аккаунт!");
             return;
         }
@@ -229,7 +215,6 @@
         }
 
         try {
-            // Списываем через глобальные функции вашей игры
             window.totalBank -= price;
             if (typeof window.subtractServerMilliliters === "function") {
                 window.subtractServerMilliliters(price);
@@ -238,10 +223,9 @@
             let unlocked = window.currentUserData.unlockedFrames || ["default"];
             if (!unlocked.includes(frameId)) unlocked.push(frameId);
 
-            // Сохраняем в Firebase
             const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
-            const userRef = doc(db, "users", window.currentUid);
+            const userRef = doc(db, "users", activeNick);
 
             await updateDoc(userRef, {
                 balance_ml: window.totalBank,
@@ -260,14 +244,14 @@
         }
     };
 
-    // Выбор уже купленной рамки
     window.applyAndSaveFrame = async function(frameId) {
-        if (!window.currentUid || !window.currentUserData) return;
+        const activeNick = localStorage.getItem("egg_logged_in_nick");
+        if (!activeNick || !window.currentUserData) return;
 
         try {
             const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
-            const userRef = doc(db, "users", window.currentUid);
+            const userRef = doc(db, "users", activeNick);
 
             await updateDoc(userRef, {
                 selectedFrame: frameId
@@ -275,12 +259,12 @@
 
             window.currentUserData.selectedFrame = frameId;
             updateShopUI();
+            alert("✅ Рамка успешно применена!");
         } catch (e) {
             alert("Ошибка выбора рамки: " + e.message);
         }
     };
 
-    // Инициализация при загрузке
     setTimeout(() => {
         injectShopButton();
         createShopDrawer();
