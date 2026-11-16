@@ -1,4 +1,4 @@
-// shop.js — Абсолютно полная синхронизация и отображение рамок у вас, в профиле и у всех друзей в реальном времени
+// shop.js — Финальное исправление: чужие аватарки не ломаются, а ваши рамки и переливы видны везде
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 в главном меню
@@ -236,34 +236,37 @@
         el.dataset.frame = frameName;
         if (frameName === "red") {
             el.style.borderColor = "#ff4d4d";
+            el.style.borderWidth = "3px";
         } else if (frameName === "purple") {
             el.style.borderColor = "#9c27b0";
+            el.style.borderWidth = "3px";
         } else if (frameName === "rainbow") {
             el.style.borderColor = rainbowColor || "#ff0000";
+            el.style.borderWidth = "3px";
         } else {
-            el.style.borderColor = "#ffffff";
+            // Если дефолтная — оставляем стандартный стиль игры, не ломая чужие аватарки
         }
     };
 
-    // Кеш рамок пользователей, чтобы не дергать базу каждую секунду
     const usersFramesCache = {};
 
-    async function fetchUserFrame(uid) {
-        if (usersFramesCache[uid]) return usersFramesCache[uid];
+    async function fetchUserFrame(nick) {
+        if (!nick) return "default";
+        if (usersFramesCache[nick]) return usersFramesCache[nick];
         try {
             const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
-            const snap = await getDoc(doc(db, "users", uid));
+            const snap = await getDoc(doc(db, "users", nick));
             if (snap.exists()) {
                 const frame = snap.data().selectedFrame || "default";
-                usersFramesCache[uid] = frame;
+                usersFramesCache[nick] = frame;
                 return frame;
             }
         } catch(e) {}
         return "default";
     }
 
-    // Живой цикл обновления рамок у вас, в профиле и у всех друзей в списках и чатах
+    // Живой цикл обновления рамок только для тех, у кого куплена кастомная рамка
     setInterval(async () => {
         const hue = (Date.now() / 10) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
@@ -280,51 +283,21 @@
         const profileWrap = document.querySelector(".drawer-avatar-wrap");
         if (profileWrap) {
             const myFrame = window.currentUserData?.selectedFrame || "default";
-            window.applyFrameColor(profileWrap, myFrame, rainbowColor);
+            if (myFrame !== "default") {
+                window.applyFrameColor(profileWrap, myFrame, rainbowColor);
+            }
         }
 
-        // 3. У друзей в списках и чатах (автоматический поиск и стилизация обёрток)
+        // 3. У друзей и в чатах (применяем рамку строго если она куплена и установлена)
         const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar");
         for (let imgEl of avatars) {
-            let wrap = imgEl.parentElement;
-            // Если аватарка не обернута в наш контейнер рамки — оборачиваем
-            if (!wrap.classList.contains("custom-avatar-border-wrap")) {
-                const newWrap = document.createElement("div");
-                newWrap.className = "custom-avatar-border-wrap";
-                newWrap.style.cssText = `
-                    width: ${imgEl.offsetWidth || 34}px;
-                    height: ${imgEl.offsetHeight || 34}px;
-                    border-radius: 50%;
-                    border: 3px solid #fff;
-                    box-sizing: border-box;
-                    position: relative;
-                    overflow: hidden;
-                    flex-shrink: 0;
-                `;
-                imgEl.parentNode.insertBefore(newWrap, imgEl);
-                newWrap.appendChild(imgEl);
-                imgEl.style.position = "absolute";
-                imgEl.style.top = "-2px";
-                imgEl.style.left = "-2px";
-                imgEl.style.width = "calc(100% + 4px)";
-                imgEl.style.height = "calc(100% + 4px)";
-                imgEl.style.border = "none";
-                wrap = newWrap;
-            }
-
-            // Пытаемся понять, чей это аватар, и применить его рамку
-            let targetUid = imgEl.dataset.friendUid;
-            if (!targetUid && imgEl.id === "activeChatAvatar") {
-                targetUid = window.activeChatFriendUid;
-            }
-
-            if (targetUid) {
-                let fFrame = await fetchUserFrame(targetUid);
-                window.applyFrameColor(wrap, fFrame, rainbowColor);
-            } else {
-                // Если это ваш аватар или не удалось определить — ставим вашу рамку
-                let myFrame = window.currentUserData?.selectedFrame || "default";
-                window.applyFrameColor(wrap, myFrame, rainbowColor);
+            let friendNick = imgEl.dataset.friendNick || imgEl.getAttribute("alt") || imgEl.title;
+            if (friendNick) {
+                let fFrame = await fetchUserFrame(friendNick);
+                if (fFrame && fFrame !== "default") {
+                    imgEl.style.borderRadius = "50%";
+                    window.applyFrameColor(imgEl, fFrame, rainbowColor);
+                }
             }
         }
     }, 200);
@@ -368,7 +341,7 @@
             renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
 
             const profileWrap = document.querySelector(".drawer-avatar-wrap");
-            if (profileWrap) {
+            if (profileWrap && currentFrame !== "default") {
                 window.applyFrameColor(profileWrap, currentFrame);
             }
         } catch (e) {
