@@ -1,4 +1,4 @@
-// shop.js — Плавный радужный перелив без дерганий и стабильная отрисовка рамок
+// shop.js — Финальное исправление: стабильные аватарки без смещений и рамка в чате
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 (видна только при входе в аккаунт)
@@ -231,21 +231,50 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Аккуратное применение рамки (устанавливаем толщину один раз, без дерганий)
-    window.applyCleanFrame = function(el, frameName, rainbowColor) {
-        if (!el) return;
-        if (el.dataset.appliedFrame !== frameName && frameName !== "rainbow") {
-            el.dataset.appliedFrame = frameName;
-            el.style.borderWidth = "3px";
-            el.style.borderStyle = "solid";
-            if (frameName === "red") el.style.borderColor = "#ff4d4d";
-            else if (frameName === "purple") el.style.borderColor = "#9c27b0";
-            else el.style.borderColor = "#ffffff";
-        } else if (frameName === "rainbow") {
-            el.style.borderWidth = "3px";
-            el.style.borderStyle = "solid";
-            el.style.borderColor = rainbowColor;
+    // Безопасное применение цвета рамки без изменения размеров и смещений элементов
+    window.applyStableFrame = function(imgEl, frameName, rainbowColor) {
+        if (!imgEl) return;
+        
+        // Оборачиваем картинку в стабильный контейнер рамки, если еще не обернута
+        let parent = imgEl.parentElement;
+        let wrap = parent;
+        
+        if (!parent.classList.contains("stable-frame-wrap")) {
+            wrap = document.createElement("div");
+            wrap.className = "stable-frame-wrap";
+            // Копируем размеры и позиционирование самой аватарки
+            let computed = window.getComputedStyle(imgEl);
+            wrap.style.cssText = `
+                width: ${computed.width};
+                height: ${computed.height};
+                min-width: ${computed.width};
+                min-height: ${computed.height};
+                border-radius: 50%;
+                border-width: 3px;
+                border-style: solid;
+                box-sizing: border-box;
+                position: relative;
+                overflow: hidden;
+                flex-shrink: 0;
+                display: inline-block;
+                margin: ${computed.margin};
+            `;
+            imgEl.parentNode.insertBefore(wrap, imgEl);
+            wrap.appendChild(imgEl);
+            imgEl.style.position = "absolute";
+            imgEl.style.top = "-3px";
+            imgEl.style.left = "-3px";
+            imgEl.style.width = "calc(100% + 6px)";
+            imgEl.style.height = "calc(100% + 6px)";
+            imgEl.style.border = "none";
+            imgEl.style.margin = "0";
         }
+
+        // Меняем только цвет границы, не трогая размеры
+        if (frameName === "red") wrap.style.borderColor = "#ff4d4d";
+        else if (frameName === "purple") wrap.style.borderColor = "#9c27b0";
+        else if (frameName === "rainbow") wrap.style.borderColor = rainbowColor;
+        else wrap.style.borderColor = "#ffffff";
     };
 
     const usersFramesCache = {};
@@ -266,9 +295,9 @@
         return "default";
     }
 
-    // Плавный и стабильный живой цикл перелива цветов (без сброса стилей и без дерганий)
+    // Стабильный цикл обновления рамок без дерганий интерфейса
     setInterval(async () => {
-        const hue = (Date.now() / 15) % 360; // Идеальная плавная скорость перелива
+        const hue = (Date.now() / 15) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = localStorage.getItem("egg_logged_in_nick");
 
@@ -284,9 +313,8 @@
 
         // 2. Ваша личная рамка в профиле
         let myCurrentFrame = await fetchUserFrame(activeNick);
-        document.querySelectorAll(".drawer-avatar-wrap, #userAvatarImg, .profile-avatar-container").forEach(el => {
-            window.applyCleanFrame(el, myCurrentFrame, rainbowColor);
-        });
+        const profileImg = document.getElementById("userAvatarImg");
+        if (profileImg) window.applyStableFrame(profileImg, myCurrentFrame, rainbowColor);
 
         // 3. Рамки друзей в списке друзей
         const cards = document.querySelectorAll(".user-result-card");
@@ -297,20 +325,21 @@
                 let friendNick = nameEl.innerText.trim();
                 if (friendNick && friendNick !== activeNick) {
                     let fFrame = await fetchUserFrame(friendNick);
-                    window.applyCleanFrame(imgEl, fFrame, rainbowColor);
+                    window.applyStableFrame(imgEl, fFrame, rainbowColor);
                 } else if (friendNick === activeNick) {
-                    window.applyCleanFrame(imgEl, myCurrentFrame, rainbowColor);
+                    window.applyStableFrame(imgEl, myCurrentFrame, rainbowColor);
                 }
             }
         }
 
-        // Аватарки в чатах
-        const avatars = document.querySelectorAll("#activeChatAvatar, img[data-friend-nick]");
-        for (let imgEl of avatars) {
-            let friendNick = imgEl.dataset.friendNick || imgEl.getAttribute("alt") || imgEl.title || imgEl.dataset.nick;
-            if (friendNick && friendNick !== activeNick) {
-                let fFrame = await fetchUserFrame(friendNick);
-                window.applyCleanFrame(imgEl, fFrame, rainbowColor);
+        // 4. Аватарка в активном чате
+        const chatAvatar = document.getElementById("activeChatAvatar");
+        const chatTitle = document.getElementById("chatWithTitle");
+        if (chatAvatar && chatTitle) {
+            let partnerNick = chatTitle.innerText.trim();
+            if (partnerNick && partnerNick !== "Чат" && partnerNick !== "Загрузка...") {
+                let pFrame = await fetchUserFrame(partnerNick);
+                window.applyStableFrame(chatAvatar, pFrame, rainbowColor);
             }
         }
     }, 50);
