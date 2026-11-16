@@ -1,4 +1,4 @@
-// shop.js — Финальное исправление: рамки и радужный перелив теперь видны в профиле, у друзей и в чатах
+// shop.js — Абсолютно полная синхронизация и отображение рамок у вас, в профиле и у всех друзей в реальном времени
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 в главном меню
@@ -230,8 +230,8 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Глобальная функция применения рамки к любой аватарке по названию рамки и цвету
-    window.applyFrameColorToElement = function(el, frameName, rainbowColor) {
+    // Функция применения цвета рамки
+    window.applyFrameColor = function(el, frameName, rainbowColor) {
         if (!el) return;
         el.dataset.frame = frameName;
         if (frameName === "red") {
@@ -245,12 +245,30 @@
         }
     };
 
-    // Живой цикл обновления рамок в профиле, у друзей, в чатах и в магазине
-    setInterval(() => {
+    // Кеш рамок пользователей, чтобы не дергать базу каждую секунду
+    const usersFramesCache = {};
+
+    async function fetchUserFrame(uid) {
+        if (usersFramesCache[uid]) return usersFramesCache[uid];
+        try {
+            const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+            const db = getFirestore();
+            const snap = await getDoc(doc(db, "users", uid));
+            if (snap.exists()) {
+                const frame = snap.data().selectedFrame || "default";
+                usersFramesCache[uid] = frame;
+                return frame;
+            }
+        } catch(e) {}
+        return "default";
+    }
+
+    // Живой цикл обновления рамок у вас, в профиле и у всех друзей в списках и чатах
+    setInterval(async () => {
         const hue = (Date.now() / 10) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
 
-        // 1. В магазине (демо и превью)
+        // 1. В магазине
         const demo = document.getElementById("rainbowShopDemo");
         if (demo) demo.style.borderColor = rainbowColor;
         const previewBorder = document.getElementById("shopPreviewBorder");
@@ -258,35 +276,58 @@
             previewBorder.style.borderColor = rainbowColor;
         }
 
-        // 2. В боковом меню профиля
+        // 2. В вашем профиле
         const profileWrap = document.querySelector(".drawer-avatar-wrap");
         if (profileWrap) {
             const myFrame = window.currentUserData?.selectedFrame || "default";
-            window.applyFrameColorToElement(profileWrap, myFrame, rainbowColor);
+            window.applyFrameColor(profileWrap, myFrame, rainbowColor);
         }
 
-        // 3. У всех друзей в списке друзей и в чатах (динамический обход всех аватарок)
-        document.querySelectorAll(".user-result-ava, #activeChatAvatar").forEach(imgEl => {
-            if (!imgEl.dataset.frameInitialized) {
-                imgEl.dataset.frameInitialized = "true";
-                // Оборачиваем аватарку в контейнер с рамкой, если еще не обернута
-                if (!imgEl.parentElement.classList.contains("dynamic-frame-wrap")) {
-                    const wrap = document.createElement("div");
-                    wrap.className = "dynamic-frame-wrap";
-                    wrap.style.cssText = `width: ${imgEl.style.width || '34px'}; height: ${imgEl.style.height || '34px'}; border-radius: 50%; border: 2.5px solid #fff; box-sizing: border-box; position: relative; overflow: hidden; flex-shrink: 0;`;
-                    imgEl.parentNode.insertBefore(wrap, imgEl);
-                    wrap.appendChild(imgEl);
-                    imgEl.style.position = "absolute";
-                    imgEl.style.top = "0";
-                    imgEl.style.left = "0";
-                    imgEl.style.width = "100%";
-                    imgEl.style.height = "100%";
-                    imgEl.style.border = "none";
-                }
+        // 3. У друзей в списках и чатах (автоматический поиск и стилизация обёрток)
+        const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar");
+        for (let imgEl of avatars) {
+            let wrap = imgEl.parentElement;
+            // Если аватарка не обернута в наш контейнер рамки — оборачиваем
+            if (!wrap.classList.contains("custom-avatar-border-wrap")) {
+                const newWrap = document.createElement("div");
+                newWrap.className = "custom-avatar-border-wrap";
+                newWrap.style.cssText = `
+                    width: ${imgEl.offsetWidth || 34}px;
+                    height: ${imgEl.offsetHeight || 34}px;
+                    border-radius: 50%;
+                    border: 3px solid #fff;
+                    box-sizing: border-box;
+                    position: relative;
+                    overflow: hidden;
+                    flex-shrink: 0;
+                `;
+                imgEl.parentNode.insertBefore(newWrap, imgEl);
+                newWrap.appendChild(imgEl);
+                imgEl.style.position = "absolute";
+                imgEl.style.top = "-2px";
+                imgEl.style.left = "-2px";
+                imgEl.style.width = "calc(100% + 4px)";
+                imgEl.style.height = "calc(100% + 4px)";
+                imgEl.style.border = "none";
+                wrap = newWrap;
             }
-        });
 
-    }, 50);
+            // Пытаемся понять, чей это аватар, и применить его рамку
+            let targetUid = imgEl.dataset.friendUid;
+            if (!targetUid && imgEl.id === "activeChatAvatar") {
+                targetUid = window.activeChatFriendUid;
+            }
+
+            if (targetUid) {
+                let fFrame = await fetchUserFrame(targetUid);
+                window.applyFrameColor(wrap, fFrame, rainbowColor);
+            } else {
+                // Если это ваш аватар или не удалось определить — ставим вашу рамку
+                let myFrame = window.currentUserData?.selectedFrame || "default";
+                window.applyFrameColor(wrap, myFrame, rainbowColor);
+            }
+        }
+    }, 200);
 
     // Подгрузка данных из Firebase
     window.updateShopUI = async function() {
@@ -328,7 +369,7 @@
 
             const profileWrap = document.querySelector(".drawer-avatar-wrap");
             if (profileWrap) {
-                window.applyFrameColorToElement(profileWrap, currentFrame);
+                window.applyFrameColor(profileWrap, currentFrame);
             }
         } catch (e) {
             console.error("Ошибка загрузки магазина:", e);
@@ -390,6 +431,7 @@
                 window.currentUserData.unlockedFrames = unlocked;
                 window.currentUserData.selectedFrame = frameId;
             }
+            usersFramesCache[activeNick] = frameId;
 
             await window.updateShopUI();
             alert("🎉 Рамка успешно куплена и установлена!");
@@ -414,6 +456,7 @@
             if (window.currentUserData) {
                 window.currentUserData.selectedFrame = frameId;
             }
+            usersFramesCache[activeNick] = frameId;
 
             await window.updateShopUI();
             alert("✅ Рамка успешно применена!");
