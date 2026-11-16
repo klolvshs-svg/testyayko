@@ -1,7 +1,7 @@
-// shop.js — Надежное и стабильное отображение рамок везде (включая магазин, профиль и друзей)
+// shop.js — Исправленная мгновенная установка рамок из магазина и стабильная отрисовка
 
 (function() {
-    // 1. Внедряем надежные глобальные стили для всех аватарок
+    // 1. Внедряем глобальные стили для рамок
     if (!document.getElementById("shopGlobalStyles")) {
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
@@ -246,7 +246,7 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Функция применения цвета рамки к аватарке
+    // Функция применения цвета рамки
     window.applyStaticFrameColor = function(imgEl, frameName, rainbowColor) {
         if (!imgEl) return;
         imgEl.style.boxSizing = "border-box";
@@ -304,7 +304,7 @@
         const profileImg = document.getElementById("userAvatarImg");
         if (profileImg) window.applyStaticFrameColor(profileImg, myCurrentFrame, rainbowColor);
 
-        // 3. Список друзей и все карточки
+        // 3. Список друзей
         const cards = document.querySelectorAll(".user-result-card, .friend-item, .user-card");
         for (let card of cards) {
             const nameEl = card.querySelector(".user-result-name, .friend-name, span, b");
@@ -320,7 +320,6 @@
             }
         }
 
-        // Также проходим по всем аватаркам в игре напрямую
         document.querySelectorAll("img.user-result-ava, #activeChatAvatar").forEach(imgEl => {
             window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
         });
@@ -429,6 +428,10 @@
             localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
             usersFramesCache[activeNick] = frameId;
 
+            // Мгновенно применяем локально
+            const hue = (Date.now() / 4) % 360;
+            window.applyStaticFrameColor(document.getElementById("userAvatarImg"), frameId, `hsl(${hue}, 100%, 50%)`);
+
             await window.updateShopUI();
             alert("🎉 Рамка успешно куплена и установлена!");
         } catch (e) {
@@ -450,6 +453,13 @@
             });
 
             usersFramesCache[activeNick] = frameId;
+
+            // Мгновенно применяем локально без перезагрузок
+            const hue = (Date.now() / 4) % 360;
+            const rainbowColor = `hsl(${hue}, 100%, 50%)`;
+            window.applyStaticFrameColor(document.getElementById("userAvatarImg"), frameId, rainbowColor);
+            window.applyStaticFrameColor(document.getElementById("shopPreviewAvatar"), frameId, rainbowColor);
+
             await window.updateShopUI();
             alert("✅ Рамка успешно применена!");
         } catch (e) {
