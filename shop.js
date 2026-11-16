@@ -1,7 +1,7 @@
-// shop.js — Абсолютно стабильные рамки без миганий, рассинхрона и багов на ПК и телефонах
+// shop.js — Абсолютно стабильные рамки без лагов, миганий и рассинхрона на ПК и телефонах
 
 (function() {
-    // 1. Внедряем чистые стили без дерганий
+    // 1. Внедряем чистые и легкие стили для рамок
     if (!document.getElementById("shopGlobalStyles")) {
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
@@ -249,7 +249,7 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Функция применения рамки
+    // Точная установка цвета рамки
     window.applyFrameStyle = function(imgEl, frameName, rainbowColor) {
         if (!imgEl) return;
         imgEl.style.boxSizing = "border-box";
@@ -268,14 +268,13 @@
         }
     };
 
-    // Надежное локальное хранилище рамок с защитой от сбросов
+    // Кеш для мгновенного чтения рамок без задержек и миганий
     const framesMemory = {};
 
     async function getUserFrameCached(nick) {
         if (!nick) return "default";
         if (framesMemory[nick]) return framesMemory[nick];
 
-        // Проверяем локальную память устройства
         const saved = localStorage.getItem(`egg_frame_${nick}`);
         if (saved) {
             framesMemory[nick] = saved;
@@ -296,9 +295,9 @@
         return "default";
     }
 
-    // Плавный фоновый цикл (медленная радуга, без дерганий и миганий)
+    // Легкий и стабильный цикл рендеринга (медленная радуга, без скачков)
     setInterval(async () => {
-        const hue = (Date.now() / 15) % 360; 
+        const hue = (Date.now() / 20) % 360; // Очень плавный и медленный перелив
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = getActiveUserNick();
 
@@ -307,7 +306,7 @@
 
         if (!activeNick) return;
 
-        // 1. Твоя собственная рамка
+        // 1. Твоя личная рамка (берется из памяти или локалстораджа)
         let myCurrentFrame = framesMemory[activeNick] || localStorage.getItem(`egg_frame_${activeNick}`) || "default";
         
         const profileImg = document.getElementById("userAvatarImg");
@@ -316,16 +315,18 @@
         const previewAvatar = document.getElementById("shopPreviewAvatar");
         if (previewAvatar) window.applyFrameStyle(previewAvatar, myCurrentFrame, rainbowColor);
 
-        // 2. Список друзей (каждый друг проверяется по своему уникальному нику без путаницы)
+        // 2. Аккуратная проверка списка друзей без багов и сбросов
         const cards = document.querySelectorAll(".user-result-card, .friend-item, .user-card");
         for (let card of cards) {
             const nameEl = card.querySelector(".user-result-name, .friend-name, span, b");
             const imgEl = card.querySelector("img");
             if (nameEl && imgEl) {
                 let friendNick = nameEl.innerText.trim();
-                if (friendNick) {
+                if (friendNick && friendNick !== activeNick) {
                     let fFrame = await getUserFrameCached(friendNick);
                     window.applyFrameStyle(imgEl, fFrame, rainbowColor);
+                } else if (friendNick === activeNick) {
+                    window.applyFrameStyle(imgEl, myCurrentFrame, rainbowColor);
                 }
             }
         }
@@ -343,7 +344,7 @@
                 window.applyFrameStyle(chatAvatar, pFrame, rainbowColor);
             }
         }
-    }, 150);
+    }, 200);
 
     // Загрузка интерфейса магазина
     window.updateShopUI = async function() {
@@ -374,7 +375,7 @@
 
             if (previewAvatar) {
                 previewAvatar.dataset.frame = currentFrame;
-                const hue = (Date.now() / 15) % 360;
+                const hue = (Date.now() / 20) % 360;
                 window.applyFrameStyle(previewAvatar, currentFrame, `hsl(${hue}, 100%, 50%)`);
             }
 
@@ -451,17 +452,17 @@
         if (!activeNick) return;
 
         try {
-            // 1. Моментально фиксируем в памяти и на телефоне/ПК
+            // 1. Моментально фиксируем локально в памяти и кэше
             framesMemory[activeNick] = frameId;
             localStorage.setItem(`egg_frame_${activeNick}`, frameId);
 
-            // 2. Красим аватарку сразу
-            const hue = (Date.now() / 15) % 360;
+            // 2. Сразу применяем визуал
+            const hue = (Date.now() / 20) % 360;
             const rainbowColor = `hsl(${hue}, 100%, 50%)`;
             window.applyFrameStyle(document.getElementById("userAvatarImg"), frameId, rainbowColor);
             window.applyFrameStyle(document.getElementById("shopPreviewAvatar"), frameId, rainbowColor);
 
-            // 3. Обновляем магазин
+            // 3. Обновляем интерфейс кнопок магазина
             await window.updateShopUI();
 
             // 4. Отправляем в Firebase
