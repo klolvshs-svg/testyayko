@@ -1,4 +1,4 @@
-// shop.js — Жесткое принудительное применение рамки к вашей аватарке в списке друзей и в профиле
+// shop.js — Реальная видимость рамок для друзей + быстрый и яркий радужный перелив
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 (видна только при входе в аккаунт)
@@ -231,7 +231,7 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Функция принудительной установки рамки (с прерыванием стандартных стилей через !important)
+    // Принудительное применение рамки
     window.applyForcedFrame = function(el, frameName, rainbowColor) {
         if (!el) return;
         el.dataset.frame = frameName;
@@ -272,9 +272,9 @@
         return "default";
     }
 
-    // Живой цикл: применение рамок к вашему профилю, списку друзей и чатам
+    // Живой цикл: быстрый и яркий радужный перелив (делитель 10) + синхронизация для вас и всех друзей
     setInterval(async () => {
-        const hue = (Date.now() / 30) % 360;
+        const hue = (Date.now() / 10) % 360; // Быстрый перелив
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = localStorage.getItem("egg_logged_in_nick");
 
@@ -288,30 +288,37 @@
 
         if (!activeNick) return;
 
-        // 2. Ваша личная рамка (применяем везде, включая кнопку друзей и шторку профиля)
+        // 2. Ваша личная рамка в вашем профиле и в списке друзей
         let myCurrentFrame = await fetchUserFrame(activeNick);
-        document.querySelectorAll(".drawer-avatar-wrap, #userAvatarImg, .profile-avatar-container, .user-result-ava").forEach(el => {
-            // Проверяем, ваша ли это аватарка (если есть атрибут с ником или это ваш профиль)
-            let elNick = el.dataset.friendNick || el.dataset.nick || el.getAttribute("alt") || el.title;
-            if (!elNick || elNick === activeNick) {
-                if (myCurrentFrame !== "default") {
-                    window.applyForcedFrame(el, myCurrentFrame, rainbowColor);
-                }
-            }
+        document.querySelectorAll(".drawer-avatar-wrap, #userAvatarImg, .profile-avatar-container").forEach(el => {
+            window.applyForcedFrame(el, myCurrentFrame, rainbowColor);
         });
 
-        // 3. Рамки друзей в списке друзей и чатах
-        const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar, img[data-friend-nick], .friend-item img");
-        for (let imgEl of avatars) {
-            let friendNick = imgEl.dataset.friendNick || imgEl.getAttribute("alt") || imgEl.title || imgEl.dataset.nick;
-            if (friendNick && friendNick !== activeNick) {
-                let fFrame = await fetchUserFrame(friendNick);
-                if (fFrame && fFrame !== "default") {
+        // 3. Автоматически находим ники друзей в списке друзей и в чатах и применяем их рамки из базы
+        const friendElements = document.querySelectorAll(".friend-item, .user-result-item, .chat-item");
+        for (let item of friendElements) {
+            // Ищем текст с ником внутри элемента друга
+            let nameSpan = item.querySelector(".friend-name, .user-result-nick, span");
+            let imgEl = item.querySelector("img");
+            if (nameSpan && imgEl) {
+                let friendNick = nameSpan.innerText.trim();
+                if (friendNick && friendNick !== activeNick) {
+                    let fFrame = await fetchUserFrame(friendNick);
                     window.applyForcedFrame(imgEl, fFrame, rainbowColor);
                 }
             }
         }
-    }, 100);
+
+        // Также проверяем стандартные аватарки по атрибутам
+        const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar, img[data-friend-nick]");
+        for (let imgEl of avatars) {
+            let friendNick = imgEl.dataset.friendNick || imgEl.getAttribute("alt") || imgEl.title || imgEl.dataset.nick;
+            if (friendNick && friendNick !== activeNick) {
+                let fFrame = await fetchUserFrame(friendNick);
+                window.applyForcedFrame(imgEl, fFrame, rainbowColor);
+            }
+        }
+    }, 50);
 
     // Загрузка данных магазина
     window.updateShopUI = async function() {
