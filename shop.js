@@ -1,4 +1,4 @@
-// shop.js — Исправленная мгновенная установка рамок из магазина и стабильная отрисовка
+// shop.js — Абсолютно надежное сохранение и мгновенное применение рамок
 
 (function() {
     // 1. Внедряем глобальные стили для рамок
@@ -15,6 +15,11 @@
             }
         `;
         document.head.appendChild(style);
+    }
+
+    // Вспомогательная функция для точного определения вашего никнейма
+    function getActiveUserNick() {
+        return localStorage.getItem("egg_logged_in_nick") || localStorage.getItem("egg_current_user") || window.currentUserNick || "";
     }
 
     // 2. Создаем кнопку "Магазин" со смайликом 🏪
@@ -230,7 +235,7 @@
         
         if (!shopBtn) return;
 
-        const activeNick = localStorage.getItem("egg_logged_in_nick");
+        const activeNick = getActiveUserNick();
         const isProfileOpen = profileDrawer && profileDrawer.classList.contains("open");
         const isShopOpen = shopDrawer && shopDrawer.style.left === "0px";
         const isGamePlaying = window.gameStarted === true;
@@ -246,7 +251,7 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Функция применения цвета рамки
+    // Применение рамки
     window.applyStaticFrameColor = function(imgEl, frameName, rainbowColor) {
         if (!imgEl) return;
         imgEl.style.boxSizing = "border-box";
@@ -261,7 +266,7 @@
         } else if (frameName === "rainbow") {
             imgEl.style.borderColor = rainbowColor;
         } else {
-            imgEl.style.borderColor = "#1a365d"; // Темно-синяя по умолчанию
+            imgEl.style.borderColor = "#1a365d";
         }
     };
 
@@ -269,6 +274,7 @@
 
     async function fetchUserFrame(nick) {
         if (!nick) return "default";
+        // Принудительно отдаем локально закэшированный выбор, если он есть
         if (usersFramesCache[nick]) return usersFramesCache[nick];
         try {
             const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
@@ -283,24 +289,20 @@
         return "default";
     }
 
-    // Живой цикл для обновления рамок и быстрого радужного перелива
+    // Живой цикл обновления рамок
     setInterval(async () => {
         const hue = (Date.now() / 4) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
-        const activeNick = localStorage.getItem("egg_logged_in_nick");
+        const activeNick = getActiveUserNick();
 
         // 1. Демо в магазине
         const demo = document.getElementById("rainbowShopDemo");
         if (demo) demo.style.borderColor = rainbowColor;
-        const previewAvatar = document.getElementById("shopPreviewAvatar");
-        if (previewAvatar && previewAvatar.dataset.frame === "rainbow") {
-            previewAvatar.style.borderColor = rainbowColor;
-        }
 
         if (!activeNick) return;
 
-        // 2. Ваша личная аватарка в профиле
-        let myCurrentFrame = await fetchUserFrame(activeNick);
+        // 2. Ваша личная аватарка
+        let myCurrentFrame = usersFramesCache[activeNick] || await fetchUserFrame(activeNick);
         const profileImg = document.getElementById("userAvatarImg");
         if (profileImg) window.applyStaticFrameColor(profileImg, myCurrentFrame, rainbowColor);
 
@@ -323,22 +325,11 @@
         document.querySelectorAll("img.user-result-ava, #activeChatAvatar").forEach(imgEl => {
             window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
         });
-
-        // 4. Активный чат
-        const chatAvatar = document.getElementById("activeChatAvatar");
-        const chatTitle = document.getElementById("chatWithTitle");
-        if (chatAvatar && chatTitle) {
-            let partnerNick = chatTitle.innerText.trim();
-            if (partnerNick && partnerNick !== "Чат" && partnerNick !== "Загрузка...") {
-                let pFrame = await fetchUserFrame(partnerNick);
-                window.applyStaticFrameColor(chatAvatar, pFrame, rainbowColor);
-            }
-        }
     }, 100);
 
-    // Загрузка данных магазина
+    // Загрузка интерфейса магазина
     window.updateShopUI = async function() {
-        const activeNick = localStorage.getItem("egg_logged_in_nick");
+        const activeNick = getActiveUserNick();
         if (!activeNick) return;
 
         try {
@@ -365,8 +356,7 @@
             if (previewAvatar) {
                 previewAvatar.dataset.frame = currentFrame;
                 const hue = (Date.now() / 4) % 360;
-                const rainbowColor = `hsl(${hue}, 100%, 50%)`;
-                window.applyStaticFrameColor(previewAvatar, currentFrame, rainbowColor);
+                window.applyStaticFrameColor(previewAvatar, currentFrame, `hsl(${hue}, 100%, 50%)`);
             }
 
             renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
@@ -396,8 +386,11 @@
     }
 
     window.buyAndUnlockFrame = async function(frameId, price) {
-        const activeNick = localStorage.getItem("egg_logged_in_nick");
-        if (!activeNick) return;
+        const activeNick = getActiveUserNick();
+        if (!activeNick) {
+            alert("❌ Ошибка: не найден никнейм игрока!");
+            return;
+        }
 
         try {
             const { getFirestore, doc, getDoc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
@@ -424,11 +417,10 @@
                 selectedFrame: frameId
             });
 
+            usersFramesCache[activeNick] = frameId;
             window.totalBank = newBalance;
             localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
-            usersFramesCache[activeNick] = frameId;
 
-            // Мгновенно применяем локально
             const hue = (Date.now() / 4) % 360;
             window.applyStaticFrameColor(document.getElementById("userAvatarImg"), frameId, `hsl(${hue}, 100%, 50%)`);
 
@@ -440,21 +432,25 @@
     };
 
     window.applyAndSaveFrame = async function(frameId) {
-        const activeNick = localStorage.getItem("egg_logged_in_nick");
-        if (!activeNick) return;
+        const activeNick = getActiveUserNick();
+        if (!activeNick) {
+            alert("❌ Ошибка: не найден никнейм игрока!");
+            return;
+        }
 
         try {
             const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
             const db = getFirestore();
             const userRef = doc(db, "users", activeNick);
 
+            // Сохраняем в кэш и в базу
+            usersFramesCache[activeNick] = frameId;
+
             await updateDoc(userRef, {
                 selectedFrame: frameId
             });
 
-            usersFramesCache[activeNick] = frameId;
-
-            // Мгновенно применяем локально без перезагрузок
+            // Мгновенно применяем локально
             const hue = (Date.now() / 4) % 360;
             const rainbowColor = `hsl(${hue}, 100%, 50%)`;
             window.applyStaticFrameColor(document.getElementById("userAvatarImg"), frameId, rainbowColor);
