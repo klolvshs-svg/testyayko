@@ -1,4 +1,4 @@
-// shop.js — Реальная видимость рамок для друзей + быстрый и яркий радужный перелив
+// shop.js — Полная интеграция рамок и быстрого радужного перелива для вас и всех друзей
 
 (function() {
     // 1. Создаем кнопку "Магазин" со смайликом 🏪 (видна только при входе в аккаунт)
@@ -231,7 +231,7 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Принудительное применение рамки
+    // Функция применения рамки
     window.applyForcedFrame = function(el, frameName, rainbowColor) {
         if (!el) return;
         el.dataset.frame = frameName;
@@ -272,9 +272,9 @@
         return "default";
     }
 
-    // Живой цикл: быстрый и яркий радужный перелив (делитель 10) + синхронизация для вас и всех друзей
+    // Живой цикл: быстрое плавное переливание (делитель 10) + синхронизация рамок для вас и друзей
     setInterval(async () => {
-        const hue = (Date.now() / 10) % 360; // Быстрый перелив
+        const hue = (Date.now() / 10) % 360; // Быстрый и плавный перелив
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = localStorage.getItem("egg_logged_in_nick");
 
@@ -288,29 +288,30 @@
 
         if (!activeNick) return;
 
-        // 2. Ваша личная рамка в вашем профиле и в списке друзей
+        // 2. Ваша личная рамка в вашем профиле
         let myCurrentFrame = await fetchUserFrame(activeNick);
         document.querySelectorAll(".drawer-avatar-wrap, #userAvatarImg, .profile-avatar-container").forEach(el => {
             window.applyForcedFrame(el, myCurrentFrame, rainbowColor);
         });
 
-        // 3. Автоматически находим ники друзей в списке друзей и в чатах и применяем их рамки из базы
-        const friendElements = document.querySelectorAll(".friend-item, .user-result-item, .chat-item");
-        for (let item of friendElements) {
-            // Ищем текст с ником внутри элемента друга
-            let nameSpan = item.querySelector(".friend-name, .user-result-nick, span");
-            let imgEl = item.querySelector("img");
-            if (nameSpan && imgEl) {
-                let friendNick = nameSpan.innerText.trim();
+        // 3. Автоматически находим аватарки друзей по карточкам и применяем их реальные рамки из базы
+        const cards = document.querySelectorAll(".user-result-card");
+        for (let card of cards) {
+            const nameEl = card.querySelector(".user-result-name");
+            const imgEl = card.querySelector(".user-result-ava");
+            if (nameEl && imgEl) {
+                let friendNick = nameEl.innerText.trim();
                 if (friendNick && friendNick !== activeNick) {
                     let fFrame = await fetchUserFrame(friendNick);
                     window.applyForcedFrame(imgEl, fFrame, rainbowColor);
+                } else if (friendNick === activeNick) {
+                    window.applyForcedFrame(imgEl, myCurrentFrame, rainbowColor);
                 }
             }
         }
 
-        // Также проверяем стандартные аватарки по атрибутам
-        const avatars = document.querySelectorAll(".user-result-ava, #activeChatAvatar, img[data-friend-nick]");
+        // Также проверяем активные чаты и другие аватарки
+        const avatars = document.querySelectorAll("#activeChatAvatar, img[data-friend-nick]");
         for (let imgEl of avatars) {
             let friendNick = imgEl.dataset.friendNick || imgEl.getAttribute("alt") || imgEl.title || imgEl.dataset.nick;
             if (friendNick && friendNick !== activeNick) {
