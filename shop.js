@@ -1,23 +1,22 @@
-// shop.js — Абсолютно стабильные аватарки без миганий, смен размеров и конфликтов
+// shop.js — Универсальное и стабильное отображение рамок для всех аватарок
 
 (function() {
-    // Внедряем глобальные стили для мгновенной и стабильной отрисовки рамок без скачков
+    // 1. Создаем глобальный стиль для базовой темно-синей рамки
     if (!document.getElementById("shopGlobalStyles")) {
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.innerHTML = `
-            img.user-result-ava, #userAvatarImg, #activeChatAvatar, #shopPreviewAvatar {
+            .user-result-ava, #userAvatarImg, #activeChatAvatar, #shopPreviewAvatar, img[alt*="avatar"], .profile-avatar-container img {
                 box-sizing: border-box !important;
                 border-style: solid !important;
                 border-width: 3px !important;
                 border-color: #1a365d !important;
-                background-clip: padding-box !important;
             }
         `;
         document.head.appendChild(style);
     }
 
-    // 1. Создаем кнопку "Магазин" со смайликом 🏪
+    // 2. Создаем кнопку "Магазин" со смайликом 🏪
     function injectShopButton() {
         if (document.getElementById("menuShopBtn")) return;
 
@@ -49,7 +48,7 @@
         document.body.appendChild(shopBtn);
     }
 
-    // 2. Создаем шторку магазина
+    // 3. Создаем шторку магазина
     function createShopDrawer() {
         if (document.getElementById("shopDrawer")) return;
 
@@ -246,9 +245,14 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Установка цвета рамки напрямую без изменения размеров элемента
+    // Функция применения цвета рамки к любой найденной аватарке
     window.applyStaticFrameColor = function(imgEl, frameName, rainbowColor) {
         if (!imgEl) return;
+        imgEl.style.boxSizing = "border-box";
+        imgEl.style.borderRadius = "50%";
+        imgEl.style.borderStyle = "solid";
+        imgEl.style.borderWidth = "3px";
+
         if (frameName === "red") {
             imgEl.style.borderColor = "#ff4d4d";
         } else if (frameName === "purple") {
@@ -256,7 +260,7 @@
         } else if (frameName === "rainbow") {
             imgEl.style.borderColor = rainbowColor;
         } else {
-            imgEl.style.borderColor = "#1a365d"; // Классическая темно-синяя
+            imgEl.style.borderColor = "#1a365d"; // Темно-синяя по умолчанию
         }
     };
 
@@ -278,9 +282,9 @@
         return "default";
     }
 
-    // Быстрый и плавный цикл смены цветов рамки без пересчета геометрии
+    // Живой цикл для обновления рамок и быстрого радужного перелива
     setInterval(async () => {
-        const hue = (Date.now() / 4) % 360; // Высокая скорость радужного перелива
+        const hue = (Date.now() / 4) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = localStorage.getItem("egg_logged_in_nick");
 
@@ -288,8 +292,7 @@
         const demo = document.getElementById("rainbowShopDemo");
         if (demo) demo.style.borderColor = rainbowColor;
         const previewAvatar = document.getElementById("shopPreviewAvatar");
-        const currentSelectedFrame = previewAvatar && previewAvatar.dataset.frame === "rainbow" ? "rainbow" : null;
-        if (previewAvatar && currentSelectedFrame === "rainbow") {
+        if (previewAvatar && previewAvatar.dataset.frame === "rainbow") {
             previewAvatar.style.borderColor = rainbowColor;
         }
 
@@ -300,19 +303,20 @@
         const profileImg = document.getElementById("userAvatarImg");
         if (profileImg) window.applyStaticFrameColor(profileImg, myCurrentFrame, rainbowColor);
 
-        // 3. Список друзей
-        const cards = document.querySelectorAll(".user-result-card");
-        for (let card of cards) {
-            const nameEl = card.querySelector(".user-result-name");
-            const imgEl = card.querySelector(".user-result-ava");
-            if (nameEl && imgEl) {
-                let friendNick = nameEl.innerText.trim();
-                if (friendNick && friendNick !== activeNick) {
-                    let fFrame = await fetchUserFrame(friendNick);
-                    window.applyStaticFrameColor(imgEl, fFrame, rainbowColor);
-                } else if (friendNick === activeNick) {
-                    window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
-                }
+        // 3. Универсальный поиск всех аватарок в списке друзей и элементах интерфейса
+        // Ищем любые круглые картинки или элементы с аватарами в игре
+        const allAvatars = document.querySelectorAll("img.user-result-ava, img[src*='avatar'], .friend-item img, .user-card img, #activeChatAvatar");
+        for (let imgEl of allAvatars) {
+            // Пытаемся найти никнейм рядом с картинкой (в родительском блоке)
+            let card = imgEl.closest(".user-result-card, .friend-item, .user-card, div");
+            let nameEl = card ? card.querySelector(".user-result-name, .friend-name, span, b") : null;
+            let friendNick = nameEl ? nameEl.innerText.trim() : null;
+
+            if (friendNick && friendNick !== activeNick) {
+                let fFrame = await fetchUserFrame(friendNick);
+                window.applyStaticFrameColor(imgEl, fFrame, rainbowColor);
+            } else {
+                window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
             }
         }
 
@@ -326,7 +330,7 @@
                 window.applyStaticFrameColor(chatAvatar, pFrame, rainbowColor);
             }
         }
-    }, 50);
+    }, 100);
 
     // Загрузка данных магазина
     window.updateShopUI = async function() {
