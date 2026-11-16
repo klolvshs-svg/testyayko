@@ -1,16 +1,17 @@
-// shop.js — Универсальное и стабильное отображение рамок для всех аватарок
+// shop.js — Надежное и стабильное отображение рамок везде (включая магазин, профиль и друзей)
 
 (function() {
-    // 1. Создаем глобальный стиль для базовой темно-синей рамки
+    // 1. Внедряем надежные глобальные стили для всех аватарок
     if (!document.getElementById("shopGlobalStyles")) {
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.innerHTML = `
-            .user-result-ava, #userAvatarImg, #activeChatAvatar, #shopPreviewAvatar, img[alt*="avatar"], .profile-avatar-container img {
+            img.user-result-ava, #userAvatarImg, #activeChatAvatar, #shopPreviewAvatar, .profile-avatar-container img, .user-card img {
                 box-sizing: border-box !important;
                 border-style: solid !important;
                 border-width: 3px !important;
                 border-color: #1a365d !important;
+                border-radius: 50% !important;
             }
         `;
         document.head.appendChild(style);
@@ -245,7 +246,7 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    // Функция применения цвета рамки к любой найденной аватарке
+    // Функция применения цвета рамки к аватарке
     window.applyStaticFrameColor = function(imgEl, frameName, rainbowColor) {
         if (!imgEl) return;
         imgEl.style.boxSizing = "border-box";
@@ -303,22 +304,26 @@
         const profileImg = document.getElementById("userAvatarImg");
         if (profileImg) window.applyStaticFrameColor(profileImg, myCurrentFrame, rainbowColor);
 
-        // 3. Универсальный поиск всех аватарок в списке друзей и элементах интерфейса
-        // Ищем любые круглые картинки или элементы с аватарами в игре
-        const allAvatars = document.querySelectorAll("img.user-result-ava, img[src*='avatar'], .friend-item img, .user-card img, #activeChatAvatar");
-        for (let imgEl of allAvatars) {
-            // Пытаемся найти никнейм рядом с картинкой (в родительском блоке)
-            let card = imgEl.closest(".user-result-card, .friend-item, .user-card, div");
-            let nameEl = card ? card.querySelector(".user-result-name, .friend-name, span, b") : null;
-            let friendNick = nameEl ? nameEl.innerText.trim() : null;
-
-            if (friendNick && friendNick !== activeNick) {
-                let fFrame = await fetchUserFrame(friendNick);
-                window.applyStaticFrameColor(imgEl, fFrame, rainbowColor);
-            } else {
-                window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
+        // 3. Список друзей и все карточки
+        const cards = document.querySelectorAll(".user-result-card, .friend-item, .user-card");
+        for (let card of cards) {
+            const nameEl = card.querySelector(".user-result-name, .friend-name, span, b");
+            const imgEl = card.querySelector("img");
+            if (nameEl && imgEl) {
+                let friendNick = nameEl.innerText.trim();
+                if (friendNick && friendNick !== activeNick) {
+                    let fFrame = await fetchUserFrame(friendNick);
+                    window.applyStaticFrameColor(imgEl, fFrame, rainbowColor);
+                } else if (friendNick === activeNick) {
+                    window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
+                }
             }
         }
+
+        // Также проходим по всем аватаркам в игре напрямую
+        document.querySelectorAll("img.user-result-ava, #activeChatAvatar").forEach(imgEl => {
+            window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
+        });
 
         // 4. Активный чат
         const chatAvatar = document.getElementById("activeChatAvatar");
@@ -360,9 +365,9 @@
 
             if (previewAvatar) {
                 previewAvatar.dataset.frame = currentFrame;
-                if (currentFrame === "red") previewAvatar.style.borderColor = "#ff4d4d";
-                else if (currentFrame === "purple") previewAvatar.style.borderColor = "#9c27b0";
-                else if (currentFrame !== "rainbow") previewAvatar.style.borderColor = "#1a365d";
+                const hue = (Date.now() / 4) % 360;
+                const rainbowColor = `hsl(${hue}, 100%, 50%)`;
+                window.applyStaticFrameColor(previewAvatar, currentFrame, rainbowColor);
             }
 
             renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
