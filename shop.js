@@ -1,7 +1,7 @@
-// shop.js — Абсолютно прямая запись в Firebase и мгновенное применение рамок
+// shop.js — Абсолютное исправление отображения рамок по классам и стилям
 
 (function() {
-    // 1. Внедряем глобальные стили для отображения рамок
+    // 1. Внедряем мощные стили с поддержкой классов рамок
     if (!document.getElementById("shopGlobalStyles")) {
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
@@ -10,9 +10,12 @@
                 box-sizing: border-box !important;
                 border-style: solid !important;
                 border-width: 3px !important;
-                border-color: #1a365d !important;
                 border-radius: 50% !important;
+                transition: border-color 0.1s linear !important;
             }
+            .frame-default { border-color: #1a365d !important; }
+            .frame-red { border-color: #ff4d4d !important; }
+            .frame-purple { border-color: #9c27b0 !important; }
         `;
         document.head.appendChild(style);
     }
@@ -87,7 +90,7 @@
                 </div>
 
                 <div style="margin: 10px auto; position: relative; width: 80px; height: 80px;">
-                    <img id="shopPreviewAvatar" src="https://via.placeholder.com/80" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; box-sizing: border-box; border: 3px solid #1a365d;">
+                    <img id="shopPreviewAvatar" src="https://via.placeholder.com/80" class="frame-default" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover;">
                 </div>
                 <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: загрузка...</div>
 
@@ -250,28 +253,27 @@
 
     setInterval(checkShopButtonVisibility, 100);
 
-    window.applyStaticFrameColor = function(imgEl, frameName, rainbowColor) {
+    // Функция применения рамки через классы и стили
+    window.applyFrameToElement = function(imgEl, frameName, rainbowColor) {
         if (!imgEl) return;
-        imgEl.style.boxSizing = "border-box";
-        imgEl.style.borderRadius = "50%";
-        imgEl.style.borderStyle = "solid";
-        imgEl.style.borderWidth = "3px";
-
+        imgEl.classList.remove("frame-default", "frame-red", "frame-purple");
+        
         if (frameName === "red") {
-            imgEl.style.borderColor = "#ff4d4d";
+            imgEl.classList.add("frame-red");
+            imgEl.style.borderColor = "";
         } else if (frameName === "purple") {
-            imgEl.style.borderColor = "#9c27b0";
+            imgEl.classList.add("frame-purple");
+            imgEl.style.borderColor = "";
         } else if (frameName === "rainbow") {
             imgEl.style.borderColor = rainbowColor;
         } else {
-            imgEl.style.borderColor = "#1a365d";
+            imgEl.classList.add("frame-default");
+            imgEl.style.borderColor = "";
         }
     };
 
-    // Надежная функция получения рамки с приоритетом свежего локального выбора
     async function fetchUserFrame(nick) {
         if (!nick) return "default";
-        
         const localSaved = localStorage.getItem(`egg_frame_${nick}`);
         if (localSaved) return localSaved;
 
@@ -281,15 +283,16 @@
             const snap = await getDoc(doc(db, "users", nick));
             if (snap.exists()) {
                 const frame = snap.data().selectedFrame || "default";
+                localStorage.setItem(`egg_frame_${nick}`, frame);
                 return frame;
             }
         } catch(e) {}
         return "default";
     }
 
-    // Живой цикл обновления рамок и перелива
+    // Живой цикл обновления рамок и радужного перелива
     setInterval(async () => {
-        const hue = (Date.now() / 4) % 360;
+        const hue = (Date.now() / 3) % 360;
         const rainbowColor = `hsl(${hue}, 100%, 50%)`;
         const activeNick = getActiveUserNick();
 
@@ -298,10 +301,13 @@
 
         if (!activeNick) return;
 
-        let myCurrentFrame = localStorage.getItem(`egg_frame_${activeNick}`) || await fetchUserFrame(activeNick);
+        let myCurrentFrame = localStorage.getItem(`egg_frame_${activeNick}`) || "default";
         
         const profileImg = document.getElementById("userAvatarImg");
-        if (profileImg) window.applyStaticFrameColor(profileImg, myCurrentFrame, rainbowColor);
+        if (profileImg) window.applyFrameToElement(profileImg, myCurrentFrame, rainbowColor);
+
+        const previewAvatar = document.getElementById("shopPreviewAvatar");
+        if (previewAvatar) window.applyFrameToElement(previewAvatar, myCurrentFrame, rainbowColor);
 
         // Список друзей
         const cards = document.querySelectorAll(".user-result-card, .friend-item, .user-card");
@@ -312,17 +318,17 @@
                 let friendNick = nameEl.innerText.trim();
                 if (friendNick && friendNick !== activeNick) {
                     let fFrame = await fetchUserFrame(friendNick);
-                    window.applyStaticFrameColor(imgEl, fFrame, rainbowColor);
+                    window.applyFrameToElement(imgEl, fFrame, rainbowColor);
                 } else if (friendNick === activeNick) {
-                    window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
+                    window.applyFrameToElement(imgEl, myCurrentFrame, rainbowColor);
                 }
             }
         }
 
         document.querySelectorAll("img.user-result-ava, #activeChatAvatar").forEach(imgEl => {
-            window.applyStaticFrameColor(imgEl, myCurrentFrame, rainbowColor);
+            window.applyFrameToElement(imgEl, myCurrentFrame, rainbowColor);
         });
-    }, 100);
+    }, 50);
 
     // Загрузка интерфейса магазина
     window.updateShopUI = async function() {
@@ -347,12 +353,12 @@
             }
 
             const unlocked = userData.unlockedFrames || ["default"];
-            const currentFrame = localStorage.getItem(`egg_frame_${activeNick}`) || userData.selectedFrame || "default";
+            const currentFrame = userData.selectedFrame || "default";
+            localStorage.setItem(`egg_frame_${activeNick}`, currentFrame);
 
             if (previewAvatar) {
-                previewAvatar.dataset.frame = currentFrame;
-                const hue = (Date.now() / 4) % 360;
-                window.applyStaticFrameColor(previewAvatar, currentFrame, `hsl(${hue}, 100%, 50%)`);
+                const hue = (Date.now() / 3) % 360;
+                window.applyFrameToElement(previewAvatar, currentFrame, `hsl(${hue}, 100%, 50%)`);
             }
 
             renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
@@ -383,10 +389,7 @@
 
     window.buyAndUnlockFrame = async function(frameId, price) {
         const activeNick = getActiveUserNick();
-        if (!activeNick) {
-            alert("❌ Ошибка: не найден никнейм игрока!");
-            return;
-        }
+        if (!activeNick) return;
 
         try {
             const { getFirestore, doc, getDoc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
@@ -418,9 +421,6 @@
             window.totalBank = newBalance;
             localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
 
-            const hue = (Date.now() / 4) % 360;
-            window.applyStaticFrameColor(document.getElementById("userAvatarImg"), frameId, `hsl(${hue}, 100%, 50%)`);
-
             await window.updateShopUI();
             alert("🎉 Рамка успешно куплена и установлена!");
         } catch (e) {
@@ -430,22 +430,19 @@
 
     window.applyAndSaveFrame = async function(frameId) {
         const activeNick = getActiveUserNick();
-        if (!activeNick) {
-            alert("❌ Ошибка: не найден никнейм игрока!");
-            return;
-        }
+        if (!activeNick) return;
 
         try {
-            // 1. Фиксируем выбор локально
+            // 1. Моментально фиксируем локально в памяти
             localStorage.setItem(`egg_frame_${activeNick}`, frameId);
 
-            // 2. Моментально красим аватарку и превью
-            const hue = (Date.now() / 4) % 360;
+            // 2. Сразу применяем визуал на аватаре и превью
+            const hue = (Date.now() / 3) % 360;
             const rainbowColor = `hsl(${hue}, 100%, 50%)`;
-            window.applyStaticFrameColor(document.getElementById("userAvatarImg"), frameId, rainbowColor);
-            window.applyStaticFrameColor(document.getElementById("shopPreviewAvatar"), frameId, rainbowColor);
+            window.applyFrameToElement(document.getElementById("userAvatarImg"), frameId, rainbowColor);
+            window.applyFrameToElement(document.getElementById("shopPreviewAvatar"), frameId, rainbowColor);
 
-            // 3. Обновляем интерфейс кнопок в магазине
+            // 3. Обновляем интерфейс кнопок магазина
             await window.updateShopUI();
 
             // 4. Отправляем в Firebase
