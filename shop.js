@@ -1,4 +1,4 @@
-// shop.js — Абсолютный стабильный радужный перелив везде (ПК + Телефон + Чат) без багов и белого цвета
+// shop.js — Гарантированный плавный радужный перелив везде (Магазин, Профиль, Друзья, Чат) для ПК и Телефонов
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,26 +14,22 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем мощные стили с надежной аппаратной поддержкой анимации для телефонов и ПК
+    // 1. Внедряем надежные стили с поддержкой градиентного перелива для всех платформ
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggRainbowSmooth {
-                0%   { border-color: rgb(255, 42, 42) !important; }
-                20%  { border-color: rgb(255, 153, 0) !important; }
-                40%  { border-color: rgb(238, 255, 0) !important; }
-                60%  { border-color: rgb(16, 216, 90) !important; }
-                80%  { border-color: rgb(0, 191, 255) !important; }
-                100% { border-color: rgb(255, 42, 42) !important; }
+            @keyframes eggRainbowRotate {
+                0%   { filter: hue-rotate(0deg); }
+                100% { filter: hue-rotate(360deg); }
             }
 
-            @keyframes eggRainbowWave {
-                0%   { border-color: rgb(255, 0, 85) !important; box-shadow: 0 0 10px rgb(255, 0, 85) inset !important; }
-                33%  { border-color: rgb(0, 255, 102) !important; box-shadow: 0 0 10px rgb(0, 255, 102) inset !important; }
-                66%  { border-color: rgb(153, 0, 255) !important; box-shadow: 0 0 10px rgb(153, 0, 255) inset !important; }
-                100% { border-color: rgb(255, 0, 85) !important; box-shadow: 0 0 10px rgb(255, 0, 85) inset !important; }
+            @keyframes eggWavePulse {
+                0%   { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 8px #ff0055; }
+                33%  { border-color: #00ff66; box-shadow: 0 0 8px #00ff66, inset 0 0 8px #00ff66; }
+                66%  { border-color: #00bfff; box-shadow: 0 0 8px #00bfff, inset 0 0 8px #00bfff; }
+                100% { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 8px #ff0055; }
             }
 
             img.user-result-ava,
@@ -41,37 +37,44 @@
             #activeChatAvatar,
             #shopPreviewAvatar,
             .profile-avatar-container img,
-            .user-card img {
+            .user-card img,
+            .chat-message img,
+            .message-avatar img {
                 box-sizing: border-box !important;
                 border-style: solid !important;
                 border-width: 3px !important;
                 border-radius: 50% !important;
+                background-clip: padding-box !important;
             }
 
             .egg-frame-default {
                 border-color: #1a365d !important;
                 animation: none !important;
                 box-shadow: none !important;
+                filter: none !important;
             }
             .egg-frame-red {
                 border-color: #ff4d4d !important;
                 animation: none !important;
                 box-shadow: none !important;
+                filter: none !important;
             }
             .egg-frame-purple {
                 border-color: #9c27b0 !important;
                 animation: none !important;
                 box-shadow: none !important;
+                filter: none !important;
             }
             .egg-frame-rainbow {
-                border-color: rgb(255, 42, 42) !important;
-                animation: eggRainbowSmooth 6s linear infinite !important;
-                -webkit-animation: eggRainbowSmooth 6s linear infinite !important;
+                border-color: #ff0000 !important;
+                border-image: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3, #ff0000) 1 !important;
+                animation: eggRainbowRotate 6s linear infinite !important;
+                -webkit-animation: eggRainbowRotate 6s linear infinite !important;
             }
             .egg-frame-rainbow2 {
-                border-color: rgb(255, 0, 85) !important;
-                animation: eggRainbowWave 3s linear infinite !important;
-                -webkit-animation: eggRainbowWave 3s linear infinite !important;
+                border-color: #ff0055 !important;
+                animation: eggWavePulse 3s linear infinite !important;
+                -webkit-animation: eggWavePulse 3s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -111,6 +114,9 @@
         el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple", "egg-frame-rainbow", "egg-frame-rainbow2");
         el.style.removeProperty("border-color");
         el.style.removeProperty("box-shadow");
+        el.style.removeProperty("border-image");
+        el.style.removeProperty("filter");
+        
         el.classList.add(targetClass);
         el.dataset.appliedFrame = safeFrame;
     }
@@ -157,7 +163,7 @@
         return "default";
     }
 
-    // Принудительное обновление ВСЕХ аватарок на странице (профиль, магазин, друзья, чат)
+    // Принудительное обновление ВСЕХ аватарок на странице в реальном времени
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
@@ -179,14 +185,14 @@
             setElementFrame(imgEl, frame);
         });
 
-        // Все общие аватарки
+        // Все остальные аватарки
         document.querySelectorAll("img.user-result-ava").forEach((imgEl) => {
             if (!imgEl.closest(".user-result-card, .friend-item, .user-card")) {
                 setElementFrame(imgEl, myFrame);
             }
         });
 
-        // Чат (аватарка собеседника и ваша в переписке)
+        // Чат (аватарка собеседника и ваши сообщения)
         const chatAvatar = document.getElementById("activeChatAvatar");
         const chatTitle = document.getElementById("chatWithTitle");
         if (chatAvatar && chatTitle) {
@@ -197,7 +203,6 @@
         }
 
         document.querySelectorAll(".chat-message img, .message-avatar img, .chat-avatar").forEach((msgImg) => {
-            // Если аватарка принадлежит вам или другому пользователю в чате
             setElementFrame(msgImg, myFrame);
         });
     }
