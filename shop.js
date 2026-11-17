@@ -1,4 +1,4 @@
-// shop.js — Идеально круглые и плавные переливающиеся рамки для всех игроков (ПК и Телефоны)
+// shop.js — Абсолютно круглые, плавно переливающиеся рамки для всех игроков (ПК и Телефоны)
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,25 +14,26 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем чистые круглые стили с аппаратным круговым переливом без квадратных артефактов на телефоне
+    // 1. Внедряем идеальные круглые стили с плавной циклической сменой цветов без квадратных артефактов
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggCircleSmooth {
-                0%   { border-color: #ff0000; filter: hue-rotate(0deg); }
-                20%  { border-color: #ff7700; }
-                40%  { border-color: #ffff00; }
-                60%  { border-color: #00ff00; }
-                80%  { border-color: #00bbff; }
-                100% { border-color: #ff0000; filter: hue-rotate(360deg); }
+            @keyframes eggPureRainbow {
+                0%   { border-color: #ff0000; box-shadow: 0 0 8px #ff0000; }
+                20%  { border-color: #ff9900; box-shadow: 0 0 8px #ff9900; }
+                40%  { border-color: #ffff00; box-shadow: 0 0 8px #ffff00; }
+                60%  { border-color: #00ff00; box-shadow: 0 0 8px #00ff00; }
+                80%  { border-color: #00bfff; box-shadow: 0 0 8px #00bfff; }
+                100% { border-color: #ff0000; box-shadow: 0 0 8px #ff0000; }
             }
 
-            @keyframes eggCircleWaveGlow {
-                0%   { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 6px #ff0055; }
-                50%  { border-color: #00ffcc; box-shadow: 0 0 12px #00ffcc, inset 0 0 8px #00ffcc; }
-                100% { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 6px #ff0055; }
+            @keyframes eggWavePulse {
+                0%   { border-color: #ff0055; box-shadow: 0 0 10px #ff0055, inset 0 0 6px #ff0055; }
+                33%  { border-color: #00ffcc; box-shadow: 0 0 14px #00ffcc, inset 0 0 8px #00ffcc; }
+                66%  { border-color: #9900ff; box-shadow: 0 0 10px #9900ff, inset 0 0 6px #9900ff; }
+                100% { border-color: #ff0055; box-shadow: 0 0 10px #ff0055, inset 0 0 6px #ff0055; }
             }
 
             img.user-result-ava,
@@ -47,38 +48,38 @@
                 border-style: solid !important;
                 border-width: 3px !important;
                 border-radius: 50% !important;
-                background-clip: padding-box !important;
+                -webkit-border-radius: 50% !important;
+                overflow: hidden !important;
             }
 
             .egg-frame-default {
                 border-color: #1a365d !important;
                 animation: none !important;
                 box-shadow: none !important;
-                filter: none !important;
             }
             .egg-frame-red {
                 border-color: #ff4d4d !important;
                 animation: none !important;
                 box-shadow: none !important;
-                filter: none !important;
             }
             .egg-frame-purple {
                 border-color: #9c27b0 !important;
                 animation: none !important;
                 box-shadow: none !important;
-                filter: none !important;
             }
             .egg-frame-rainbow {
                 border-color: #ff0000 !important;
                 border-radius: 50% !important;
-                animation: eggCircleSmooth 6s linear infinite !important;
-                -webkit-animation: eggCircleSmooth 6s linear infinite !important;
+                -webkit-border-radius: 50% !important;
+                animation: eggPureRainbow 6s linear infinite !important;
+                -webkit-animation: eggPureRainbow 6s linear infinite !important;
             }
             .egg-frame-rainbow2 {
                 border-color: #ff0055 !important;
                 border-radius: 50% !important;
-                animation: eggCircleWaveGlow 3s linear infinite !important;
-                -webkit-animation: eggCircleWaveGlow 3s linear infinite !important;
+                -webkit-border-radius: 50% !important;
+                animation: eggWavePulse 3s linear infinite !important;
+                -webkit-animation: eggWavePulse 3s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -125,7 +126,7 @@
         el.dataset.appliedFrame = safeFrame;
     }
 
-    // Подписка в реальном времени для всех игроков (друзей, себя, чата)
+    // Подписка в реальном времени на любые изменения рамок в Firestore для всех игроков
     async function subscribeToUserFrame(nick) {
         if (!nick || activeListeners.has(nick)) return;
         activeListeners.set(nick, () => {});
@@ -170,7 +171,7 @@
         return "default";
     }
 
-    // Мгновенное обновление всех видимых аватарок на экране у всех игроков
+    // Мгновенное обновление аватарок у тебя и у всех видимых друзей на экране
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
@@ -179,7 +180,7 @@
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
-        // Список друзей и карточки
+        // Список друзей и карточки игроков
         document.querySelectorAll(".user-result-card, .friend-item, .user-card").forEach((card) => {
             const nameEl = card.querySelector(".user-result-name, .friend-name");
             const imgEl = card.querySelector("img.user-result-ava, img");
