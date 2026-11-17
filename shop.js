@@ -1,4 +1,4 @@
-// shop.js — Идеально круглые рамки, синхронный перелив у всех игроков (ПК + Телефон + Чат)
+// shop.js — Строго круглые переливающиеся рамки (ПК + Телефон + Чат + Синхронизация у всех)
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,21 +14,26 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем стили: строгий круг и плавная циклическая смена оттенков для рамок
+    // 1. Внедряем стили: строгий круг (50%) и плавный круговой перелив без квадратных артефактов
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggHueRotate {
-                0%   { filter: hue-rotate(0deg); }
-                100% { filter: hue-rotate(360deg); }
+            @keyframes eggCircleRainbow {
+                0%   { border-color: #ff0000; box-shadow: 0 0 6px #ff0000; filter: hue-rotate(0deg); }
+                20%  { border-color: #ff7700; box-shadow: 0 0 6px #ff7700; }
+                40%  { border-color: #ffff00; box-shadow: 0 0 6px #ffff00; }
+                60%  { border-color: #00ff00; box-shadow: 0 0 6px #00ff00; }
+                80%  { border-color: #00bbff; box-shadow: 0 0 6px #00bbff; }
+                100% { border-color: #ff0000; box-shadow: 0 0 6px #ff0000; filter: hue-rotate(360deg); }
             }
 
-            @keyframes eggWaveGlow {
-                0%   { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 8px #ff0055; filter: hue-rotate(0deg); }
-                50%  { border-color: #00ffcc; box-shadow: 0 0 12px #00ffcc, inset 0 0 12px #00ffcc; filter: hue-rotate(180deg); }
-                100% { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 8px #ff0055; filter: hue-rotate(360deg); }
+            @keyframes eggCircleWave {
+                0%   { border-color: #ff0055; box-shadow: 0 0 10px #ff0055, inset 0 0 6px #ff0055; }
+                33%  { border-color: #00ffcc; box-shadow: 0 0 14px #00ffcc, inset 0 0 8px #00ffcc; }
+                66%  { border-color: #9900ff; box-shadow: 0 0 10px #9900ff, inset 0 0 6px #9900ff; }
+                100% { border-color: #ff0055; box-shadow: 0 0 10px #ff0055, inset 0 0 6px #ff0055; }
             }
 
             img.user-result-ava,
@@ -43,7 +48,6 @@
                 border-style: solid !important;
                 border-width: 3px !important;
                 border-radius: 50% !important;
-                background-clip: padding-box !important;
             }
 
             .egg-frame-default {
@@ -66,18 +70,15 @@
             }
             .egg-frame-rainbow {
                 border-color: #ff0000 !important;
-                /* Плавный циклический спектр по кругу рамки */
-                border-image: linear-gradient(135deg, #ff0000, #ff7700, #ffff00, #00ff00, #00bbff, #7700ff, #ff00cc, #ff0000) 1 !important;
                 border-radius: 50% !important;
-                animation: eggHueRotate 5s linear infinite !important;
-                -webkit-animation: eggHueRotate 5s linear infinite !important;
+                animation: eggCircleRainbow 6s linear infinite !important;
+                -webkit-animation: eggCircleRainbow 6s linear infinite !important;
             }
             .egg-frame-rainbow2 {
                 border-color: #ff0055 !important;
-                border-image: linear-gradient(45deg, #ff0055, #00ffff, #00ff66, #9900ff, #ff0055) 1 !important;
                 border-radius: 50% !important;
-                animation: eggWaveGlow 3s linear infinite !important;
-                -webkit-animation: eggWaveGlow 3s linear infinite !important;
+                animation: eggCircleWave 3s linear infinite !important;
+                -webkit-animation: eggCircleWave 3s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -169,7 +170,7 @@
         return "default";
     }
 
-    // Мгновенное обновление всех аватарок на экране
+    // Мгновенное обновление всех аватарок на экране в реальном времени
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
