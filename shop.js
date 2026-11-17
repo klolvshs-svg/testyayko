@@ -1,39 +1,186 @@
-// shop.js — Абсолютно статичные рамки без фоновых циклов, миганий и лагов
+// shop.js — Чистая архитектура без миганий, с мгновенной синхронизацией в реальном времени (ПК + Телефон)
 
-(function() {
-    // 1. Внедряем идеальные статические стили рамок через CSS-классы
-    if (!document.getElementById("shopGlobalStyles")) {
+(function () {
+    const FRAMES_CONFIG = {
+        default: { name: "Стандартная (темно-синяя)", price: 0 },
+        red:     { name: "Красная (1 мл)", price: 1.0 },
+        purple:  { name: "Фиолетовая (1 мл)", price: 1.0 },
+        rainbow: { name: "Радужная (2 мл)", price: 2.0 }
+    };
+
+    const VALID_FRAMES = ["default", "red", "purple", "rainbow"];
+    const userFramesCache = new Map();      // nick -> frameId
+    const activeListeners = new Map();      // nick -> unsubscribe()
+    let firestoreApi = null;
+
+    // 1. Единые CSS-стили (никаких конфликтующих inline-перезаписей)
+    function injectGlobalStyles() {
+        if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
-        style.innerHTML = `
-            @keyframes rainbowSmooth {
-                0% { border-color: #ff0000 !important; }
-                20% { border-color: #ff7f00 !important; }
-                40% { border-color: #ffff00 !important; }
-                60% { border-color: #00ff00 !important; }
-                80% { border-color: #0000ff !important; }
-                100% { border-color: #ff0000 !important; }
+        style.textContent = `
+            @keyframes eggRainbowFrame {
+                0%   { border-color: #ff2a2a !important; }
+                17%  { border-color: #ff9900 !important; }
+                34%  { border-color: #ffee00 !important; }
+                50%  { border-color: #10d85a !important; }
+                67%  { border-color: #00bfff !important; }
+                84%  { border-color: #9b4dff !important; }
+                100% { border-color: #ff2a2a !important; }
             }
-            img.user-result-ava, #userAvatarImg, #activeChatAvatar, #shopPreviewAvatar, .profile-avatar-container img, .user-card img {
+
+            img.user-result-ava,
+            #userAvatarImg,
+            #activeChatAvatar,
+            #shopPreviewAvatar,
+            .profile-avatar-container img {
                 box-sizing: border-box !important;
                 border-style: solid !important;
                 border-width: 3px !important;
                 border-radius: 50% !important;
+            }
+
+            .egg-frame-default {
+                border-color: #1a365d !important;
                 animation: none !important;
             }
-            .frame-default { border-color: #1a365d !important; }
-            .frame-red { border-color: #ff4d4d !important; }
-            .frame-purple { border-color: #9c27b0 !important; }
-            .frame-rainbow { animation: rainbowSmooth 8s linear infinite !important; }
+            .egg-frame-red {
+                border-color: #ff4d4d !important;
+                animation: none !important;
+            }
+            .egg-frame-purple {
+                border-color: #9c27b0 !important;
+                animation: none !important;
+            }
+            .egg-frame-rainbow {
+                border-color: #ff2a2a !important;
+                animation: eggRainbowFrame 6s linear infinite !important;
+                will-change: border-color;
+            }
         `;
         document.head.appendChild(style);
     }
 
     function getActiveUserNick() {
-        return localStorage.getItem("egg_logged_in_nick") || localStorage.getItem("egg_current_user") || window.currentUserNick || "";
+        return (
+            localStorage.getItem("egg_logged_in_nick") ||
+            localStorage.getItem("egg_current_user") ||
+            window.currentUserNick ||
+            ""
+        ).trim();
     }
 
-    // 2. Создаем кнопку "Магазин" со смайликом 🏪
+    async function getFirestoreApi() {
+        if (firestoreApi) return firestoreApi;
+        const mod = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        firestoreApi = {
+            db: mod.getFirestore(),
+            doc: mod.doc,
+            getDoc: mod.getDoc,
+            updateDoc: mod.updateDoc,
+            onSnapshot: mod.onSnapshot
+        };
+        return firestoreApi;
+    }
+
+    // Точечное назначение класса рамки без лишних перерисовок DOM
+    function setElementFrame(el, frameId) {
+        if (!el) return;
+        const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
+        const targetClass = `egg-frame-${safeFrame}`;
+
+        if (el.dataset.appliedFrame === safeFrame && el.classList.contains(targetClass)) {
+            return; // Уже стоит нужная рамка — не трогаем элемент вообще!
+        }
+
+        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple", "egg-frame-rainbow");
+        el.style.removeProperty("border-color");
+        el.classList.add(targetClass);
+        el.dataset.appliedFrame = safeFrame;
+    }
+
+    // Подписка на изменения рамки конкретного игрока в реальном времени
+    async function subscribeToUserFrame(nick) {
+        if (!nick) return;
+
+        // Если уже есть в кеше — сразу возвращаем, параллельно убедившись что слушатель активен
+        if (activeListeners.has(nick)) return;
+
+        // Помечаем, что подписка в процессе, чтобы не плодить дубликаты
+        activeListeners.set(nick, () => {});
+
+        try {
+            const { db, doc, onSnapshot } = await getFirestoreApi();
+            const unsub = onSnapshot(doc(db, "users", nick), (snap) => {
+                const frame = snap.exists() ? (snap.data().selectedFrame || "default") : "default";
+                const prev = userFramesCache.get(nick);
+                userFramesCache.set(nick, frame);
+
+                if (nick === getActiveUserNick()) {
+                    localStorage.setItem(`egg_frame_${nick}`, frame);
+                }
+
+                if (prev !== frame) {
+                    refreshAllVisibleAvatars();
+                }
+            });
+            activeListeners.set(nick, unsub);
+        } catch (e) {
+            activeListeners.delete(nick);
+        }
+    }
+
+    function resolveFrame(nick) {
+        if (!nick) return "default";
+        if (userFramesCache.has(nick)) return userFramesCache.get(nick);
+
+        if (nick === getActiveUserNick()) {
+            const local = localStorage.getItem(`egg_frame_${nick}`);
+            if (local && VALID_FRAMES.includes(local)) {
+                userFramesCache.set(nick, local);
+                subscribeToUserFrame(nick);
+                return local;
+            }
+        }
+
+        subscribeToUserFrame(nick);
+        return "default";
+    }
+
+    // Обновление всех видимых аватарок на экране (строго по принадлежности к нику)
+    function refreshAllVisibleAvatars() {
+        const myNick = getActiveUserNick();
+        const myFrame = myNick ? resolveFrame(myNick) : "default";
+
+        // 1. Аватарка в меню профиля / рядом с кнопкой выхода / в превью магазина
+        setElementFrame(document.getElementById("userAvatarImg"), myFrame);
+        setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
+
+        // 2. Карточки в списке друзей и поиске игроков
+        document.querySelectorAll(".user-result-card, .friend-item, .user-card").forEach((card) => {
+            const nameEl = card.querySelector(".user-result-name, .friend-name");
+            const imgEl = card.querySelector("img.user-result-ava, img");
+            if (!nameEl || !imgEl) return;
+
+            const cardNick = nameEl.textContent.trim();
+            if (!cardNick) return;
+
+            const frame = cardNick === myNick ? myFrame : resolveFrame(cardNick);
+            setElementFrame(imgEl, frame);
+        });
+
+        // 3. Аватарка собеседника в открытом чате
+        const chatAvatar = document.getElementById("activeChatAvatar");
+        const chatTitle = document.getElementById("chatWithTitle");
+        if (chatAvatar && chatTitle) {
+            const partnerNick = chatTitle.textContent.trim();
+            if (partnerNick && partnerNick !== "Чат" && partnerNick !== "Загрузка...") {
+                setElementFrame(chatAvatar, resolveFrame(partnerNick));
+            }
+        }
+    }
+
+    // 2. Кнопка магазина
     function injectShopButton() {
         if (document.getElementById("menuShopBtn")) return;
 
@@ -65,7 +212,7 @@
         document.body.appendChild(shopBtn);
     }
 
-    // 3. Создаем шторку магазина
+    // 3. Шторка магазина (с живым переливом на иконке и на превью аватарки)
     function createShopDrawer() {
         if (document.getElementById("shopDrawer")) return;
 
@@ -76,6 +223,7 @@
             top: 0;
             left: -380px;
             width: 360px;
+            max-width: 92vw;
             height: 100%;
             background: rgba(15, 23, 33, 0.98);
             border-right: 2px solid rgba(0, 210, 255, 0.2);
@@ -98,22 +246,22 @@
                     <button class="btn-mini-action btn-mini-danger" onclick="toggleShopDrawer()" style="z-index: 5;">✕</button>
                 </div>
 
-                <div style="margin: 10px auto; position: relative; width: 80px; height: 80px;">
-                    <img id="shopPreviewAvatar" src="https://via.placeholder.com/80" class="frame-default" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover;">
+                <div style="margin: 10px auto; position: relative; width: 84px; height: 84px;">
+                    <img id="shopPreviewAvatar" src="https://via.placeholder.com/80" class="egg-frame-default" style="width: 84px; height: 84px; border-radius: 50%; object-fit: cover;">
                 </div>
                 <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: загрузка...</div>
 
                 <button class="btn-drawer-custom" style="margin-bottom: 5px; background: #248bda; display:flex; justify-content:space-between; align-items:center;" onclick="toggleShopFramesAccordion()">
                     <span>✨ Рамки для аватара</span>
-                    <span id="accordionArrow">▼</span>
+                    <span id="accordionArrow">▲</span>
                 </button>
 
-                <div id="shopFramesContainer" class="drawer-section-panel" style="display:none; max-height:260px; margin-top:0; margin-bottom:15px; width:100%;">
+                <div id="shopFramesContainer" class="drawer-section-panel" style="display:flex; max-height:280px; margin-top:0; margin-bottom:15px; width:100%;">
                     <div style="width:100%; display:flex; flex-direction:column; gap:6px;">
                         
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="width:24px; height:24px; border-radius:50%; border:3px solid #1a365d; box-sizing:border-box;"></div>
+                                <div class="egg-frame-default" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Стандартная (темно-синяя)</span>
                             </div>
                             <div id="action_default"></div>
@@ -121,7 +269,7 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="width:24px; height:24px; border-radius:50%; border:3px solid #ff4d4d; box-sizing:border-box;"></div>
+                                <div class="egg-frame-red" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Красная (1 мл)</span>
                             </div>
                             <div id="action_red"></div>
@@ -129,7 +277,7 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div style="width:24px; height:24px; border-radius:50%; border:3px solid #9c27b0; box-sizing:border-box;"></div>
+                                <div class="egg-frame-purple" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Фиолетовая (1 мл)</span>
                             </div>
                             <div id="action_purple"></div>
@@ -137,7 +285,7 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div id="rainbowShopDemo" class="frame-rainbow" style="width:24px; height:24px; border-radius:50%; box-sizing:border-box;"></div>
+                                <div id="rainbowShopDemo" class="egg-frame-rainbow" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (2 мл)</span>
                             </div>
                             <div id="action_rainbow"></div>
@@ -159,73 +307,62 @@
         const sCtx = sCanvas.getContext("2d");
         const sW = 360;
         let sH = window.innerHeight;
-        sCanvas.width = sW * (window.devicePixelRatio || 1);
-        sCanvas.height = sH * (window.devicePixelRatio || 1);
-        sCtx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+        const dpr = window.devicePixelRatio || 1;
+        sCanvas.width = sW * dpr;
+        sCanvas.height = sH * dpr;
+        sCtx.scale(dpr, dpr);
 
-        let sDecorItems = [];
         const pool = ["sword", "bomb", "shield", "helmet", "drop1", "snow", "table"];
-        for (let i = 0; i < 10; i++) {
-            let t = pool[Math.floor(Math.random() * pool.length)];
-            sDecorItems.push({
-                x: Math.random() * sW,
-                y: Math.random() * sH,
-                speed: 1.3 + Math.random() * 1.6,
-                type: t,
-                rotation: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.025
-            });
-        }
+        const symbols = {
+            table: "🪑", shield: "🛡", helmet: "🪖",
+            drop1: "💧", snow: "❄️", bomb: "💣", sword: "🗡"
+        };
+
+        const sDecorItems = Array.from({ length: 10 }, () => ({
+            x: Math.random() * sW,
+            y: Math.random() * sH,
+            speed: 1.3 + Math.random() * 1.6,
+            type: pool[Math.floor(Math.random() * pool.length)],
+            rotation: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.025
+        }));
 
         function drawShopDecor() {
             const drawer = document.getElementById("shopDrawer");
-            if (!drawer || drawer.style.left !== "0px") {
-                requestAnimationFrame(drawShopDecor);
-                return;
-            }
-
-            sCtx.clearRect(0, 0, sW, sH);
-            sDecorItems.forEach(item => {
-                item.y += item.speed;
-                item.rotation += item.rotSpeed;
-                if (item.y > sH + 50) {
-                    item.y = -50;
-                    item.x = Math.random() * sW;
-                }
-
-                sCtx.save();
-                sCtx.translate(item.x, item.y);
-                sCtx.rotate(item.rotation);
+            if (drawer && drawer.style.left === "0px") {
+                sCtx.clearRect(0, 0, sW, sH);
                 sCtx.font = "35px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                 sCtx.textAlign = "center";
 
-                let symbol = "🗡";
-                if (item.type === "table") symbol = "🪑";
-                else if (item.type === "shield") symbol = "🛡";
-                else if (item.type === "helmet") symbol = "🪖";
-                else if (item.type === "drop1") symbol = "💧";
-                else if (item.type === "snow") symbol = "❄️";
-                else if (item.type === "bomb") symbol = "💣";
-
-                sCtx.fillText(symbol, 0, 0);
-                sCtx.restore();
-            });
-
+                for (const item of sDecorItems) {
+                    item.y += item.speed;
+                    item.rotation += item.rotSpeed;
+                    if (item.y > sH + 50) {
+                        item.y = -50;
+                        item.x = Math.random() * sW;
+                    }
+                    sCtx.save();
+                    sCtx.translate(item.x, item.y);
+                    sCtx.rotate(item.rotation);
+                    sCtx.fillText(symbols[item.type] || "🗡", 0, 0);
+                    sCtx.restore();
+                }
+            }
             requestAnimationFrame(drawShopDecor);
         }
         requestAnimationFrame(drawShopDecor);
     }
 
-    window.toggleShopFramesAccordion = function() {
+    window.toggleShopFramesAccordion = function () {
         const container = document.getElementById("shopFramesContainer");
         const arrow = document.getElementById("accordionArrow");
         if (!container) return;
         const isVisible = container.style.display === "flex";
         container.style.display = isVisible ? "none" : "flex";
-        if (arrow) arrow.innerText = isVisible ? "▼" : "▲";
+        if (arrow) arrow.textContent = isVisible ? "▼" : "▲";
     };
 
-    window.toggleShopDrawer = async function() {
+    window.toggleShopDrawer = async function () {
         const drawer = document.getElementById("shopDrawer");
         if (!drawer) return;
         const isOpen = drawer.style.left === "0px";
@@ -241,200 +378,117 @@
 
     function checkShopButtonVisibility() {
         const shopBtn = document.getElementById("menuShopBtn");
-        const profileDrawer = document.getElementById("profileDrawer");
-        const shopDrawer = document.getElementById("shopDrawer");
-        
         if (!shopBtn) return;
 
+        const profileDrawer = document.getElementById("profileDrawer");
+        const shopDrawer = document.getElementById("shopDrawer");
         const activeNick = getActiveUserNick();
-        const isProfileOpen = profileDrawer && profileDrawer.classList.contains("open");
-        const isShopOpen = shopDrawer && shopDrawer.style.left === "0px";
-        const isGamePlaying = window.gameStarted === true;
-        const isGamePaused = window.isPaused === true;
-        const isGameOver = window.gameOver === true;
 
-        if (!activeNick || isProfileOpen || isShopOpen || isGamePlaying || isGamePaused || isGameOver) {
-            shopBtn.style.display = "none";
-        } else {
-            shopBtn.style.display = "flex";
-        }
+        const hide =
+            !activeNick ||
+            (profileDrawer && profileDrawer.classList.contains("open")) ||
+            (shopDrawer && shopDrawer.style.left === "0px") ||
+            window.gameStarted === true ||
+            window.isPaused === true ||
+            window.gameOver === true;
+
+        shopBtn.style.display = hide ? "none" : "flex";
     }
 
-    setInterval(checkShopButtonVisibility, 200);
-
-    // Функция применения класса рамки без лишних пересчетов
-    window.applyFrameClass = function(imgEl, frameName) {
-        if (!imgEl) return;
-        imgEl.classList.remove("frame-default", "frame-red", "frame-purple", "frame-rainbow");
-        imgEl.style.borderColor = "";
-
-        if (frameName === "red") {
-            imgEl.classList.add("frame-red");
-        } else if (frameName === "purple") {
-            imgEl.classList.add("frame-purple");
-        } else if (frameName === "rainbow") {
-            imgEl.classList.add("frame-rainbow");
-        } else {
-            imgEl.classList.add("frame-default");
-        }
-    };
-
-    const framesMemory = {};
-
-    async function getUserFrameCached(nick) {
-        if (!nick) return "default";
-        if (framesMemory[nick]) return framesMemory[nick];
-
-        const saved = localStorage.getItem(`egg_frame_${nick}`);
-        if (saved) {
-            framesMemory[nick] = saved;
-            return saved;
-        }
-
-        try {
-            const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-            const db = getFirestore();
-            const snap = await getDoc(doc(db, "users", nick));
-            if (snap.exists()) {
-                const frame = snap.data().selectedFrame || "default";
-                framesMemory[nick] = frame;
-                localStorage.setItem(`egg_frame_${nick}`, frame);
-                return frame;
-            }
-        } catch(e) {}
-        return "default";
-    }
-
-    // Применение рамок при открытии списков или профиля (без постоянных дергающих циклов)
-    async function updateAllAvatarsVisuals() {
+    // Загрузка актуальных данных магазина
+    window.updateShopUI = async function () {
         const activeNick = getActiveUserNick();
         if (!activeNick) return;
 
-        let myCurrentFrame = framesMemory[activeNick] || localStorage.getItem(`egg_frame_${activeNick}`) || "default";
-        
-        const profileImg = document.getElementById("userAvatarImg");
-        if (profileImg) window.applyFrameClass(profileImg, myCurrentFrame);
-
+        const mainAvatarImg = document.getElementById("userAvatarImg");
         const previewAvatar = document.getElementById("shopPreviewAvatar");
-        if (previewAvatar) window.applyFrameClass(previewAvatar, myCurrentFrame);
-
-        // Список друзей
-        const cards = document.querySelectorAll(".user-result-card, .friend-item, .user-card");
-        for (let card of cards) {
-            const nameEl = card.querySelector(".user-result-name, .friend-name, span, b");
-            const imgEl = card.querySelector("img");
-            if (nameEl && imgEl) {
-                let friendNick = nameEl.innerText.trim();
-                if (friendNick && friendNick !== activeNick) {
-                    let fFrame = await getUserFrameCached(friendNick);
-                    window.applyFrameClass(imgEl, fFrame);
-                } else if (friendNick === activeNick) {
-                    window.applyFrameClass(imgEl, myCurrentFrame);
-                }
-            }
+        if (previewAvatar && mainAvatarImg && mainAvatarImg.src) {
+            previewAvatar.src = mainAvatarImg.src;
         }
 
-        document.querySelectorAll("img.user-result-ava").forEach(imgEl => {
-            window.applyFrameClass(imgEl, myCurrentFrame);
-        });
-
-        const chatAvatar = document.getElementById("activeChatAvatar");
-        const chatTitle = document.getElementById("chatWithTitle");
-        if (chatAvatar && chatTitle) {
-            let partnerNick = chatTitle.innerText.trim();
-            if (partnerNick && partnerNick !== "Чат" && partnerNick !== "Загрузка...") {
-                let pFrame = await getUserFrameCached(partnerNick);
-                window.applyFrameClass(chatAvatar, pFrame);
-            }
-        }
-    }
-
-    // Запускаем проверку аватарок редко, чтобы не было никаких лагов и миганий
-    setInterval(updateAllAvatarsVisuals, 1000);
-
-    // Загрузка интерфейса магазина
-    window.updateShopUI = async function() {
-        const activeNick = getActiveUserNick();
-        if (!activeNick) return;
+        // Сразу показываем актуальную рамку из кеша до ответа сети
+        const cachedFrame = resolveFrame(activeNick);
+        setElementFrame(previewAvatar, cachedFrame);
 
         try {
-            const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-            const db = getFirestore();
+            const { db, doc, getDoc } = await getFirestoreApi();
             const userSnap = await getDoc(doc(db, "users", activeNick));
-
             if (!userSnap.exists()) return;
+
             const userData = userSnap.data();
+            const balance = Number(userData.balance_ml || 0);
+            const balEl = document.getElementById("shopCurrentBalance");
+            if (balEl) balEl.textContent = `Баланс: ${balance.toFixed(3)} мл`;
 
-            const balance = userData.balance_ml || 0;
-            document.getElementById("shopCurrentBalance").innerText = `Баланс: ${balance.toFixed(3)} мл`;
-
-            const mainAvatarImg = document.getElementById("userAvatarImg");
-            const previewAvatar = document.getElementById("shopPreviewAvatar");
-            if (previewAvatar) {
-                previewAvatar.src = (userData.avatarUrl && userData.avatarUrl !== "") ? userData.avatarUrl : (mainAvatarImg ? mainAvatarImg.src : "https://via.placeholder.com/80");
+            if (previewAvatar && userData.avatarUrl) {
+                previewAvatar.src = userData.avatarUrl;
             }
 
-            const unlocked = userData.unlockedFrames || ["default"];
-            const currentFrame = userData.selectedFrame || "default";
-            framesMemory[activeNick] = currentFrame;
+            const unlocked = Array.isArray(userData.unlockedFrames) ? userData.unlockedFrames : ["default"];
+            if (!unlocked.includes("default")) unlocked.unshift("default");
+
+            const currentFrame = VALID_FRAMES.includes(userData.selectedFrame) ? userData.selectedFrame : "default";
+            userFramesCache.set(activeNick, currentFrame);
             localStorage.setItem(`egg_frame_${activeNick}`, currentFrame);
 
-            if (previewAvatar) {
-                previewAvatar.dataset.frame = currentFrame;
-                window.applyFrameClass(previewAvatar, currentFrame);
+            setElementFrame(previewAvatar, currentFrame);
+            refreshAllVisibleAvatars();
+
+            for (const frameId of VALID_FRAMES) {
+                renderItemAction(frameId, FRAMES_CONFIG[frameId].price, unlocked, currentFrame);
             }
-
-            renderItemAction("default", 0, "Стандартная", unlocked, currentFrame);
-            renderItemAction("red", 1.0, "Красная", unlocked, currentFrame);
-            renderItemAction("purple", 1.0, "Фиолетовая", unlocked, currentFrame);
-            renderItemAction("rainbow", 2.0, "Радужная", unlocked, currentFrame);
-
         } catch (e) {
             console.error("Ошибка загрузки магазина:", e);
         }
     };
 
-    function renderItemAction(frameId, price, name, unlocked, current) {
+    function renderItemAction(frameId, price, unlocked, current) {
         const container = document.getElementById(`action_${frameId}`);
         if (!container) return;
 
-        const hasIt = unlocked.includes(frameId);
-        const isSelected = (current === frameId);
-
-        if (isSelected) {
+        if (current === frameId) {
             container.innerHTML = `<button class="btn-mini-action btn-mini-gray" disabled>Выбрано ✅</button>`;
-        } else if (hasIt) {
+        } else if (unlocked.includes(frameId)) {
             container.innerHTML = `<button class="btn-mini-action btn-mini-success" onclick="applyAndSaveFrame('${frameId}')">Выбрать</button>`;
         } else {
             container.innerHTML = `<button class="btn-mini-action" onclick="buyAndUnlockFrame('${frameId}', ${price})">Купить (${price} мл)</button>`;
         }
     }
 
-    window.buyAndUnlockFrame = async function(frameId, price) {
+    // Покупка рамки
+    window.buyAndUnlockFrame = async function (frameId, price) {
         const activeNick = getActiveUserNick();
         if (!activeNick) return;
 
+        const container = document.getElementById(`action_${frameId}`);
+        if (container) {
+            container.innerHTML = `<button class="btn-mini-action btn-mini-gray" disabled>Покупка...</button>`;
+        }
+
         try {
-            const { getFirestore, doc, getDoc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-            const db = getFirestore();
+            const { db, doc, getDoc, updateDoc } = await getFirestoreApi();
             const userRef = doc(db, "users", activeNick);
             const userSnap = await getDoc(userRef);
-
             if (!userSnap.exists()) return;
+
             const userData = userSnap.data();
-            const currentBalance = userData.balance_ml || 0;
+            const currentBalance = Number(userData.balance_ml || 0);
 
             if (currentBalance < price) {
                 alert("❌ Недостаточно миллилитров в банке!");
+                await window.updateShopUI();
                 return;
             }
 
-            const newBalance = currentBalance - price;
-            let unlocked = userData.unlockedFrames || ["default"];
+            const newBalance = Number((currentBalance - price).toFixed(3));
+            const unlocked = Array.isArray(userData.unlockedFrames) ? [...userData.unlockedFrames] : ["default"];
+            if (!unlocked.includes("default")) unlocked.unshift("default");
             if (!unlocked.includes(frameId)) unlocked.push(frameId);
 
-            framesMemory[activeNick] = frameId;
+            // Мгновенно обновляем состояние локально
+            userFramesCache.set(activeNick, frameId);
             localStorage.setItem(`egg_frame_${activeNick}`, frameId);
+            refreshAllVisibleAvatars();
 
             await updateDoc(userRef, {
                 balance_ml: newBalance,
@@ -446,46 +500,61 @@
             localStorage.setItem("egg_total_ml_bank", newBalance.toFixed(3));
 
             await window.updateShopUI();
-            await updateAllAvatarsVisuals();
-            alert("🎉 Рамка успешно куплена и установлена!");
         } catch (e) {
             alert("Ошибка при покупке: " + e.message);
+            await window.updateShopUI();
         }
     };
 
-    window.applyAndSaveFrame = async function(frameId) {
+    // Выбор уже купленной рамки (мгновенно в UI + синхронизация с Firestore)
+    window.applyAndSaveFrame = async function (frameId) {
         const activeNick = getActiveUserNick();
-        if (!activeNick) return;
+        if (!activeNick || !VALID_FRAMES.includes(frameId)) return;
+
+        // 1. Мгновенно меняем визуал и кнопки без ожидания сети
+        userFramesCache.set(activeNick, frameId);
+        localStorage.setItem(`egg_frame_${activeNick}`, frameId);
+        refreshAllVisibleAvatars();
 
         try {
-            // 1. Моментально фиксируем локально
-            framesMemory[activeNick] = frameId;
-            localStorage.setItem(`egg_frame_${activeNick}`, frameId);
-
-            // 2. Сразу применяем визуал без задержек
-            window.applyFrameClass(document.getElementById("userAvatarImg"), frameId);
-            window.applyFrameClass(document.getElementById("shopPreviewAvatar"), frameId);
-
-            // 3. Обновляем интерфейс кнопок магазина
-            await window.updateShopUI();
-
-            // 4. Отправляем в Firebase
-            const { getFirestore, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-            const db = getFirestore();
+            const { db, doc, updateDoc } = await getFirestoreApi();
             await updateDoc(doc(db, "users", activeNick), {
                 selectedFrame: frameId
             });
-
-            await updateAllAvatarsVisuals();
-            alert("✅ Рамка успешно применена!");
+            await window.updateShopUI();
         } catch (e) {
-            alert("Ошибка выбора рамки: " + e.message);
+            alert("Ошибка сохранения рамки: " + e.message);
         }
     };
 
+    // Отслеживаем появление новых карточек друзей / открытие профиля / смену чата без опроса базы
+    function startDomObserver() {
+        let scheduled = false;
+        const observer = new MutationObserver(() => {
+            if (scheduled) return;
+            scheduled = true;
+            requestAnimationFrame(() => {
+                scheduled = false;
+                refreshAllVisibleAvatars();
+                checkShopButtonVisibility();
+            });
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["class", "src"]
+        });
+    }
+
+    // Инициализация
     setTimeout(() => {
+        injectGlobalStyles();
         injectShopButton();
         createShopDrawer();
-        updateAllAvatarsVisuals();
-    }, 1000);
+        startDomObserver();
+        refreshAllVisibleAvatars();
+        setInterval(checkShopButtonVisibility, 250);
+    }, 600);
 })();
