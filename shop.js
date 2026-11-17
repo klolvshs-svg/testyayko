@@ -1,4 +1,4 @@
-// shop.js — Стабильные рамки, живой перелив в магазине и два варианта радужных рамок (ПК + Телефон)
+// shop.js — Абсолютный стабильный радужный перелив везде (ПК + Телефон + Чат) без багов и белого цвета
 
 (function () {
     const FRAMES_CONFIG = {
@@ -6,7 +6,7 @@
         red:     { name: "Красная (1 мл)", price: 1.0 },
         purple:  { name: "Фиолетовая (1 мл)", price: 1.0 },
         rainbow: { name: "Радужная (плавная)", price: 2.0 },
-        rainbow2:{ name: "Радужная (бегущая волна)", price: 2.5 }
+        rainbow2:{ name: "Радужная (волна)", price: 2.5 }
     };
 
     const VALID_FRAMES = ["default", "red", "purple", "rainbow", "rainbow2"];
@@ -14,35 +14,34 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем стили и две разные анимации перелива для рамок
+    // 1. Внедряем мощные стили с надежной аппаратной поддержкой анимации для телефонов и ПК
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
             @keyframes eggRainbowSmooth {
-                0%   { border-color: #ff2a2a !important; }
-                17%  { border-color: #ff9900 !important; }
-                34%  { border-color: #ffee00 !important; }
-                50%  { border-color: #10d85a !important; }
-                67%  { border-color: #00bfff !important; }
-                84%  { border-color: #9b4dff !important; }
-                100% { border-color: #ff2a2a !important; }
+                0%   { border-color: rgb(255, 42, 42) !important; }
+                20%  { border-color: rgb(255, 153, 0) !important; }
+                40%  { border-color: rgb(238, 255, 0) !important; }
+                60%  { border-color: rgb(16, 216, 90) !important; }
+                80%  { border-color: rgb(0, 191, 255) !important; }
+                100% { border-color: rgb(255, 42, 42) !important; }
             }
 
             @keyframes eggRainbowWave {
-                0%   { border-color: #ff0055 !important; box-shadow: 0 0 8px #ff0055 inset !important; }
-                25%  { border-color: #00ffff !important; box-shadow: 0 0 8px #00ffff inset !important; }
-                50%  { border-color: #00ff66 !important; box-shadow: 0 0 8px #00ff66 inset !important; }
-                75%  { border-color: #9900ff !important; box-shadow: 0 0 8px #9900ff inset !important; }
-                100% { border-color: #ff0055 !important; box-shadow: 0 0 8px #ff0055 inset !important; }
+                0%   { border-color: rgb(255, 0, 85) !important; box-shadow: 0 0 10px rgb(255, 0, 85) inset !important; }
+                33%  { border-color: rgb(0, 255, 102) !important; box-shadow: 0 0 10px rgb(0, 255, 102) inset !important; }
+                66%  { border-color: rgb(153, 0, 255) !important; box-shadow: 0 0 10px rgb(153, 0, 255) inset !important; }
+                100% { border-color: rgb(255, 0, 85) !important; box-shadow: 0 0 10px rgb(255, 0, 85) inset !important; }
             }
 
             img.user-result-ava,
             #userAvatarImg,
             #activeChatAvatar,
             #shopPreviewAvatar,
-            .profile-avatar-container img {
+            .profile-avatar-container img,
+            .user-card img {
                 box-sizing: border-box !important;
                 border-style: solid !important;
                 border-width: 3px !important;
@@ -65,12 +64,14 @@
                 box-shadow: none !important;
             }
             .egg-frame-rainbow {
-                animation: eggRainbowSmooth 7s linear infinite !important;
-                will-change: border-color;
+                border-color: rgb(255, 42, 42) !important;
+                animation: eggRainbowSmooth 6s linear infinite !important;
+                -webkit-animation: eggRainbowSmooth 6s linear infinite !important;
             }
             .egg-frame-rainbow2 {
-                animation: eggRainbowWave 3.5s linear infinite !important;
-                will-change: border-color, box-shadow;
+                border-color: rgb(255, 0, 85) !important;
+                animation: eggRainbowWave 3s linear infinite !important;
+                -webkit-animation: eggRainbowWave 3s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -156,13 +157,16 @@
         return "default";
     }
 
+    // Принудительное обновление ВСЕХ аватарок на странице (профиль, магазин, друзья, чат)
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
 
+        // Твой профиль и превью в магазине
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
+        // Список друзей и карточки игроков
         document.querySelectorAll(".user-result-card, .friend-item, .user-card").forEach((card) => {
             const nameEl = card.querySelector(".user-result-name, .friend-name");
             const imgEl = card.querySelector("img.user-result-ava, img");
@@ -175,12 +179,14 @@
             setElementFrame(imgEl, frame);
         });
 
+        // Все общие аватарки
         document.querySelectorAll("img.user-result-ava").forEach((imgEl) => {
             if (!imgEl.closest(".user-result-card, .friend-item, .user-card")) {
                 setElementFrame(imgEl, myFrame);
             }
         });
 
+        // Чат (аватарка собеседника и ваша в переписке)
         const chatAvatar = document.getElementById("activeChatAvatar");
         const chatTitle = document.getElementById("chatWithTitle");
         if (chatAvatar && chatTitle) {
@@ -189,6 +195,11 @@
                 setElementFrame(chatAvatar, resolveFrame(partnerNick));
             }
         }
+
+        document.querySelectorAll(".chat-message img, .message-avatar img, .chat-avatar").forEach((msgImg) => {
+            // Если аватарка принадлежит вам или другому пользователю в чате
+            setElementFrame(msgImg, myFrame);
+        });
     }
 
     function injectShopButton() {
