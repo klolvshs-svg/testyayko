@@ -1,4 +1,4 @@
-// shop.js — Гарантированный плавный радужный перелив везде (Магазин, Профиль, Друзья, Чат) для ПК и Телефонов
+// shop.js — Идеально круглые рамки, синхронный перелив у всех игроков (ПК + Телефон + Чат)
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,22 +14,21 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем надежные стили с поддержкой градиентного перелива для всех платформ
+    // 1. Внедряем стили: строгий круг и плавная циклическая смена оттенков для рамок
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggRainbowRotate {
+            @keyframes eggHueRotate {
                 0%   { filter: hue-rotate(0deg); }
                 100% { filter: hue-rotate(360deg); }
             }
 
-            @keyframes eggWavePulse {
-                0%   { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 8px #ff0055; }
-                33%  { border-color: #00ff66; box-shadow: 0 0 8px #00ff66, inset 0 0 8px #00ff66; }
-                66%  { border-color: #00bfff; box-shadow: 0 0 8px #00bfff, inset 0 0 8px #00bfff; }
-                100% { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 8px #ff0055; }
+            @keyframes eggWaveGlow {
+                0%   { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 8px #ff0055; filter: hue-rotate(0deg); }
+                50%  { border-color: #00ffcc; box-shadow: 0 0 12px #00ffcc, inset 0 0 12px #00ffcc; filter: hue-rotate(180deg); }
+                100% { border-color: #ff0055; box-shadow: 0 0 8px #ff0055, inset 0 0 8px #ff0055; filter: hue-rotate(360deg); }
             }
 
             img.user-result-ava,
@@ -67,14 +66,18 @@
             }
             .egg-frame-rainbow {
                 border-color: #ff0000 !important;
-                border-image: linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3, #ff0000) 1 !important;
-                animation: eggRainbowRotate 6s linear infinite !important;
-                -webkit-animation: eggRainbowRotate 6s linear infinite !important;
+                /* Плавный циклический спектр по кругу рамки */
+                border-image: linear-gradient(135deg, #ff0000, #ff7700, #ffff00, #00ff00, #00bbff, #7700ff, #ff00cc, #ff0000) 1 !important;
+                border-radius: 50% !important;
+                animation: eggHueRotate 5s linear infinite !important;
+                -webkit-animation: eggHueRotate 5s linear infinite !important;
             }
             .egg-frame-rainbow2 {
                 border-color: #ff0055 !important;
-                animation: eggWavePulse 3s linear infinite !important;
-                -webkit-animation: eggWavePulse 3s linear infinite !important;
+                border-image: linear-gradient(45deg, #ff0055, #00ffff, #00ff66, #9900ff, #ff0055) 1 !important;
+                border-radius: 50% !important;
+                animation: eggWaveGlow 3s linear infinite !important;
+                -webkit-animation: eggWaveGlow 3s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -121,6 +124,7 @@
         el.dataset.appliedFrame = safeFrame;
     }
 
+    // Подписка в реальном времени на изменения рамки любого игрока в Firestore
     async function subscribeToUserFrame(nick) {
         if (!nick || activeListeners.has(nick)) return;
         activeListeners.set(nick, () => {});
@@ -129,14 +133,16 @@
             const { db, doc, onSnapshot } = await getFirestoreApi();
             const unsub = onSnapshot(doc(db, "users", nick), (snap) => {
                 const frame = snap.exists() ? (snap.data().selectedFrame || "default") : "default";
+                const safeFrame = VALID_FRAMES.includes(frame) ? frame : "default";
                 const prev = userFramesCache.get(nick);
-                userFramesCache.set(nick, frame);
+                
+                userFramesCache.set(nick, safeFrame);
 
                 if (nick === getActiveUserNick()) {
-                    localStorage.setItem(`egg_frame_${nick}`, frame);
+                    localStorage.setItem(`egg_frame_${nick}`, safeFrame);
                 }
 
-                if (prev !== frame) {
+                if (prev !== safeFrame) {
                     refreshAllVisibleAvatars();
                 }
             });
@@ -163,12 +169,12 @@
         return "default";
     }
 
-    // Принудительное обновление ВСЕХ аватарок на странице в реальном времени
+    // Мгновенное обновление всех аватарок на экране
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
 
-        // Твой профиль и превью в магазине
+        // Профиль и превью
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
@@ -185,14 +191,14 @@
             setElementFrame(imgEl, frame);
         });
 
-        // Все остальные аватарки
+        // Остальные аватарки
         document.querySelectorAll("img.user-result-ava").forEach((imgEl) => {
             if (!imgEl.closest(".user-result-card, .friend-item, .user-card")) {
                 setElementFrame(imgEl, myFrame);
             }
         });
 
-        // Чат (аватарка собеседника и ваши сообщения)
+        // Чат
         const chatAvatar = document.getElementById("activeChatAvatar");
         const chatTitle = document.getElementById("chatWithTitle");
         if (chatAvatar && chatTitle) {
