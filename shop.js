@@ -1,25 +1,26 @@
-// shop.js — Чистая архитектура без миганий, с мгновенной синхронизацией в реальном времени (ПК + Телефон)
+// shop.js — Стабильные рамки, живой перелив в магазине и два варианта радужных рамок (ПК + Телефон)
 
 (function () {
     const FRAMES_CONFIG = {
         default: { name: "Стандартная (темно-синяя)", price: 0 },
         red:     { name: "Красная (1 мл)", price: 1.0 },
         purple:  { name: "Фиолетовая (1 мл)", price: 1.0 },
-        rainbow: { name: "Радужная (2 мл)", price: 2.0 }
+        rainbow: { name: "Радужная (плавная)", price: 2.0 },
+        rainbow2:{ name: "Радужная (бегущая волна)", price: 2.5 }
     };
 
-    const VALID_FRAMES = ["default", "red", "purple", "rainbow"];
-    const userFramesCache = new Map();      // nick -> frameId
-    const activeListeners = new Map();      // nick -> unsubscribe()
+    const VALID_FRAMES = ["default", "red", "purple", "rainbow", "rainbow2"];
+    const userFramesCache = new Map();
+    const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Единые CSS-стили (никаких конфликтующих inline-перезаписей)
+    // 1. Внедряем стили и две разные анимации перелива для рамок
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggRainbowFrame {
+            @keyframes eggRainbowSmooth {
                 0%   { border-color: #ff2a2a !important; }
                 17%  { border-color: #ff9900 !important; }
                 34%  { border-color: #ffee00 !important; }
@@ -27,6 +28,14 @@
                 67%  { border-color: #00bfff !important; }
                 84%  { border-color: #9b4dff !important; }
                 100% { border-color: #ff2a2a !important; }
+            }
+
+            @keyframes eggRainbowWave {
+                0%   { border-color: #ff0055 !important; box-shadow: 0 0 8px #ff0055 inset !important; }
+                25%  { border-color: #00ffff !important; box-shadow: 0 0 8px #00ffff inset !important; }
+                50%  { border-color: #00ff66 !important; box-shadow: 0 0 8px #00ff66 inset !important; }
+                75%  { border-color: #9900ff !important; box-shadow: 0 0 8px #9900ff inset !important; }
+                100% { border-color: #ff0055 !important; box-shadow: 0 0 8px #ff0055 inset !important; }
             }
 
             img.user-result-ava,
@@ -43,19 +52,25 @@
             .egg-frame-default {
                 border-color: #1a365d !important;
                 animation: none !important;
+                box-shadow: none !important;
             }
             .egg-frame-red {
                 border-color: #ff4d4d !important;
                 animation: none !important;
+                box-shadow: none !important;
             }
             .egg-frame-purple {
                 border-color: #9c27b0 !important;
                 animation: none !important;
+                box-shadow: none !important;
             }
             .egg-frame-rainbow {
-                border-color: #ff2a2a !important;
-                animation: eggRainbowFrame 6s linear infinite !important;
+                animation: eggRainbowSmooth 7s linear infinite !important;
                 will-change: border-color;
+            }
+            .egg-frame-rainbow2 {
+                animation: eggRainbowWave 3.5s linear infinite !important;
+                will-change: border-color, box-shadow;
             }
         `;
         document.head.appendChild(style);
@@ -83,30 +98,24 @@
         return firestoreApi;
     }
 
-    // Точечное назначение класса рамки без лишних перерисовок DOM
     function setElementFrame(el, frameId) {
         if (!el) return;
         const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
         const targetClass = `egg-frame-${safeFrame}`;
 
         if (el.dataset.appliedFrame === safeFrame && el.classList.contains(targetClass)) {
-            return; // Уже стоит нужная рамка — не трогаем элемент вообще!
+            return;
         }
 
-        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple", "egg-frame-rainbow");
+        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple", "egg-frame-rainbow", "egg-frame-rainbow2");
         el.style.removeProperty("border-color");
+        el.style.removeProperty("box-shadow");
         el.classList.add(targetClass);
         el.dataset.appliedFrame = safeFrame;
     }
 
-    // Подписка на изменения рамки конкретного игрока в реальном времени
     async function subscribeToUserFrame(nick) {
-        if (!nick) return;
-
-        // Если уже есть в кеше — сразу возвращаем, параллельно убедившись что слушатель активен
-        if (activeListeners.has(nick)) return;
-
-        // Помечаем, что подписка в процессе, чтобы не плодить дубликаты
+        if (!nick || activeListeners.has(nick)) return;
         activeListeners.set(nick, () => {});
 
         try {
@@ -147,16 +156,13 @@
         return "default";
     }
 
-    // Обновление всех видимых аватарок на экране (строго по принадлежности к нику)
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
 
-        // 1. Аватарка в меню профиля / рядом с кнопкой выхода / в превью магазина
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
-        // 2. Карточки в списке друзей и поиске игроков
         document.querySelectorAll(".user-result-card, .friend-item, .user-card").forEach((card) => {
             const nameEl = card.querySelector(".user-result-name, .friend-name");
             const imgEl = card.querySelector("img.user-result-ava, img");
@@ -169,7 +175,12 @@
             setElementFrame(imgEl, frame);
         });
 
-        // 3. Аватарка собеседника в открытом чате
+        document.querySelectorAll("img.user-result-ava").forEach((imgEl) => {
+            if (!imgEl.closest(".user-result-card, .friend-item, .user-card")) {
+                setElementFrame(imgEl, myFrame);
+            }
+        });
+
         const chatAvatar = document.getElementById("activeChatAvatar");
         const chatTitle = document.getElementById("chatWithTitle");
         if (chatAvatar && chatTitle) {
@@ -180,7 +191,6 @@
         }
     }
 
-    // 2. Кнопка магазина
     function injectShopButton() {
         if (document.getElementById("menuShopBtn")) return;
 
@@ -212,7 +222,6 @@
         document.body.appendChild(shopBtn);
     }
 
-    // 3. Шторка магазина (с живым переливом на иконке и на превью аватарки)
     function createShopDrawer() {
         if (document.getElementById("shopDrawer")) return;
 
@@ -256,7 +265,7 @@
                     <span id="accordionArrow">▲</span>
                 </button>
 
-                <div id="shopFramesContainer" class="drawer-section-panel" style="display:flex; max-height:280px; margin-top:0; margin-bottom:15px; width:100%;">
+                <div id="shopFramesContainer" class="drawer-section-panel" style="display:flex; max-height:320px; margin-top:0; margin-bottom:15px; width:100%;">
                     <div style="width:100%; display:flex; flex-direction:column; gap:6px;">
                         
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
@@ -285,10 +294,18 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div id="rainbowShopDemo" class="egg-frame-rainbow" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
-                                <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (2 мл)</span>
+                                <div class="egg-frame-rainbow" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
+                                <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (плавная) (2 мл)</span>
                             </div>
                             <div id="action_rainbow"></div>
+                        </div>
+
+                        <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="egg-frame-rainbow2" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
+                                <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (волна) (2.5 мл)</span>
+                            </div>
+                            <div id="action_rainbow2"></div>
                         </div>
 
                     </div>
@@ -395,7 +412,6 @@
         shopBtn.style.display = hide ? "none" : "flex";
     }
 
-    // Загрузка актуальных данных магазина
     window.updateShopUI = async function () {
         const activeNick = getActiveUserNick();
         if (!activeNick) return;
@@ -406,7 +422,6 @@
             previewAvatar.src = mainAvatarImg.src;
         }
 
-        // Сразу показываем актуальную рамку из кеша до ответа сети
         const cachedFrame = resolveFrame(activeNick);
         setElementFrame(previewAvatar, cachedFrame);
 
@@ -455,7 +470,6 @@
         }
     }
 
-    // Покупка рамки
     window.buyAndUnlockFrame = async function (frameId, price) {
         const activeNick = getActiveUserNick();
         if (!activeNick) return;
@@ -485,7 +499,6 @@
             if (!unlocked.includes("default")) unlocked.unshift("default");
             if (!unlocked.includes(frameId)) unlocked.push(frameId);
 
-            // Мгновенно обновляем состояние локально
             userFramesCache.set(activeNick, frameId);
             localStorage.setItem(`egg_frame_${activeNick}`, frameId);
             refreshAllVisibleAvatars();
@@ -506,12 +519,10 @@
         }
     };
 
-    // Выбор уже купленной рамки (мгновенно в UI + синхронизация с Firestore)
     window.applyAndSaveFrame = async function (frameId) {
         const activeNick = getActiveUserNick();
         if (!activeNick || !VALID_FRAMES.includes(frameId)) return;
 
-        // 1. Мгновенно меняем визуал и кнопки без ожидания сети
         userFramesCache.set(activeNick, frameId);
         localStorage.setItem(`egg_frame_${activeNick}`, frameId);
         refreshAllVisibleAvatars();
@@ -527,7 +538,6 @@
         }
     };
 
-    // Отслеживаем появление новых карточек друзей / открытие профиля / смену чата без опроса базы
     function startDomObserver() {
         let scheduled = false;
         const observer = new MutationObserver(() => {
@@ -548,7 +558,6 @@
         });
     }
 
-    // Инициализация
     setTimeout(() => {
         injectGlobalStyles();
         injectShopButton();
