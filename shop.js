@@ -1,4 +1,4 @@
-// shop.js — Абсолютно круглые, плавно переливающиеся рамки для всех игроков (ПК и Телефоны)
+// shop.js — Строго круглые рамки с переливом цвета строго внутри границы (ПК, Телефоны, Друзья, Чат, Магазин)
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,26 +14,21 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем идеальные круглые стили с плавной циклической сменой цветов без квадратных артефактов
+    // 1. Внедряем стили: перелив строго внутри границы рамки по кругу, без внешнего свечения
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggPureRainbow {
-                0%   { border-color: #ff0000; box-shadow: 0 0 8px #ff0000; }
-                20%  { border-color: #ff9900; box-shadow: 0 0 8px #ff9900; }
-                40%  { border-color: #ffff00; box-shadow: 0 0 8px #ffff00; }
-                60%  { border-color: #00ff00; box-shadow: 0 0 8px #00ff00; }
-                80%  { border-color: #00bfff; box-shadow: 0 0 8px #00bfff; }
-                100% { border-color: #ff0000; box-shadow: 0 0 8px #ff0000; }
+            @keyframes eggBorderRotate {
+                0%   { filter: hue-rotate(0deg); }
+                100% { filter: hue-rotate(360deg); }
             }
 
-            @keyframes eggWavePulse {
-                0%   { border-color: #ff0055; box-shadow: 0 0 10px #ff0055, inset 0 0 6px #ff0055; }
-                33%  { border-color: #00ffcc; box-shadow: 0 0 14px #00ffcc, inset 0 0 8px #00ffcc; }
-                66%  { border-color: #9900ff; box-shadow: 0 0 10px #9900ff, inset 0 0 6px #9900ff; }
-                100% { border-color: #ff0055; box-shadow: 0 0 10px #ff0055, inset 0 0 6px #ff0055; }
+            @keyframes eggBorderPulse {
+                0%   { filter: hue-rotate(0deg) saturate(1.5); }
+                50%  { filter: hue-rotate(180deg) saturate(2); }
+                100% { filter: hue-rotate(360deg) saturate(1.5); }
             }
 
             img.user-result-ava,
@@ -49,37 +44,43 @@
                 border-width: 3px !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
+                background-clip: padding-box !important;
                 overflow: hidden !important;
             }
 
             .egg-frame-default {
                 border-color: #1a365d !important;
+                border-image: none !important;
                 animation: none !important;
-                box-shadow: none !important;
+                filter: none !important;
             }
             .egg-frame-red {
                 border-color: #ff4d4d !important;
+                border-image: none !important;
                 animation: none !important;
-                box-shadow: none !important;
+                filter: none !important;
             }
             .egg-frame-purple {
                 border-color: #9c27b0 !important;
+                border-image: none !important;
                 animation: none !important;
-                box-shadow: none !important;
+                filter: none !important;
             }
             .egg-frame-rainbow {
                 border-color: #ff0000 !important;
+                border-image: linear-gradient(135deg, #ff0000, #ff9900, #ffff00, #00ff00, #00bfff, #9900ff, #ff00cc, #ff0000) 1 !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
-                animation: eggPureRainbow 6s linear infinite !important;
-                -webkit-animation: eggPureRainbow 6s linear infinite !important;
+                animation: eggBorderRotate 6s linear infinite !important;
+                -webkit-animation: eggBorderRotate 6s linear infinite !important;
             }
             .egg-frame-rainbow2 {
                 border-color: #ff0055 !important;
+                border-image: linear-gradient(45deg, #ff0055, #00ffcc, #0099ff, #cc00ff, #ff0055) 1 !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
-                animation: eggWavePulse 3s linear infinite !important;
-                -webkit-animation: eggWavePulse 3s linear infinite !important;
+                animation: eggBorderPulse 3s linear infinite !important;
+                -webkit-animation: eggBorderPulse 3s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -126,7 +127,7 @@
         el.dataset.appliedFrame = safeFrame;
     }
 
-    // Подписка в реальном времени на любые изменения рамок в Firestore для всех игроков
+    // Подписка в реальном времени для синхронизации у тебя, друзей и в чате
     async function subscribeToUserFrame(nick) {
         if (!nick || activeListeners.has(nick)) return;
         activeListeners.set(nick, () => {});
@@ -171,12 +172,12 @@
         return "default";
     }
 
-    // Мгновенное обновление аватарок у тебя и у всех видимых друзей на экране
+    // Мгновенное обновление аватарок везде
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
 
-        // Профиль и превью магазина
+        // Твой профиль и превью в магазине
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
