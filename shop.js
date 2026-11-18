@@ -1,4 +1,4 @@
-// shop.js — Магазин рамок (Стандартная, Красная, Голубая, Фиолетовая), падающие batyabomb.png и закрытие по клику вне шторки
+// shop.js — Магазин рамок, падающие иконки (мечи, щиты, капли, снежинки) и редкие batyabomb.png
 
 (function () {
     const FRAMES_CONFIG = {
@@ -202,7 +202,6 @@
     function createShopDrawer() {
         if (document.getElementById("shopOverlay")) return;
 
-        // Создаем подложку (оверлей) для закрытия кликом по пустому месту снаружи шторки
         const overlay = document.createElement("div");
         overlay.id = "shopOverlay";
         overlay.style.cssText = `
@@ -218,7 +217,6 @@
             transition: opacity 0.3s ease;
         `;
         overlay.onclick = (e) => {
-            // Закрываем только если кликнули именно по подложке (вне шторки)
             if (e.target === overlay) {
                 toggleShopDrawer();
             }
@@ -260,7 +258,6 @@
                 </div>
                 <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: загрузка...</div>
 
-                <!-- Кнопка потемнее и слегка прозрачная, без смайлика -->
                 <button class="btn-drawer-custom" style="margin-bottom: 5px; background: rgba(18, 28, 40, 0.75); border: 1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;" onclick="toggleShopFramesAccordion()">
                     <span>Рамки для аватара</span>
                     <span id="accordionArrow">▲</span>
@@ -322,42 +319,53 @@
         sCanvas.height = sH * dpr;
         sCtx.scale(dpr, dpr);
 
-        // Загружаем текстуру падающих бомб batyabomb.png
         const bombImg = new Image();
         bombImg.src = "batyabomb.png";
 
-        const sBombs = Array.from({ length: 8 }, () => ({
-            x: Math.random() * sW,
-            y: Math.random() * sH,
-            speed: 1.2 + Math.random() * 1.8,
-            size: 32 + Math.random() * 16,
-            rotation: Math.random() * Math.PI * 2,
-            rotSpeed: (Math.random() - 0.5) * 0.03
-        }));
+        // Создаем разнообразные падающие элементы (мечи, щиты, капли, снежинки и немного бомб batyabomb.png)
+        const symbolsList = ["🗡", "🛡", "💧", "❄️", "⚔️", "🛡️"];
+        const sDecorItems = Array.from({ length: 9 }, () => {
+            const isBomb = Math.random() < 0.25; // Примерно 25% шанс на бомбу, остальное — другие предметы
+            return {
+                x: Math.random() * sW,
+                y: Math.random() * sH,
+                speed: 1.0 + Math.random() * 1.5,
+                size: isBomb ? 34 : 28 + Math.random() * 10,
+                rotation: Math.random() * Math.PI * 2,
+                rotSpeed: (Math.random() - 0.5) * 0.02,
+                isBomb: isBomb,
+                symbol: symbolsList[Math.floor(Math.random() * symbolsList.length)]
+            };
+        });
 
         function drawShopDecor() {
             const drawer = document.getElementById("shopDrawer");
             if (drawer && drawer.style.left === "0px") {
                 sCtx.clearRect(0, 0, sW, sH);
 
-                for (const bomb of sBombs) {
-                    bomb.y += bomb.speed;
-                    bomb.rotation += bomb.rotSpeed;
-                    if (bomb.y > sH + 50) {
-                        bomb.y = -50;
-                        bomb.x = Math.random() * sW;
+                for (const item of sDecorItems) {
+                    item.y += item.speed;
+                    item.rotation += item.rotSpeed;
+                    if (item.y > sH + 50) {
+                        item.y = -50;
+                        item.x = Math.random() * sW;
                     }
                     sCtx.save();
-                    sCtx.translate(bomb.x, bomb.y);
-                    sCtx.rotate(bomb.rotation);
+                    sCtx.translate(item.x, item.y);
+                    sCtx.rotate(item.rotation);
                     
-                    if (bombImg.complete && bombImg.naturalWidth !== 0) {
-                        sCtx.drawImage(bombImg, -bomb.size / 2, -bomb.size / 2, bomb.size, bomb.size);
+                    if (item.isBomb) {
+                        if (bombImg.complete && bombImg.naturalWidth !== 0) {
+                            sCtx.drawImage(bombImg, -item.size / 2, -item.size / 2, item.size, item.size);
+                        } else {
+                            sCtx.font = "28px sans-serif";
+                            sCtx.textAlign = "center";
+                            sCtx.fillText("💣", 0, 0);
+                        }
                     } else {
-                        // Запасной вариант на случай, если картинка еще грузится
-                        sCtx.font = "30px sans-serif";
+                        sCtx.font = "28px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                         sCtx.textAlign = "center";
-                        sCtx.fillText("💣", 0, 0);
+                        sCtx.fillText(item.symbol, 0, 0);
                     }
                     sCtx.restore();
                 }
