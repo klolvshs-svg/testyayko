@@ -1,4 +1,4 @@
-// shop.js — Строго круглые рамки с идеальным плавным переливом у всех игроков без резких сбросов
+// shop.js — Абсолютно плавный и непрерывный радужный перелив у всех игроков без сбросов и рывков
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,31 +14,12 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Равномерная плавная шкала цветов без резких скачков
+    // 1. Внедряем чистые круглые стили (никаких CSS-анимаций, которые могут сбрасываться браузером)
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggTrueRainbow {
-                0%      { border-color: #ff0000; }
-                14.28%  { border-color: #ff7f00; }
-                28.57%  { border-color: #ffff00; }
-                42.85%  { border-color: #00ff00; }
-                57.14%  { border-color: #00bfff; }
-                71.42%  { border-color: #4b0082; }
-                85.71%  { border-color: #ee82ee; }
-                100%    { border-color: #ff0000; }
-            }
-
-            @keyframes eggTrueWave {
-                0%      { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); }
-                25%     { border-color: #ffaa00; box-shadow: 0 0 6px rgba(255,170,0,0.4); }
-                50%     { border-color: #00ffcc; box-shadow: 0 0 6px rgba(0,255,204,0.4); }
-                75%     { border-color: #9900ff; box-shadow: 0 0 6px rgba(153,0,255,0.4); }
-                100%    { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); }
-            }
-
             img.user-result-ava,
             #userAvatarImg,
             #activeChatAvatar,
@@ -56,38 +37,9 @@
                 overflow: hidden !important;
             }
 
-            .egg-frame-default {
-                border-color: #1a365d !important;
-                border-image: none !important;
-                animation: none !important;
-                box-shadow: none !important;
-            }
-            .egg-frame-red {
-                border-color: #ff4d4d !important;
-                border-image: none !important;
-                animation: none !important;
-                box-shadow: none !important;
-            }
-            .egg-frame-purple {
-                border-color: #9c27b0 !important;
-                border-image: none !important;
-                animation: none !important;
-                box-shadow: none !important;
-            }
-            .egg-frame-rainbow {
-                border-image: none !important;
-                border-radius: 50% !important;
-                -webkit-border-radius: 50% !important;
-                animation: eggTrueRainbow 7s linear infinite !important;
-                -webkit-animation: eggTrueRainbow 7s linear infinite !important;
-            }
-            .egg-frame-rainbow2 {
-                border-image: none !important;
-                border-radius: 50% !important;
-                -webkit-border-radius: 50% !important;
-                animation: eggTrueWave 4s linear infinite !important;
-                -webkit-animation: eggTrueWave 4s linear infinite !important;
-            }
+            .egg-frame-default { border-color: #1a365d !important; box-shadow: none !important; }
+            .egg-frame-red { border-color: #ff4d4d !important; box-shadow: none !important; }
+            .egg-frame-purple { border-color: #9c27b0 !important; box-shadow: none !important; }
         `;
         document.head.appendChild(style);
     }
@@ -114,37 +66,60 @@
         return firestoreApi;
     }
 
+    // Точное применение рамки к элементу
     function setElementFrame(el, frameId) {
         if (!el) return;
         const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
-        const targetClass = `egg-frame-${safeFrame}`;
 
-        if (el.dataset.appliedFrame === safeFrame && el.classList.contains(targetClass)) {
-            return;
+        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple");
+        el.dataset.frameType = safeFrame;
+
+        if (safeFrame === "default") {
+            el.style.removeProperty("border-color");
+            el.style.removeProperty("box-shadow");
+            el.classList.add("egg-frame-default");
+        } else if (safeFrame === "red") {
+            el.style.removeProperty("border-color");
+            el.style.removeProperty("box-shadow");
+            el.classList.add("egg-frame-red");
+        } else if (safeFrame === "purple") {
+            el.style.removeProperty("border-color");
+            el.style.removeProperty("box-shadow");
+            el.classList.add("egg-frame-purple");
         }
+        // Для радужных рамок цвета управляются единым плавным циклом ниже
+    }
 
-        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple", "egg-frame-rainbow", "egg-frame-rainbow2");
-        el.style.removeProperty("border-color");
-        el.style.removeProperty("box-shadow");
-        el.style.removeProperty("border-image");
-        el.style.removeProperty("filter");
+    // 2. Единый глобальный цикл анимации на JS (гарантирует полный цикл спектра без рывков у всех)
+    function startGlobalRainbowLoop() {
+        let startTime = Date.now();
 
-        // Синхронизируем фазу анимации по текущему времени, чтобы при перерисовке списка друзей цвет не сбрасывался в красный
-        if (safeFrame === "rainbow") {
-            const offset = -((Date.now() / 1000) % 7).toFixed(2);
-            el.style.animationDelay = `${offset}s`;
-            el.style.webkitAnimationDelay = `${offset}s`;
-        } else if (safeFrame === "rainbow2") {
-            const offset = -((Date.now() / 1000) % 4).toFixed(2);
-            el.style.animationDelay = `${offset}s`;
-            el.style.webkitAnimationDelay = `${offset}s`;
-        } else {
-            el.style.removeProperty("animation-delay");
-            el.style.removeProperty("-webkit-animation-delay");
+        function updateLoop() {
+            const elapsed = (Date.now() - startTime) / 1000;
+            
+            // Радуга 1: полный плавный круг за 6 секунд (hue от 0 до 360)
+            const hue1 = (elapsed * 60) % 360;
+            const rainbowColor1 = `hsl(${hue1}, 100%, 50%)`;
+
+            // Радуга 2 (волна): чуть быстрее, с мягким внутренним свечением за 3 секунды
+            const hue2 = (elapsed * 120) % 360;
+            const rainbowColor2 = `hsl(${hue2}, 100%, 55%)`;
+            const rainbowShadow2 = `0 0 8px hsl(${hue2}, 100%, 50%)`;
+
+            // Применяем цвета ко всем элементам с рамками rainbow на странице
+            document.querySelectorAll("[data-frame-type='rainbow']").forEach(el => {
+                el.style.borderColor = rainbowColor1;
+                el.style.boxShadow = "none";
+            });
+
+            document.querySelectorAll("[data-frame-type='rainbow2']").forEach(el => {
+                el.style.borderColor = rainbowColor2;
+                el.style.boxShadow = rainbowShadow2;
+            });
+
+            requestAnimationFrame(updateLoop);
         }
-        
-        el.classList.add(targetClass);
-        el.dataset.appliedFrame = safeFrame;
+        requestAnimationFrame(updateLoop);
     }
 
     async function subscribeToUserFrame(nick) {
@@ -333,7 +308,7 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div class="egg-frame-rainbow" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
+                                <div data-frame-type="rainbow" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (плавная) (2 мл)</span>
                             </div>
                             <div id="action_rainbow"></div>
@@ -341,7 +316,7 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div class="egg-frame-rainbow2" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
+                                <div data-frame-type="rainbow2" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (волна) (2.5 мл)</span>
                             </div>
                             <div id="action_rainbow2"></div>
@@ -602,6 +577,7 @@
         injectShopButton();
         createShopDrawer();
         startDomObserver();
+        startGlobalRainbowLoop();
         refreshAllVisibleAvatars();
         setInterval(checkShopButtonVisibility, 250);
     }, 600);
