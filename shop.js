@@ -1,4 +1,4 @@
-// shop.js — Магазин рамок, падающие иконки (мечи, щиты, капли, снежинки) и редкие batyabomb.png
+// shop.js — Чистые статические рамки для себя и друзей, правильный путь к item/batyabomb.png
 
 (function () {
     const FRAMES_CONFIG = {
@@ -13,7 +13,7 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем чистые стили для круглых аватарок
+    // 1. Жёсткие стили без перекрытия цветов
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
@@ -69,20 +69,13 @@
     function setElementFrame(el, frameId) {
         if (!el) return;
         const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
-        const targetClass = `egg-frame-${safeFrame}`;
-
-        if (el.dataset.appliedFrame === safeFrame && el.classList.contains(targetClass)) {
-            return;
-        }
 
         el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-blue", "egg-frame-purple");
         el.style.removeProperty("border-color");
         el.style.removeProperty("box-shadow");
-        el.style.removeProperty("border-image");
-        el.style.removeProperty("filter");
 
-        el.classList.add(targetClass);
-        el.dataset.appliedFrame = safeFrame;
+        el.classList.add(`egg-frame-${safeFrame}`);
+        el.dataset.frameType = safeFrame;
     }
 
     async function subscribeToUserFrame(nick) {
@@ -319,18 +312,18 @@
         sCanvas.height = sH * dpr;
         sCtx.scale(dpr, dpr);
 
+        // Правильный путь к текстуре бомбы в папке item
         const bombImg = new Image();
-        bombImg.src = "batyabomb.png";
+        bombImg.src = "item/batyabomb.png";
 
-        // Создаем разнообразные падающие элементы (мечи, щиты, капли, снежинки и немного бомб batyabomb.png)
         const symbolsList = ["🗡", "🛡", "💧", "❄️", "⚔️", "🛡️"];
-        const sDecorItems = Array.from({ length: 9 }, () => {
-            const isBomb = Math.random() < 0.25; // Примерно 25% шанс на бомбу, остальное — другие предметы
+        const sDecorItems = Array.from({ length: 8 }, () => {
+            const isBomb = Math.random() < 0.2; // 20% бомб, остальное — другие предметы
             return {
                 x: Math.random() * sW,
                 y: Math.random() * sH,
                 speed: 1.0 + Math.random() * 1.5,
-                size: isBomb ? 34 : 28 + Math.random() * 10,
+                size: isBomb ? 34 : 28 + Math.random() * 8,
                 rotation: Math.random() * Math.PI * 2,
                 rotSpeed: (Math.random() - 0.5) * 0.02,
                 isBomb: isBomb,
@@ -555,7 +548,7 @@
         const observer = new MutationObserver((mutations) => {
             let onlyFrames = true;
             for (const m of mutations) {
-                if (m.target.id !== "userAvatarImg" && m.target.id !== "shopPreviewAvatar" && !m.target.dataset?.appliedFrame) {
+                if (m.target.id !== "userAvatarImg" && m.target.id !== "shopPreviewAvatar" && !m.target.dataset?.frameType) {
                     onlyFrames = false;
                     break;
                 }
