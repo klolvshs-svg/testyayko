@@ -1,4 +1,4 @@
-// shop.js — Строго круглые переливающиеся рамки без искажения аватарок для всех игроков (ПК и Телефоны)
+// shop.js — Строго круглые рамки с плавным радужным переливом строго по границе для всех (ПК и Телефоны)
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,26 +14,27 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем чистые круглые стили: рамка переливается цветами, аватарка остаётся нетронутой и круглой
+    // 1. Внедряем идеальные круглые стили с плавным переливом цветов строго по рамке
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggPureCircleRainbow {
-                0%   { border-color: #ff0000; box-shadow: 0 0 4px rgba(255,0,0,0.4); }
-                20%  { border-color: #ff9900; box-shadow: 0 0 4px rgba(255,153,0,0.4); }
-                40%  { border-color: #ffff00; box-shadow: 0 0 4px rgba(255,255,0,0.4); }
-                60%  { border-color: #00ff00; box-shadow: 0 0 4px rgba(0,255,0,0.4); }
-                80%  { border-color: #00bfff; box-shadow: 0 0 4px rgba(0,191,255,0.4); }
-                100% { border-color: #ff0000; box-shadow: 0 0 4px rgba(255,0,0,0.4); }
+            @keyframes eggTrueRainbow {
+                0%   { border-color: #ff0000; }
+                16%  { border-color: #ff8800; }
+                33%  { border-color: #ffff00; }
+                50%  { border-color: #00ff00; }
+                66%  { border-color: #00ffff; }
+                83%  { border-color: #9900ff; }
+                100% { border-color: #ff0000; }
             }
 
-            @keyframes eggPureCircleWave {
-                0%   { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.5); }
-                33%  { border-color: #00ffcc; box-shadow: 0 0 6px rgba(0,255,204,0.5); }
-                66%  { border-color: #9900ff; box-shadow: 0 0 6px rgba(153,0,255,0.5); }
-                100% { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.5); }
+            @keyframes eggTrueWave {
+                0%   { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); }
+                33%  { border-color: #00ffcc; box-shadow: 0 0 6px rgba(0,255,204,0.4); }
+                66%  { border-color: #9900ff; box-shadow: 0 0 6px rgba(153,0,255,0.4); }
+                100% { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); }
             }
 
             img.user-result-ava,
@@ -72,20 +73,18 @@
                 box-shadow: none !important;
             }
             .egg-frame-rainbow {
-                border-color: #ff0000 !important;
                 border-image: none !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
-                animation: eggPureCircleRainbow 6s linear infinite !important;
-                -webkit-animation: eggPureCircleRainbow 6s linear infinite !important;
+                animation: eggTrueRainbow 6s linear infinite !important;
+                -webkit-animation: eggTrueRainbow 6s linear infinite !important;
             }
             .egg-frame-rainbow2 {
-                border-color: #ff0055 !important;
                 border-image: none !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
-                animation: eggPureCircleWave 3s linear infinite !important;
-                -webkit-animation: eggPureCircleWave 3s linear infinite !important;
+                animation: eggTrueWave 3s linear infinite !important;
+                -webkit-animation: eggTrueWave 3s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -132,7 +131,7 @@
         el.dataset.appliedFrame = safeFrame;
     }
 
-    // Подписка в реальном времени для полной синхронизации у всех игроков
+    // Синхронизация в реальном времени с Firestore для всех игроков
     async function subscribeToUserFrame(nick) {
         if (!nick || activeListeners.has(nick)) return;
         activeListeners.set(nick, () => {});
@@ -177,7 +176,7 @@
         return "default";
     }
 
-    // Мгновенное обновление аватарок везде (профиль, магазин, друзья, чат)
+    // Мгновенное обновление аватарок на экране у всех
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
@@ -186,7 +185,7 @@
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
-        // Список друзей и карточки
+        // Список друзей и карточки игроков
         document.querySelectorAll(".user-result-card, .friend-item, .user-card").forEach((card) => {
             const nameEl = card.querySelector(".user-result-name, .friend-name");
             const imgEl = card.querySelector("img.user-result-ava, img");
@@ -554,7 +553,7 @@
         if (!activeNick || !VALID_FRAMES.includes(frameId)) return;
 
         userFramesCache.set(activeNick, frameId);
-        localStorage.setItem(`egg_frame_${frameId}`, frameId);
+        localStorage.setItem(`egg_frame_${activeNick}`, frameId);
         refreshAllVisibleAvatars();
 
         try {
