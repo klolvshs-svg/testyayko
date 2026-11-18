@@ -1,4 +1,4 @@
-// shop.js — Строго круглые рамки с переливом цвета строго внутри границы (ПК, Телефоны, Друзья, Чат, Магазин)
+// shop.js — Строго круглые переливающиеся рамки без искажения аватарок для всех игроков (ПК и Телефоны)
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,21 +14,26 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем стили: перелив строго внутри границы рамки по кругу, без внешнего свечения
+    // 1. Внедряем чистые круглые стили: рамка переливается цветами, аватарка остаётся нетронутой и круглой
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggBorderRotate {
-                0%   { filter: hue-rotate(0deg); }
-                100% { filter: hue-rotate(360deg); }
+            @keyframes eggPureCircleRainbow {
+                0%   { border-color: #ff0000; box-shadow: 0 0 4px rgba(255,0,0,0.4); }
+                20%  { border-color: #ff9900; box-shadow: 0 0 4px rgba(255,153,0,0.4); }
+                40%  { border-color: #ffff00; box-shadow: 0 0 4px rgba(255,255,0,0.4); }
+                60%  { border-color: #00ff00; box-shadow: 0 0 4px rgba(0,255,0,0.4); }
+                80%  { border-color: #00bfff; box-shadow: 0 0 4px rgba(0,191,255,0.4); }
+                100% { border-color: #ff0000; box-shadow: 0 0 4px rgba(255,0,0,0.4); }
             }
 
-            @keyframes eggBorderPulse {
-                0%   { filter: hue-rotate(0deg) saturate(1.5); }
-                50%  { filter: hue-rotate(180deg) saturate(2); }
-                100% { filter: hue-rotate(360deg) saturate(1.5); }
+            @keyframes eggPureCircleWave {
+                0%   { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.5); }
+                33%  { border-color: #00ffcc; box-shadow: 0 0 6px rgba(0,255,204,0.5); }
+                66%  { border-color: #9900ff; box-shadow: 0 0 6px rgba(153,0,255,0.5); }
+                100% { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.5); }
             }
 
             img.user-result-ava,
@@ -52,35 +57,35 @@
                 border-color: #1a365d !important;
                 border-image: none !important;
                 animation: none !important;
-                filter: none !important;
+                box-shadow: none !important;
             }
             .egg-frame-red {
                 border-color: #ff4d4d !important;
                 border-image: none !important;
                 animation: none !important;
-                filter: none !important;
+                box-shadow: none !important;
             }
             .egg-frame-purple {
                 border-color: #9c27b0 !important;
                 border-image: none !important;
                 animation: none !important;
-                filter: none !important;
+                box-shadow: none !important;
             }
             .egg-frame-rainbow {
                 border-color: #ff0000 !important;
-                border-image: linear-gradient(135deg, #ff0000, #ff9900, #ffff00, #00ff00, #00bfff, #9900ff, #ff00cc, #ff0000) 1 !important;
+                border-image: none !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
-                animation: eggBorderRotate 6s linear infinite !important;
-                -webkit-animation: eggBorderRotate 6s linear infinite !important;
+                animation: eggPureCircleRainbow 6s linear infinite !important;
+                -webkit-animation: eggPureCircleRainbow 6s linear infinite !important;
             }
             .egg-frame-rainbow2 {
                 border-color: #ff0055 !important;
-                border-image: linear-gradient(45deg, #ff0055, #00ffcc, #0099ff, #cc00ff, #ff0055) 1 !important;
+                border-image: none !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
-                animation: eggBorderPulse 3s linear infinite !important;
-                -webkit-animation: eggBorderPulse 3s linear infinite !important;
+                animation: eggPureCircleWave 3s linear infinite !important;
+                -webkit-animation: eggPureCircleWave 3s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -127,7 +132,7 @@
         el.dataset.appliedFrame = safeFrame;
     }
 
-    // Подписка в реальном времени для синхронизации у тебя, друзей и в чате
+    // Подписка в реальном времени для полной синхронизации у всех игроков
     async function subscribeToUserFrame(nick) {
         if (!nick || activeListeners.has(nick)) return;
         activeListeners.set(nick, () => {});
@@ -172,16 +177,16 @@
         return "default";
     }
 
-    // Мгновенное обновление аватарок везде
+    // Мгновенное обновление аватарок везде (профиль, магазин, друзья, чат)
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
 
-        // Твой профиль и превью в магазине
+        // Профиль и превью в магазине
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
-        // Список друзей и карточки игроков
+        // Список друзей и карточки
         document.querySelectorAll(".user-result-card, .friend-item, .user-card").forEach((card) => {
             const nameEl = card.querySelector(".user-result-name, .friend-name");
             const imgEl = card.querySelector("img.user-result-ava, img");
@@ -549,7 +554,7 @@
         if (!activeNick || !VALID_FRAMES.includes(frameId)) return;
 
         userFramesCache.set(activeNick, frameId);
-        localStorage.setItem(`egg_frame_${activeNick}`, frameId);
+        localStorage.setItem(`egg_frame_${frameId}`, frameId);
         refreshAllVisibleAvatars();
 
         try {
