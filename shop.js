@@ -1,4 +1,4 @@
-// shop.js — Строго круглые рамки с плавным радужным переливом строго по границе для всех (ПК и Телефоны)
+// shop.js — Строго круглые рамки с идеальным плавным переливом у всех игроков без резких сбросов
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,27 +14,29 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем идеальные круглые стили с плавным переливом цветов строго по рамке
+    // 1. Равномерная плавная шкала цветов без резких скачков
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
             @keyframes eggTrueRainbow {
-                0%   { border-color: #ff0000; }
-                16%  { border-color: #ff8800; }
-                33%  { border-color: #ffff00; }
-                50%  { border-color: #00ff00; }
-                66%  { border-color: #00ffff; }
-                83%  { border-color: #9900ff; }
-                100% { border-color: #ff0000; }
+                0%      { border-color: #ff0000; }
+                14.28%  { border-color: #ff7f00; }
+                28.57%  { border-color: #ffff00; }
+                42.85%  { border-color: #00ff00; }
+                57.14%  { border-color: #00bfff; }
+                71.42%  { border-color: #4b0082; }
+                85.71%  { border-color: #ee82ee; }
+                100%    { border-color: #ff0000; }
             }
 
             @keyframes eggTrueWave {
-                0%   { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); }
-                33%  { border-color: #00ffcc; box-shadow: 0 0 6px rgba(0,255,204,0.4); }
-                66%  { border-color: #9900ff; box-shadow: 0 0 6px rgba(153,0,255,0.4); }
-                100% { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); }
+                0%      { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); }
+                25%     { border-color: #ffaa00; box-shadow: 0 0 6px rgba(255,170,0,0.4); }
+                50%     { border-color: #00ffcc; box-shadow: 0 0 6px rgba(0,255,204,0.4); }
+                75%     { border-color: #9900ff; box-shadow: 0 0 6px rgba(153,0,255,0.4); }
+                100%    { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); }
             }
 
             img.user-result-ava,
@@ -76,15 +78,15 @@
                 border-image: none !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
-                animation: eggTrueRainbow 6s linear infinite !important;
-                -webkit-animation: eggTrueRainbow 6s linear infinite !important;
+                animation: eggTrueRainbow 7s linear infinite !important;
+                -webkit-animation: eggTrueRainbow 7s linear infinite !important;
             }
             .egg-frame-rainbow2 {
                 border-image: none !important;
                 border-radius: 50% !important;
                 -webkit-border-radius: 50% !important;
-                animation: eggTrueWave 3s linear infinite !important;
-                -webkit-animation: eggTrueWave 3s linear infinite !important;
+                animation: eggTrueWave 4s linear infinite !important;
+                -webkit-animation: eggTrueWave 4s linear infinite !important;
             }
         `;
         document.head.appendChild(style);
@@ -126,12 +128,25 @@
         el.style.removeProperty("box-shadow");
         el.style.removeProperty("border-image");
         el.style.removeProperty("filter");
+
+        // Синхронизируем фазу анимации по текущему времени, чтобы при перерисовке списка друзей цвет не сбрасывался в красный
+        if (safeFrame === "rainbow") {
+            const offset = -((Date.now() / 1000) % 7).toFixed(2);
+            el.style.animationDelay = `${offset}s`;
+            el.style.webkitAnimationDelay = `${offset}s`;
+        } else if (safeFrame === "rainbow2") {
+            const offset = -((Date.now() / 1000) % 4).toFixed(2);
+            el.style.animationDelay = `${offset}s`;
+            el.style.webkitAnimationDelay = `${offset}s`;
+        } else {
+            el.style.removeProperty("animation-delay");
+            el.style.removeProperty("-webkit-animation-delay");
+        }
         
         el.classList.add(targetClass);
         el.dataset.appliedFrame = safeFrame;
     }
 
-    // Синхронизация в реальном времени с Firestore для всех игроков
     async function subscribeToUserFrame(nick) {
         if (!nick || activeListeners.has(nick)) return;
         activeListeners.set(nick, () => {});
@@ -176,16 +191,13 @@
         return "default";
     }
 
-    // Мгновенное обновление аватарок на экране у всех
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
 
-        // Профиль и превью в магазине
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
-        // Список друзей и карточки игроков
         document.querySelectorAll(".user-result-card, .friend-item, .user-card").forEach((card) => {
             const nameEl = card.querySelector(".user-result-name, .friend-name");
             const imgEl = card.querySelector("img.user-result-ava, img");
@@ -198,14 +210,12 @@
             setElementFrame(imgEl, frame);
         });
 
-        // Остальные аватарки
         document.querySelectorAll("img.user-result-ava").forEach((imgEl) => {
             if (!imgEl.closest(".user-result-card, .friend-item, .user-card")) {
                 setElementFrame(imgEl, myFrame);
             }
         });
 
-        // Чат
         const chatAvatar = document.getElementById("activeChatAvatar");
         const chatTitle = document.getElementById("chatWithTitle");
         if (chatAvatar && chatTitle) {
