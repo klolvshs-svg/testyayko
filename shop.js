@@ -1,4 +1,4 @@
-// shop.js — Чистые статические рамки для себя и друзей, правильный путь к item/batyabomb.png
+// shop.js — Абсолютно статичные рамки без миганий и пропорциональные бомбы из item/batyabomb.png
 
 (function () {
     const FRAMES_CONFIG = {
@@ -13,7 +13,7 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Жёсткие стили без перекрытия цветов
+    // 1. Жесткие статические стили с защитой от перебивания цветов
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
@@ -34,6 +34,8 @@
                 -webkit-border-radius: 50% !important;
                 background-clip: padding-box !important;
                 overflow: hidden !important;
+                animation: none !important;
+                -webkit-animation: none !important;
             }
 
             .egg-frame-default { border-color: #1a365d !important; box-shadow: none !important; }
@@ -70,9 +72,11 @@
         if (!el) return;
         const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
 
-        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-blue", "egg-frame-purple");
+        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-blue", "egg-frame-purple", "egg-frame-rainbow");
         el.style.removeProperty("border-color");
         el.style.removeProperty("box-shadow");
+        el.style.removeProperty("border-image");
+        el.style.removeProperty("filter");
 
         el.classList.add(`egg-frame-${safeFrame}`);
         el.dataset.frameType = safeFrame;
@@ -312,18 +316,17 @@
         sCanvas.height = sH * dpr;
         sCtx.scale(dpr, dpr);
 
-        // Правильный путь к текстуре бомбы в папке item
         const bombImg = new Image();
         bombImg.src = "item/batyabomb.png";
 
         const symbolsList = ["🗡", "🛡", "💧", "❄️", "⚔️", "🛡️"];
         const sDecorItems = Array.from({ length: 8 }, () => {
-            const isBomb = Math.random() < 0.2; // 20% бомб, остальное — другие предметы
+            const isBomb = Math.random() < 0.2;
             return {
                 x: Math.random() * sW,
                 y: Math.random() * sH,
                 speed: 1.0 + Math.random() * 1.5,
-                size: isBomb ? 34 : 28 + Math.random() * 8,
+                baseSize: isBomb ? 40 : 28,
                 rotation: Math.random() * Math.PI * 2,
                 rotSpeed: (Math.random() - 0.5) * 0.02,
                 isBomb: isBomb,
@@ -349,7 +352,16 @@
                     
                     if (item.isBomb) {
                         if (bombImg.complete && bombImg.naturalWidth !== 0) {
-                            sCtx.drawImage(bombImg, -item.size / 2, -item.size / 2, item.size, item.size);
+                            // Сохраняем реальные пропорции картинки без сплющивания
+                            const aspect = bombImg.naturalWidth / bombImg.naturalHeight;
+                            let drawW = item.baseSize;
+                            let drawH = item.baseSize;
+                            if (aspect > 1) {
+                                drawH = drawW / aspect;
+                            } else {
+                                drawW = drawH * aspect;
+                            }
+                            sCtx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
                         } else {
                             sCtx.font = "28px sans-serif";
                             sCtx.textAlign = "center";
