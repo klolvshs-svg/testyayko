@@ -1,4 +1,4 @@
-// shop.js — Абсолютно статичные рамки без миганий и пропорциональные бомбы из item/batyabomb.png
+// shop.js — Статичные несгораемые рамки и бомбы из item/batyabomb.png точного размера эмодзи
 
 (function () {
     const FRAMES_CONFIG = {
@@ -13,7 +13,7 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Жесткие статические стили с защитой от перебивания цветов
+    // 1. Абсолютно статичные стили без единой анимации и смен цветов
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
@@ -72,11 +72,9 @@
         if (!el) return;
         const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
 
-        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-blue", "egg-frame-purple", "egg-frame-rainbow");
+        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-blue", "egg-frame-purple");
         el.style.removeProperty("border-color");
         el.style.removeProperty("box-shadow");
-        el.style.removeProperty("border-image");
-        el.style.removeProperty("filter");
 
         el.classList.add(`egg-frame-${safeFrame}`);
         el.dataset.frameType = safeFrame;
@@ -326,7 +324,7 @@
                 x: Math.random() * sW,
                 y: Math.random() * sH,
                 speed: 1.0 + Math.random() * 1.5,
-                baseSize: isBomb ? 40 : 28,
+                size: 30, // Строго фиксированный размер под стандартный эмодзи (30px)
                 rotation: Math.random() * Math.PI * 2,
                 rotSpeed: (Math.random() - 0.5) * 0.02,
                 isBomb: isBomb,
@@ -352,10 +350,10 @@
                     
                     if (item.isBomb) {
                         if (bombImg.complete && bombImg.naturalWidth !== 0) {
-                            // Сохраняем реальные пропорции картинки без сплющивания
+                            // Строго пропорциональный размер 30px без сплющивания
                             const aspect = bombImg.naturalWidth / bombImg.naturalHeight;
-                            let drawW = item.baseSize;
-                            let drawH = item.baseSize;
+                            let drawW = item.size;
+                            let drawH = item.size;
                             if (aspect > 1) {
                                 drawH = drawW / aspect;
                             } else {
