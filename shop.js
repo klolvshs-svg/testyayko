@@ -1,4 +1,4 @@
-// shop.js — Абсолютно стабильные рамки без единого мигания и сбросов (ПК и Телефоны)
+// shop.js — Кнопка магазина на месте, идеальные круглые рамки без миганий и сбросов (ПК и Телефоны)
 
 (function () {
     const FRAMES_CONFIG = {
@@ -69,9 +69,8 @@
     // Установка рамки без дерганий и сбросов
     function setElementFrame(el, frameId) {
         if (!el) return;
-        const safeFrame = VALID_FRAMES.includes(frameId) frameId : "default";
+        const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
 
-        // Если у элемента уже стоит этот тип рамки, вообще не трогаем его, чтобы избежать мерцания
         if (el.dataset.frameType === safeFrame) return;
 
         el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple");
@@ -90,7 +89,6 @@
             el.style.removeProperty("box-shadow");
             el.classList.add("egg-frame-purple");
         }
-        // Для радужных рам рамка красится через плавный цикл без сбросов
     }
 
     // 2. Непрерывный плавный цикл JS-анимации
@@ -574,7 +572,7 @@
 
     setTimeout(() => {
         injectGlobalStyles();
-        injectShopButton();
+        injectShopButton(); // Кнопка снова на месте!
         createShopDrawer();
         startDomObserver();
         startGlobalRainbowLoop();
