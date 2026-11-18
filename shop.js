@@ -1,4 +1,4 @@
-// shop.js — Статичные несгораемые рамки и бомбы из item/batyabomb.png точного размера эмодзи
+// shop.js — Несгораемые статические рамки (без миганий в друзьях) и крупные бомбы из item/batyabomb.png
 
 (function () {
     const FRAMES_CONFIG = {
@@ -13,7 +13,7 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Абсолютно статичные стили без единой анимации и смен цветов
+    // 1. Жёсткие стили с защитой от сбросов и миганий в списках друзей
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
@@ -26,7 +26,9 @@
             .profile-avatar-container img,
             .user-card img,
             .chat-message img,
-            .message-avatar img {
+            .message-avatar img,
+            .friend-item img,
+            .user-result-card img {
                 box-sizing: border-box !important;
                 border-style: solid !important;
                 border-width: 3px !important;
@@ -124,6 +126,7 @@
         return "default";
     }
 
+    // Мгновенное и точное применение рамок ко всем элементам интерфейса и спискам друзей
     function refreshAllVisibleAvatars() {
         const myNick = getActiveUserNick();
         const myFrame = myNick ? resolveFrame(myNick) : "default";
@@ -131,6 +134,7 @@
         setElementFrame(document.getElementById("userAvatarImg"), myFrame);
         setElementFrame(document.getElementById("shopPreviewAvatar"), myFrame);
 
+        // Обработка списка друзей и карточек
         document.querySelectorAll(".user-result-card, .friend-item, .user-card").forEach((card) => {
             const nameEl = card.querySelector(".user-result-name, .friend-name");
             const imgEl = card.querySelector("img.user-result-ava, img");
@@ -319,12 +323,12 @@
 
         const symbolsList = ["🗡", "🛡", "💧", "❄️", "⚔️", "🛡️"];
         const sDecorItems = Array.from({ length: 8 }, () => {
-            const isBomb = Math.random() < 0.2;
+            const isBomb = Math.random() < 0.25;
             return {
                 x: Math.random() * sW,
                 y: Math.random() * sH,
                 speed: 1.0 + Math.random() * 1.5,
-                size: 30, // Строго фиксированный размер под стандартный эмодзи (30px)
+                size: 38, // Увеличенный размер бомб и эмодзи, чтобы они были крупными
                 rotation: Math.random() * Math.PI * 2,
                 rotSpeed: (Math.random() - 0.5) * 0.02,
                 isBomb: isBomb,
@@ -350,7 +354,6 @@
                     
                     if (item.isBomb) {
                         if (bombImg.complete && bombImg.naturalWidth !== 0) {
-                            // Строго пропорциональный размер 30px без сплющивания
                             const aspect = bombImg.naturalWidth / bombImg.naturalHeight;
                             let drawW = item.size;
                             let drawH = item.size;
@@ -361,12 +364,12 @@
                             }
                             sCtx.drawImage(bombImg, -drawW / 2, -drawH / 2, drawW, drawH);
                         } else {
-                            sCtx.font = "28px sans-serif";
+                            sCtx.font = "36px sans-serif";
                             sCtx.textAlign = "center";
                             sCtx.fillText("💣", 0, 0);
                         }
                     } else {
-                        sCtx.font = "28px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
+                        sCtx.font = "36px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
                         sCtx.textAlign = "center";
                         sCtx.fillText(item.symbol, 0, 0);
                     }
@@ -553,25 +556,17 @@
         }
     };
 
+    // Усиленный наблюдатель: мгновенно исправляет рамки при открытии модального окна друзей
     function startDomObserver() {
         let scheduled = false;
-        const observer = new MutationObserver((mutations) => {
-            let onlyFrames = true;
-            for (const m of mutations) {
-                if (m.target.id !== "userAvatarImg" && m.target.id !== "shopPreviewAvatar" && !m.target.dataset?.frameType) {
-                    onlyFrames = false;
-                    break;
-                }
-            }
-            if (onlyFrames) return;
-
+        const observer = new MutationObserver(() => {
             if (scheduled) return;
             scheduled = true;
-            setTimeout(() => {
+            requestAnimationFrame(() => {
                 scheduled = false;
                 refreshAllVisibleAvatars();
                 checkShopButtonVisibility();
-            }, 100);
+            });
         });
 
         observer.observe(document.body, {
