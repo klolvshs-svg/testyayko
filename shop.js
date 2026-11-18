@@ -1,4 +1,4 @@
-// shop.js — Аппаратный плавной перелив на CSS без JS-фризов и миганий (ПК и Телефоны)
+// shop.js — Идеально круглые рамки, кнопка магазина, плавный бесконечный перелив без фризов и искажения аватарок
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,23 +14,12 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем аппаратные CSS-анимации с нулевой нагрузкой на процессор
+    // 1. Чистые стили: только круглые аватарки и базовые цвета для статических рамок
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggPureRotate {
-                0%   { filter: hue-rotate(0deg); }
-                100% { filter: hue-rotate(360deg); }
-            }
-
-            @keyframes eggWavePulse {
-                0%   { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); filter: hue-rotate(0deg); }
-                50%  { border-color: #00ffcc; box-shadow: 0 0 10px rgba(0,255,204,0.5); filter: hue-rotate(180deg); }
-                100% { border-color: #ff0055; box-shadow: 0 0 6px rgba(255,0,85,0.4); filter: hue-rotate(360deg); }
-            }
-
             img.user-result-ava,
             #userAvatarImg,
             #activeChatAvatar,
@@ -48,41 +37,9 @@
                 overflow: hidden !important;
             }
 
-            .egg-frame-default {
-                border-color: #1a365d !important;
-                animation: none !important;
-                box-shadow: none !important;
-                filter: none !important;
-            }
-            .egg-frame-red {
-                border-color: #ff4d4d !important;
-                animation: none !important;
-                box-shadow: none !important;
-                filter: none !important;
-            }
-            .egg-frame-purple {
-                border-color: #9c27b0 !important;
-                animation: none !important;
-                box-shadow: none !important;
-                filter: none !important;
-            }
-            .egg-frame-rainbow {
-                border-color: #ff0000 !important;
-                border-image: linear-gradient(135deg, #ff0000, #ff7700, #ffff00, #00ff00, #00bbff, #7700ff, #ff00cc, #ff0000) 1 !important;
-                border-radius: 50% !important;
-                -webkit-border-radius: 50% !important;
-                animation: eggPureRotate 6s linear infinite !important;
-                -webkit-animation: eggPureRotate 6s linear infinite !important;
-                will-change: filter;
-            }
-            .egg-frame-rainbow2 {
-                border-color: #ff0055 !important;
-                border-radius: 50% !important;
-                -webkit-border-radius: 50% !important;
-                animation: eggWavePulse 3s linear infinite !important;
-                -webkit-animation: eggWavePulse 3s linear infinite !important;
-                will-change: filter, border-color, box-shadow;
-            }
+            .egg-frame-default { border-color: #1a365d !important; box-shadow: none !important; }
+            .egg-frame-red { border-color: #ff4d4d !important; box-shadow: none !important; }
+            .egg-frame-purple { border-color: #9c27b0 !important; box-shadow: none !important; }
         `;
         document.head.appendChild(style);
     }
@@ -109,23 +66,80 @@
         return firestoreApi;
     }
 
+    // Установка рамки без дерганий
     function setElementFrame(el, frameId) {
         if (!el) return;
         const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
-        const targetClass = `egg-frame-${safeFrame}`;
 
-        if (el.dataset.appliedFrame === safeFrame && el.classList.contains(targetClass)) {
-            return;
+        if (el.dataset.frameType === safeFrame) return;
+
+        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple");
+        el.dataset.frameType = safeFrame;
+
+        if (safeFrame === "default") {
+            el.style.removeProperty("border-color");
+            el.style.removeProperty("box-shadow");
+            el.classList.add("egg-frame-default");
+        } else if (safeFrame === "red") {
+            el.style.removeProperty("border-color");
+            el.style.removeProperty("box-shadow");
+            el.classList.add("egg-frame-red");
+        } else if (safeFrame === "purple") {
+            el.style.removeProperty("border-color");
+            el.style.removeProperty("box-shadow");
+            el.classList.add("egg-frame-purple");
         }
+    }
 
-        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple", "egg-frame-rainbow", "egg-frame-rainbow2");
-        el.style.removeProperty("border-color");
-        el.style.removeProperty("box-shadow");
-        el.style.removeProperty("border-image");
-        el.style.removeProperty("filter");
+    // 2. Бесшовный JS-цикл перелива цветов по точному спектру без фризов
+    function startGlobalRainbowLoop() {
+        // Массив опорных цветов радуги для идеально плавного перехода без рывков
+        const rainbowColors = [
+            [255, 0, 0],     // Красный
+            [255, 127, 0],   // Оранжевый
+            [255, 255, 0],   // Желтый
+            [0, 255, 0],     // Зеленый
+            [0, 255, 255],   // Голубой
+            [0, 0, 255],     // Синий
+            [139, 0, 255],   // Фиолетовый
+            [255, 0, 127],   // Розовый
+            [255, 0, 0]      // Возврат в красный
+        ];
 
-        el.classList.add(targetClass);
-        el.dataset.appliedFrame = safeFrame;
+        const duration = 7000; // Полный цикл за 7 секунд
+
+        function updateLoop() {
+            const now = Date.now();
+            const progress = (now % duration) / duration; // от 0 до 1
+            const scaled = progress * (rainbowColors.length - 1);
+            const index = Math.floor(scaled);
+            const t = scaled - index; // коэффициент интерполяции между цветами
+
+            const c1 = rainbowColors[index];
+            const c2 = rainbowColors[index + 1];
+
+            // Плавное смешивание RGB (интерполяция)
+            const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+            const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+            const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+
+            const colorString = `rgb(${r}, ${g}, ${b})`;
+            const shadowString = `0 0 8px rgb(${r}, ${g}, ${b})`;
+
+            // Применяем цвета ко всем элементам рамок
+            document.querySelectorAll("[data-frame-type='rainbow']").forEach(el => {
+                el.style.borderColor = colorString;
+                el.style.boxShadow = "none";
+            });
+
+            document.querySelectorAll("[data-frame-type='rainbow2']").forEach(el => {
+                el.style.borderColor = colorString;
+                el.style.boxShadow = shadowString;
+            });
+
+            requestAnimationFrame(updateLoop);
+        }
+        requestAnimationFrame(updateLoop);
     }
 
     async function subscribeToUserFrame(nick) {
@@ -314,7 +328,7 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div class="egg-frame-rainbow" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
+                                <div data-frame-type="rainbow" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (плавная) (2 мл)</span>
                             </div>
                             <div id="action_rainbow"></div>
@@ -322,7 +336,7 @@
 
                         <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <div class="egg-frame-rainbow2" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
+                                <div data-frame-type="rainbow2" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
                                 <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (волна) (2.5 мл)</span>
                             </div>
                             <div id="action_rainbow2"></div>
@@ -583,6 +597,7 @@
         injectShopButton();
         createShopDrawer();
         startDomObserver();
+        startGlobalRainbowLoop();
         refreshAllVisibleAvatars();
         setInterval(checkShopButtonVisibility, 250);
     }, 600);
