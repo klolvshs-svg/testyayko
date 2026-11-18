@@ -1,36 +1,24 @@
-// shop.js — Стандартная, красная, голубая, фиолетовая и быстрая радужная рамка (2 секунды)
+// shop.js — Магазин рамок (Стандартная, Красная, Голубая, Фиолетовая), падающие batyabomb.png и закрытие по клику вне шторки
 
 (function () {
     const FRAMES_CONFIG = {
         default: { name: "Стандартная (темно-синяя)", price: 0 },
         red:     { name: "Красная (1 мл)", price: 1.0 },
         blue:    { name: "Голубая (1 мл)", price: 1.0 },
-        purple:  { name: "Фиолетовая (1 мл)", price: 1.0 },
-        rainbow: { name: "Радужная (2 сек)", price: 2.0 }
+        purple:  { name: "Фиолетовая (1 мл)", price: 1.0 }
     };
 
-    const VALID_FRAMES = ["default", "red", "blue", "purple", "rainbow"];
+    const VALID_FRAMES = ["default", "red", "blue", "purple"];
     const userFramesCache = new Map();
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем стили и быструю радужную анимацию (ровно 2 секунды на полный круг)
+    // 1. Внедряем чистые стили для круглых аватарок
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
         style.id = "shopGlobalStyles";
         style.textContent = `
-            @keyframes eggFastRainbow {
-                0%   { border-color: #ff0000; }
-                14%  { border-color: #ff7f00; }
-                28%  { border-color: #ffff00; }
-                42%  { border-color: #00ff00; }
-                57%  { border-color: #00bfff; }
-                71%  { border-color: #4b0082; }
-                85%  { border-color: #ee82ee; }
-                100% { border-color: #ff0000; }
-            }
-
             img.user-result-ava,
             #userAvatarImg,
             #activeChatAvatar,
@@ -48,33 +36,10 @@
                 overflow: hidden !important;
             }
 
-            .egg-frame-default {
-                border-color: #1a365d !important;
-                animation: none !important;
-                box-shadow: none !important;
-            }
-            .egg-frame-red {
-                border-color: #ff4d4d !important;
-                animation: none !important;
-                box-shadow: none !important;
-            }
-            .egg-frame-blue {
-                border-color: #00d2ff !important;
-                animation: none !important;
-                box-shadow: none !important;
-            }
-            .egg-frame-purple {
-                border-color: #9c27b0 !important;
-                animation: none !important;
-                box-shadow: none !important;
-            }
-            .egg-frame-rainbow {
-                border-radius: 50% !important;
-                -webkit-border-radius: 50% !important;
-                animation: eggFastRainbow 2s linear infinite !important;
-                -webkit-animation: eggFastRainbow 2s linear infinite !important;
-                will-change: border-color;
-            }
+            .egg-frame-default { border-color: #1a365d !important; box-shadow: none !important; }
+            .egg-frame-red { border-color: #ff4d4d !important; box-shadow: none !important; }
+            .egg-frame-blue { border-color: #00d2ff !important; box-shadow: none !important; }
+            .egg-frame-purple { border-color: #9c27b0 !important; box-shadow: none !important; }
         `;
         document.head.appendChild(style);
     }
@@ -101,7 +66,6 @@
         return firestoreApi;
     }
 
-    // Установка рамки на элемент
     function setElementFrame(el, frameId) {
         if (!el) return;
         const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
@@ -111,7 +75,7 @@
             return;
         }
 
-        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-blue", "egg-frame-purple", "egg-frame-rainbow");
+        el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-blue", "egg-frame-purple");
         el.style.removeProperty("border-color");
         el.style.removeProperty("box-shadow");
         el.style.removeProperty("border-image");
@@ -236,7 +200,30 @@
     }
 
     function createShopDrawer() {
-        if (document.getElementById("shopDrawer")) return;
+        if (document.getElementById("shopOverlay")) return;
+
+        // Создаем подложку (оверлей) для закрытия кликом по пустому месту снаружи шторки
+        const overlay = document.createElement("div");
+        overlay.id = "shopOverlay";
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 35;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        overlay.onclick = (e) => {
+            // Закрываем только если кликнули именно по подложке (вне шторки)
+            if (e.target === overlay) {
+                toggleShopDrawer();
+            }
+        };
+        document.body.appendChild(overlay);
 
         const shopDrawer = document.createElement("div");
         shopDrawer.id = "shopDrawer";
@@ -273,8 +260,9 @@
                 </div>
                 <div id="shopCurrentBalance" style="font-size: 13px; color: #a5d6a7; margin-bottom: 15px;">Баланс: загрузка...</div>
 
-                <button class="btn-drawer-custom" style="margin-bottom: 5px; background: #248bda; display:flex; justify-content:space-between; align-items:center;" onclick="toggleShopFramesAccordion()">
-                    <span>✨ Рамки для аватара</span>
+                <!-- Кнопка потемнее и слегка прозрачная, без смайлика -->
+                <button class="btn-drawer-custom" style="margin-bottom: 5px; background: rgba(18, 28, 40, 0.75); border: 1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-between; align-items:center;" onclick="toggleShopFramesAccordion()">
+                    <span>Рамки для аватара</span>
                     <span id="accordionArrow">▲</span>
                 </button>
 
@@ -313,14 +301,6 @@
                             <div id="action_purple"></div>
                         </div>
 
-                        <div style="background:rgba(25,35,48,0.8); padding:8px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <div class="egg-frame-rainbow" style="width:24px; height:24px; border-radius:50%; border-style:solid; border-width:3px; box-sizing:border-box;"></div>
-                                <span style="font-size:11px; font-weight:bold; color:#fff;">Радужная (2 сек) (2 мл)</span>
-                            </div>
-                            <div id="action_rainbow"></div>
-                        </div>
-
                     </div>
                 </div>
 
@@ -342,39 +322,43 @@
         sCanvas.height = sH * dpr;
         sCtx.scale(dpr, dpr);
 
-        const pool = ["sword", "bomb", "shield", "helmet", "drop1", "snow", "table"];
-        const symbols = {
-            table: "🪑", shield: "🛡", helmet: "🪖",
-            drop1: "💧", snow: "❄️", bomb: "💣", sword: "🗡"
-        };
+        // Загружаем текстуру падающих бомб batyabomb.png
+        const bombImg = new Image();
+        bombImg.src = "batyabomb.png";
 
-        const sDecorItems = Array.from({ length: 10 }, () => ({
+        const sBombs = Array.from({ length: 8 }, () => ({
             x: Math.random() * sW,
             y: Math.random() * sH,
-            speed: 1.3 + Math.random() * 1.6,
-            type: pool[Math.floor(Math.random() * pool.length)],
+            speed: 1.2 + Math.random() * 1.8,
+            size: 32 + Math.random() * 16,
             rotation: Math.random() * Math.PI * 2,
-            rotSpeed: (Math.random() - 0.5) * 0.025
+            rotSpeed: (Math.random() - 0.5) * 0.03
         }));
 
         function drawShopDecor() {
             const drawer = document.getElementById("shopDrawer");
             if (drawer && drawer.style.left === "0px") {
                 sCtx.clearRect(0, 0, sW, sH);
-                sCtx.font = "35px 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif";
-                sCtx.textAlign = "center";
 
-                for (const item of sDecorItems) {
-                    item.y += item.speed;
-                    item.rotation += item.rotSpeed;
-                    if (item.y > sH + 50) {
-                        item.y = -50;
-                        item.x = Math.random() * sW;
+                for (const bomb of sBombs) {
+                    bomb.y += bomb.speed;
+                    bomb.rotation += bomb.rotSpeed;
+                    if (bomb.y > sH + 50) {
+                        bomb.y = -50;
+                        bomb.x = Math.random() * sW;
                     }
                     sCtx.save();
-                    sCtx.translate(item.x, item.y);
-                    sCtx.rotate(item.rotation);
-                    sCtx.fillText(symbols[item.type] || "🗡", 0, 0);
+                    sCtx.translate(bomb.x, bomb.y);
+                    sCtx.rotate(bomb.rotation);
+                    
+                    if (bombImg.complete && bombImg.naturalWidth !== 0) {
+                        sCtx.drawImage(bombImg, -bomb.size / 2, -bomb.size / 2, bomb.size, bomb.size);
+                    } else {
+                        // Запасной вариант на случай, если картинка еще грузится
+                        sCtx.font = "30px sans-serif";
+                        sCtx.textAlign = "center";
+                        sCtx.fillText("💣", 0, 0);
+                    }
                     sCtx.restore();
                 }
             }
@@ -394,13 +378,20 @@
 
     window.toggleShopDrawer = async function () {
         const drawer = document.getElementById("shopDrawer");
-        if (!drawer) return;
+        const overlay = document.getElementById("shopOverlay");
+        if (!drawer || !overlay) return;
+        
         const isOpen = drawer.style.left === "0px";
         if (isOpen) {
             drawer.style.left = "-380px";
+            overlay.style.opacity = "0";
+            setTimeout(() => { overlay.style.display = "none"; }, 300);
         } else {
             const profileDrawer = document.getElementById("profileDrawer");
             if (profileDrawer) profileDrawer.classList.remove("open");
+            
+            overlay.style.display = "block";
+            setTimeout(() => { overlay.style.opacity = "1"; }, 10);
             drawer.style.left = "0px";
             await window.updateShopUI();
         }
