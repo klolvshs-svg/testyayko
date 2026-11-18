@@ -1,4 +1,4 @@
-// shop.js — Абсолютно плавный и непрерывный радужный перелив у всех игроков без сбросов и рывков
+// shop.js — Абсолютно стабильные рамки без единого мигания и сбросов (ПК и Телефоны)
 
 (function () {
     const FRAMES_CONFIG = {
@@ -14,7 +14,7 @@
     const activeListeners = new Map();
     let firestoreApi = null;
 
-    // 1. Внедряем чистые круглые стили (никаких CSS-анимаций, которые могут сбрасываться браузером)
+    // 1. Внедряем чистые стили
     function injectGlobalStyles() {
         if (document.getElementById("shopGlobalStyles")) return;
         const style = document.createElement("style");
@@ -66,10 +66,13 @@
         return firestoreApi;
     }
 
-    // Точное применение рамки к элементу
+    // Установка рамки без дерганий и сбросов
     function setElementFrame(el, frameId) {
         if (!el) return;
-        const safeFrame = VALID_FRAMES.includes(frameId) ? frameId : "default";
+        const safeFrame = VALID_FRAMES.includes(frameId) frameId : "default";
+
+        // Если у элемента уже стоит этот тип рамки, вообще не трогаем его, чтобы избежать мерцания
+        if (el.dataset.frameType === safeFrame) return;
 
         el.classList.remove("egg-frame-default", "egg-frame-red", "egg-frame-purple");
         el.dataset.frameType = safeFrame;
@@ -87,26 +90,23 @@
             el.style.removeProperty("box-shadow");
             el.classList.add("egg-frame-purple");
         }
-        // Для радужных рамок цвета управляются единым плавным циклом ниже
+        // Для радужных рам рамка красится через плавный цикл без сбросов
     }
 
-    // 2. Единый глобальный цикл анимации на JS (гарантирует полный цикл спектра без рывков у всех)
+    // 2. Непрерывный плавный цикл JS-анимации
     function startGlobalRainbowLoop() {
         let startTime = Date.now();
 
         function updateLoop() {
             const elapsed = (Date.now() - startTime) / 1000;
             
-            // Радуга 1: полный плавный круг за 6 секунд (hue от 0 до 360)
             const hue1 = (elapsed * 60) % 360;
             const rainbowColor1 = `hsl(${hue1}, 100%, 50%)`;
 
-            // Радуга 2 (волна): чуть быстрее, с мягким внутренним свечением за 3 секунды
             const hue2 = (elapsed * 120) % 360;
             const rainbowColor2 = `hsl(${hue2}, 100%, 55%)`;
             const rainbowShadow2 = `0 0 8px hsl(${hue2}, 100%, 50%)`;
 
-            // Применяем цвета ко всем элементам с рамками rainbow на странице
             document.querySelectorAll("[data-frame-type='rainbow']").forEach(el => {
                 el.style.borderColor = rainbowColor1;
                 el.style.boxShadow = "none";
