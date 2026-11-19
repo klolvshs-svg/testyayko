@@ -1,4 +1,4 @@
-// clan.js — Модуль кланов (бомба увеличена до размера снежинки, правила Firestore в шагах ниже)
+// clan.js — Оптимизированный модуль кланов (без лагов, крупные бомбы, плавный спуск на телефоне)
 
 (function () {
     const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -16,6 +16,7 @@
     let createAvatarDataUrl = "";
     let liveTimerInterval = null;
     let decorAnimId = null;
+    let enrichTimer = null;
 
     function getActiveNick() {
         return (
@@ -78,11 +79,9 @@
                 position: absolute;
                 top: 15px;
                 right: 15px;
-                background: rgba(24, 34, 45, 0.58);
+                background: rgba(24, 34, 45, 0.72);
                 color: #e2e8f0;
                 border: 1px solid rgba(148, 163, 184, 0.28);
-                backdrop-filter: blur(6px);
-                -webkit-backdrop-filter: blur(6px);
                 height: 44px;
                 padding: 0 16px;
                 border-radius: 12px;
@@ -137,11 +136,9 @@
                 top: 16px;
                 left: 16px;
                 z-index: 70;
-                background: rgba(55, 65, 81, 0.52);
+                background: rgba(55, 65, 81, 0.65);
                 color: #f3f4f6;
                 border: 1px solid rgba(255, 255, 255, 0.16);
-                backdrop-filter: blur(6px);
-                -webkit-backdrop-filter: blur(6px);
                 padding: 9px 16px;
                 border-radius: 10px;
                 font-size: 14px;
@@ -152,7 +149,7 @@
             }
             #clanBackBtn:active {
                 transform: scale(0.95);
-                background: rgba(75, 85, 99, 0.72);
+                background: rgba(75, 85, 99, 0.8);
             }
 
             .clan-scroll-container {
@@ -161,6 +158,7 @@
                 width: 100%;
                 height: 100%;
                 overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
                 padding: 72px 18px 36px 18px;
                 box-sizing: border-box;
                 display: flex;
@@ -180,10 +178,8 @@
 
             .clan-search-panel {
                 width: 100%;
-                background: rgba(15, 23, 33, 0.58);
+                background: rgba(15, 23, 33, 0.72);
                 border: 1px solid rgba(148, 163, 184, 0.25);
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
                 border-radius: 14px;
                 padding: 14px;
                 box-sizing: border-box;
@@ -193,7 +189,7 @@
             .clan-input {
                 width: 100%;
                 box-sizing: border-box;
-                background: rgba(15, 23, 33, 0.65);
+                background: rgba(15, 23, 33, 0.78);
                 border: 1px solid rgba(148, 163, 184, 0.32);
                 color: #fff;
                 padding: 11px 13px;
@@ -207,11 +203,9 @@
 
             .clan-create-btn {
                 width: 100%;
-                background: rgba(30, 41, 59, 0.58);
+                background: rgba(30, 41, 59, 0.72);
                 color: #f1f5f9;
                 border: 1px solid rgba(148, 163, 184, 0.3);
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
                 padding: 14px 20px;
                 border-radius: 12px;
                 font-size: 16px;
@@ -221,7 +215,7 @@
                 transition: transform 0.1s, background 0.2s, border-color 0.2s;
             }
             .clan-create-btn:hover {
-                background: rgba(51, 65, 85, 0.66);
+                background: rgba(51, 65, 85, 0.82);
                 border-color: rgba(148, 163, 184, 0.48);
             }
             .clan-create-btn:active {
@@ -229,7 +223,7 @@
             }
 
             .clan-card-item {
-                background: rgba(24, 34, 45, 0.68);
+                background: rgba(24, 34, 45, 0.82);
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 10px;
                 padding: 10px;
@@ -242,7 +236,7 @@
                 transition: background 0.15s;
             }
             .clan-card-item:hover {
-                background: rgba(30, 41, 59, 0.85);
+                background: rgba(30, 41, 59, 0.92);
             }
 
             .clan-square-ava {
@@ -251,7 +245,7 @@
                 border-radius: 0 !important;
                 object-fit: cover;
                 border: 2px solid rgba(148, 163, 184, 0.45);
-                background: rgba(24, 34, 45, 0.75);
+                background: rgba(24, 34, 45, 0.82);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -264,7 +258,7 @@
                 border-radius: 0 !important;
                 object-fit: cover;
                 border: 1px solid rgba(255, 255, 255, 0.22);
-                background: rgba(15, 23, 33, 0.75);
+                background: rgba(15, 23, 33, 0.82);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -275,10 +269,8 @@
             .clan-hub-box {
                 width: 100%;
                 max-width: 460px;
-                background: rgba(15, 23, 33, 0.68);
+                background: rgba(15, 23, 33, 0.8);
                 border: 1px solid rgba(148, 163, 184, 0.25);
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
                 border-radius: 16px;
                 padding: 18px;
                 box-sizing: border-box;
@@ -314,7 +306,7 @@
 
             .clan-members-box {
                 width: 100%;
-                background: rgba(51, 65, 85, 0.36);
+                background: rgba(51, 65, 85, 0.42);
                 border: 1px solid rgba(148, 163, 184, 0.22);
                 border-radius: 12px;
                 padding: 10px;
@@ -329,7 +321,7 @@
                 align-items: center;
                 justify-content: space-between;
                 gap: 8px;
-                background: rgba(15, 23, 33, 0.62);
+                background: rgba(15, 23, 33, 0.7);
                 border-radius: 10px;
                 padding: 8px 10px;
                 text-align: left;
@@ -405,25 +397,31 @@
         const bombImg = new Image();
         bombImg.src = "item/batyabomb.png";
 
+        const isMobile = window.innerWidth <= 768;
         const symbols = ["🗡", "🛡", "💧", "❄️"];
-        const items = Array.from({ length: 16 }, () => {
-            const isBomb = Math.random() < 0.28;
+        const count = isMobile ? 10 : 14;
+
+        const items = Array.from({ length: count }, (_, idx) => {
+            const isBomb = idx < 3 || Math.random() < 0.3;
+            const speed = isMobile ? 1.15 + Math.random() * 0.85 : 2.3 + Math.random() * 2.1;
+            const vRot = isMobile ? (Math.random() - 0.5) * 0.015 : (Math.random() - 0.5) * 0.03;
+            const size = isBomb ? (isMobile ? 74 : 64) : isMobile ? 38 : 36;
             return {
-                x: Math.random() * window.innerWidth,
-                y: Math.random() * window.innerHeight,
-                speed: 2.3 + Math.random() * 2.5,
+                x: Math.random() * Math.max(320, window.innerWidth),
+                y: Math.random() * Math.max(480, window.innerHeight),
+                speed,
                 rot: Math.random() * Math.PI * 2,
-                vRot: (Math.random() - 0.5) * 0.035,
+                vRot,
                 isBomb,
                 sym: symbols[Math.floor(Math.random() * symbols.length)],
-                size: isBomb ? 52 : 34 + Math.floor(Math.random() * 6)
+                size
             };
         });
 
         let lastTime = performance.now();
 
         function resizeCvs() {
-            const dpr = window.devicePixelRatio || 1;
+            const dpr = Math.min(2, window.devicePixelRatio || 1);
             const w = window.innerWidth;
             const h = window.innerHeight;
             cvs.width = w * dpr;
@@ -434,7 +432,8 @@
         window.addEventListener("resize", resizeCvs);
 
         function tick(now) {
-            const dt = Math.min(2, (now - lastTime) / 16.667);
+            const rawDt = (now - lastTime) / 16.667;
+            const dt = Math.min(2.5, Math.max(0.25, rawDt));
             lastTime = now;
 
             if (clanPageOpen) {
@@ -444,8 +443,8 @@
                 for (const it of items) {
                     it.y += it.speed * dt;
                     it.rot += it.vRot * dt;
-                    if (it.y > h + 55) {
-                        it.y = -55;
+                    if (it.y > h + 70) {
+                        it.y = -70;
                         it.x = Math.random() * w;
                     }
                     c.save();
@@ -705,7 +704,7 @@
                 })
                 .join("");
         } catch (err) {
-            container.innerHTML = `<div style="font-size:12px; color:#f87171; margin-top:10px; text-align:center;">Ошибка поиска: ${escapeHtml(err.message || "")}</div>`;
+            container.innerHTML = `<div style="font-size:12px; color:#f87171; margin-top:10px; text-align:center;">Ошибка поиска (${escapeHtml(err.code || "")}): ${escapeHtml(err.message || "")}</div>`;
         }
     };
 
@@ -818,13 +817,17 @@
                         clanName: rawName
                     });
                 } else {
-                    tx.set(userRef, {
-                        username: nick,
-                        username_lower: nick,
-                        clanId,
-                        clanName: rawName,
-                        members: []
-                    }, { merge: true });
+                    tx.set(
+                        userRef,
+                        {
+                            username: nick,
+                            username_lower: nick,
+                            clanId,
+                            clanName: rawName,
+                            members: []
+                        },
+                        { merge: true }
+                    );
                 }
             });
 
@@ -832,7 +835,7 @@
             viewedOtherClanId = null;
             await syncUserClanAndRender(nick, null);
         } catch (err) {
-            alert(err.message || "Ошибка создания клана");
+            alert(`${err.message || "Ошибка создания клана"} ${err.code ? "[" + err.code + "]" : ""}`);
         }
     };
 
@@ -1181,17 +1184,20 @@
         const cards = container.querySelectorAll(".user-result-card");
         if (!cards.length) return;
 
+        const unenriched = Array.from(cards).filter((c) => c.dataset.clanEnriched !== "1");
+        if (!unenriched.length) return;
+
+        await ensureAuthSession();
         const { db, doc, getDoc } = await getFs();
 
-        for (const card of cards) {
-            if (card.dataset.clanEnriched === "1") continue;
+        for (const card of unenriched) {
+            card.dataset.clanEnriched = "1";
             const nameEl = card.querySelector(".user-result-name");
             const metaEl = card.querySelector(".user-result-meta");
             if (!nameEl || !metaEl) continue;
 
             const friendNick = nameEl.textContent.trim().toLowerCase();
             if (!friendNick) continue;
-            card.dataset.clanEnriched = "1";
 
             let info = userClanCache.get(friendNick);
             if (info === undefined) {
@@ -1239,19 +1245,27 @@
         return String(str || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
     }
 
-    function watchDom() {
-        const obs = new MutationObserver(() => {
+    function startLightSync() {
+        const friendsBox = document.getElementById("friendsResultsContainer");
+        if (friendsBox) {
+            const obs = new MutationObserver(() => {
+                if (enrichTimer) clearTimeout(enrichTimer);
+                enrichTimer = setTimeout(enrichFriendsWithClans, 120);
+            });
+            obs.observe(friendsBox, { childList: true });
+        }
+        setInterval(() => {
             updateOpenClanBtnVisibility();
-            enrichFriendsWithClans();
-        });
-        obs.observe(document.body, { childList: true, subtree: true, attributes: true });
-        setInterval(updateOpenClanBtnVisibility, 300);
+            if (document.getElementById("friendsResultsContainer")?.children.length) {
+                enrichFriendsWithClans().catch(() => {});
+            }
+        }, 700);
     }
 
     setTimeout(() => {
         injectStyles();
         createUiElements();
         updateOpenClanBtnVisibility();
-        watchDom();
+        startLightSync();
     }, 500);
 })();
