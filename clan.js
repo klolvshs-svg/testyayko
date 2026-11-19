@@ -1,4 +1,4 @@
-// clan.js — Модуль кланов (шторка, порядок кнопок, баланс 90 мл, чат + точки непрочитанных, live-онлайн)
+// clan.js — Модуль кланов (чат, мут/кик/удаление, рамки без лагов, баланс мл, «спасает кожицу», звание «Наполнитель»)
 
 (function () {
     const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -14,7 +14,8 @@
     let currentClanData = null;
     let currentClanId = null;
     let viewedOtherClanId = null;
-    let clanSubView = "hub"; // "hub" | "settings" | "chat" | "donate"
+    let clanSubView = "hub"; // "hub" | "settings" | "chat" | "donate" | "memberManage"
+    let managedMemberNick = null;
     let membersCache = new Map();
     let userClanCache = new Map();
     let pendingClanLookups = new Set();
@@ -24,10 +25,12 @@
     let decorAnimId = null;
     let friendsObserverAttached = false;
 
-    // Состояние непрочитанных сообщений чата клана
+    // Чат и выделение сообщений
     let unreadChatCount = 0;
     let knownMessageIds = new Set();
     let initialChatLoaded = false;
+    let latestChatDocs = [];
+    let selectedMsgIds = new Set();
 
     function getActiveNick() {
         return (
@@ -92,8 +95,7 @@
             runTransaction: mod.runTransaction,
             arrayUnion: mod.arrayUnion,
             arrayRemove: mod.arrayRemove,
-            increment: mod.increment,
-            serverTimestamp: mod.serverTimestamp
+            increment: mod.increment
         };
         return fsApi;
     }
@@ -114,7 +116,6 @@
         }
         const rect = el.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) return false;
-        // Если элемент явно выдвинут за пределы экрана слева (закрытая шторка)
         if (rect.right <= 8) return false;
         return true;
     }
@@ -155,22 +156,30 @@
         return null;
     }
 
-    function detectLocalPlayerMl(fsUserData = null) {
-        const candidates = [];
+    function extractUserMl(uData) {
+        if (!uData) return 0;
+        const keys = ["ml", "milliliters", "mlBalance", "water", "waterMl", "balance"];
+        for (const k of keys) {
+            if (typeof uData[k] === "number" && Number.isFinite(uData[k])) {
+                return Math.max(0, Math.round(uData[k] * 1000) / 1000);
+            }
+            if (typeof uData[k] === "string" && uData[k].trim() !== "") {
+                const n = parseFloat(uData[k].replace(",", "."));
+                if (Number.isFinite(n)) return Math.max(0, Math.round(n * 1000) / 1000);
+            }
+        }
+        return 0;
+    }
+
+    function detectEffectivePlayerMl(fsUserData = null) {
+        const values = [];
+        const fsVal = extractUserMl(fsUserData);
+        if (fsUserData) values.push(fsVal);
 
         const winKeys = ["ml", "playerMl", "userMl", "currentMl", "mlBalance", "waterMl", "balanceMl"];
         for (const k of winKeys) {
             if (typeof window[k] === "number" && Number.isFinite(window[k])) {
-                candidates.push(window[k]);
-            }
-        }
-
-        if (fsUserData) {
-            const fsKeys = ["ml", "milliliters", "mlBalance", "water", "balance"];
-            for (const k of fsKeys) {
-                if (typeof fsUserData[k] === "number" && Number.isFinite(fsUserData[k])) {
-                    candidates.push(fsUserData[k]);
-                }
+                values.push(window[k]);
             }
         }
 
@@ -179,11 +188,10 @@
             const raw = localStorage.getItem(k);
             if (raw !== null && raw !== "") {
                 const n = parseFloat(String(raw).replace(",", "."));
-                if (Number.isFinite(n)) candidates.push(n);
+                if (Number.isFinite(n)) values.push(n);
             }
         }
 
-        // Поиск в элементах HUD/профиля с подписью «мл»
         const selectors = [
             "#mlDisplay",
             "#playerMl",
@@ -200,48 +208,98 @@
                 const attrVal = el.getAttribute("data-ml");
                 if (attrVal !== null) {
                     const n = parseFloat(String(attrVal).replace(",", "."));
-                    if (Number.isFinite(n)) candidates.push(n);
+                    if (Number.isFinite(n)) values.push(n);
                 }
                 const parsed = parseMlFromText(el.textContent);
-                if (parsed !== null) candidates.push(parsed);
+                if (parsed !== null) values.push(parsed);
             }
         }
 
-        // Если в кэшированных полях есть точное число больше 0 — берём его
-        for (const v of candidates) {
-            if (v > 0) return Math.round(v * 1000) / 1000;
-        }
-        if (candidates.length > 0) {
-            return Math.max(0, Math.round(candidates[0] * 1000) / 1000);
-        }
-        return 0;
+        if (!values.length) return 0;
+        const best = Math.max(...values.filter((v) => Number.isFinite(v)));
+        return Math.max(0, Math.round(best * 1000) / 1000);
     }
 
-    function syncLocalPlayerMlDown(amount, fsUserData = null) {
+    function applyLocalPlayerMlValue(nextVal) {
+        const cleanVal = Math.max(0, Math.round(nextVal * 1000) / 1000);
         const winKeys = ["ml", "playerMl", "userMl", "currentMl", "mlBalance", "waterMl", "balanceMl"];
         for (const k of winKeys) {
             if (typeof window[k] === "number" && Number.isFinite(window[k])) {
-                window[k] = Math.max(0, Math.round((window[k] - amount) * 1000) / 1000);
+                window[k] = cleanVal;
             }
         }
         const lsKeys = ["egg_ml", "player_ml", "user_ml", "ml_balance", "ml"];
         for (const k of lsKeys) {
-            const raw = localStorage.getItem(k);
-            if (raw !== null && raw !== "") {
-                const n = parseFloat(String(raw).replace(",", "."));
-                if (Number.isFinite(n)) {
-                    localStorage.setItem(k, String(Math.max(0, Math.round((n - amount) * 1000) / 1000)));
-                }
+            if (localStorage.getItem(k) !== null) {
+                localStorage.setItem(k, String(cleanVal));
             }
         }
-        if (fsUserData) {
-            const fsKeys = ["ml", "milliliters", "mlBalance", "water", "balance"];
-            for (const k of fsKeys) {
-                if (typeof fsUserData[k] === "number") {
-                    fsUserData[k] = Math.max(0, Math.round((fsUserData[k] - amount) * 1000) / 1000);
-                }
-            }
+        const nick = getActiveNick();
+        if (nick && membersCache.has(nick)) {
+            const prev = membersCache.get(nick);
+            membersCache.set(nick, { ...prev, ml: cleanVal });
         }
+    }
+
+    // --- ПРАВА И ЗВАНИЯ В КЛАНЕ ---
+    function getMemberRoleMeta(clan, cleanNick) {
+        if (!clan) return { title: "Участник", canDeleteMsg: false, canMute: false, canKick: false, canPromote: false };
+        if (String(clan.leader || "").toLowerCase() === cleanNick) {
+            return {
+                title: "Глава",
+                canDeleteMsg: true,
+                canMute: true,
+                canKick: true,
+                canPromote: true
+            };
+        }
+        const rolesMap = clan.memberRoles && typeof clan.memberRoles === "object" ? clan.memberRoles : {};
+        const r = rolesMap[cleanNick] || {};
+        const isFiller = Boolean(r.isFiller || r.role === "filler");
+        const canPromote = Boolean(r.canPromote);
+        const canDeleteMsg = Boolean(r.canDeleteMsg);
+        const canMute = Boolean(r.canMute);
+        const canKick = Boolean(r.canKick);
+
+        return {
+            title: isFiller ? "Наполнитель" : "Участник",
+            isFiller,
+            canDeleteMsg,
+            canMute,
+            canKick,
+            canPromote
+        };
+    }
+
+    function isUserMutedInClan(clan, cleanNick) {
+        if (!clan || !Array.isArray(clan.mutedMembers)) return false;
+        return clan.mutedMembers.map((x) => String(x).toLowerCase()).includes(cleanNick);
+    }
+
+    // --- СТАТИЧНЫЕ РАМКИ АВАТАРОК (БЕЗ ЛАГОВ) ---
+    function getStaticFrameStyle(frameId) {
+        switch (frameId) {
+            case "gold":
+                return "border: 2px solid #facc15; box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35);";
+            case "crimson":
+                return "border: 2px solid #ef4444; box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35);";
+            case "cyan":
+                return "border: 2px solid #38bdf8; box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35);";
+            case "emerald":
+                return "border: 2px solid #4ade80; box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.35);";
+            case "violet":
+                return "border: 2px solid #c084fc; box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.35);";
+            default:
+                return "border: 2px solid #94a3b8;";
+        }
+    }
+
+    function extractFrameId(uData, clan) {
+        const clean = String(uData?.username_lower || uData?.username || "").toLowerCase();
+        if (clan && clan.memberFrames && typeof clan.memberFrames === "object" && clean && clan.memberFrames[clean]) {
+            return String(clan.memberFrames[clean]);
+        }
+        return String(uData?.avatarFrame || uData?.frameId || uData?.frame || "default");
     }
 
     function injectStyles() {
@@ -534,7 +592,6 @@
                 word-break: break-word;
             }
 
-            /* Горизонтальный ряд кнопок: [⚙️] [Вложить] [Чат] [Выйти] */
             .clan-toolbar-row {
                 width: 100%;
                 display: flex;
@@ -600,18 +657,34 @@
                 align-items: center;
                 justify-content: space-between;
                 gap: 8px;
-                background: rgba(15, 23, 33, 0.7);
+                background: rgba(15, 23, 33, 0.72);
                 border-radius: 10px;
                 padding: 8px 10px;
                 text-align: left;
             }
             .clan-member-ava {
-                width: 34px;
-                height: 34px;
+                width: 36px;
+                height: 36px;
                 border-radius: 50%;
                 object-fit: cover;
-                border: 1px solid #94a3b8;
                 flex-shrink: 0;
+            }
+            .clan-member-gear-btn {
+                width: 30px;
+                height: 30px;
+                border-radius: 8px;
+                border: 1px solid rgba(148, 163, 184, 0.3);
+                background: rgba(30, 41, 59, 0.85);
+                color: #e2e8f0;
+                font-size: 14px;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+            }
+            .clan-member-gear-btn:active {
+                transform: scale(0.94);
             }
 
             .clan-action-btn {
@@ -635,7 +708,7 @@
                 flex-direction: column;
                 align-items: center;
                 gap: 3px;
-                margin-bottom: 10px;
+                margin-bottom: 8px;
             }
             .clan-chat-title {
                 font-size: 19px;
@@ -644,16 +717,33 @@
                 text-align: center;
                 word-break: break-word;
             }
-            .clan-chat-online {
+            .clan-chat-stats {
                 font-size: 12px;
                 font-weight: bold;
-                color: #38bdf8;
+                color: #4ade80;
                 text-align: center;
+                line-height: 1.35;
+            }
+            .clan-chat-selection-bar {
+                width: 100%;
+                display: none;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                background: rgba(220, 38, 38, 0.2);
+                border: 1px solid rgba(248, 113, 113, 0.45);
+                border-radius: 9px;
+                padding: 6px 10px;
+                margin-bottom: 8px;
+                box-sizing: border-box;
+                font-size: 12px;
+                font-weight: bold;
+                color: #fecaca;
             }
             .clan-chat-messages {
                 width: 100%;
-                height: 320px;
-                max-height: 52vh;
+                height: 310px;
+                max-height: 50vh;
                 overflow-y: auto;
                 background: rgba(10, 16, 24, 0.75);
                 border: 1px solid rgba(148, 163, 184, 0.22);
@@ -662,7 +752,7 @@
                 box-sizing: border-box;
                 display: flex;
                 flex-direction: column;
-                gap: 9px;
+                gap: 8px;
                 margin-bottom: 10px;
             }
             .clan-chat-msg {
@@ -670,20 +760,25 @@
                 align-items: flex-start;
                 gap: 8px;
                 background: rgba(30, 41, 59, 0.65);
+                border: 1px solid transparent;
                 border-radius: 10px;
                 padding: 7px 9px;
                 text-align: left;
+                cursor: pointer;
+                user-select: none;
             }
             .clan-chat-msg.mine {
                 background: rgba(14, 116, 144, 0.35);
-                border: 1px solid rgba(56, 189, 248, 0.28);
+            }
+            .clan-chat-msg.selected {
+                border-color: #ef4444;
+                background: rgba(153, 27, 27, 0.35);
             }
             .clan-chat-ava {
                 width: 30px;
                 height: 30px;
                 border-radius: 50%;
                 object-fit: cover;
-                border: 1px solid rgba(148, 163, 184, 0.5);
                 flex-shrink: 0;
                 margin-top: 2px;
             }
@@ -698,6 +793,22 @@
                 grid-template-columns: repeat(3, 1fr);
                 gap: 6px;
                 margin-bottom: 10px;
+            }
+            .clan-perm-toggle {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                background: rgba(30, 41, 59, 0.65);
+                border: 1px solid rgba(148, 163, 184, 0.22);
+                border-radius: 10px;
+                padding: 9px 12px;
+                margin-bottom: 8px;
+                box-sizing: border-box;
+                font-size: 13px;
+                color: #e2e8f0;
+                cursor: pointer;
             }
         `;
         document.head.appendChild(style);
@@ -873,24 +984,19 @@
             await ensureAuthSession();
             const { db, doc, setDoc } = await getFs();
             const nowMs = Date.now();
-            await setDoc(
-                doc(db, "users", nick),
-                {
-                    lastActive: nowMs,
-                    lastSeenMs: nowMs,
-                    isOnline: Boolean(isOnlineFlag),
-                    online: Boolean(isOnlineFlag)
-                },
-                { merge: true }
-            );
-            const prev = membersCache.get(nick) || {};
-            membersCache.set(nick, {
-                ...prev,
+            const payload = {
                 lastActive: nowMs,
                 lastSeenMs: nowMs,
                 isOnline: Boolean(isOnlineFlag),
                 online: Boolean(isOnlineFlag)
-            });
+            };
+            const localMl = detectEffectivePlayerMl(membersCache.get(nick));
+            if (localMl > 0) {
+                payload.ml = localMl;
+            }
+            await setDoc(doc(db, "users", nick), payload, { merge: true });
+            const prev = membersCache.get(nick) || {};
+            membersCache.set(nick, { ...prev, ...payload });
         } catch (_) {}
     }
 
@@ -938,7 +1044,7 @@
                         if (clanSubView === "hub") {
                             paintMembersRows(currentClanData.members || [], currentClanData.leader || "");
                         } else if (clanSubView === "chat") {
-                            updateChatOnlineCounter();
+                            updateChatStatsHeader();
                         }
                     }
                 });
@@ -947,11 +1053,12 @@
         }).catch(() => {});
     }
 
-    // --- ПОСТОЯННЫЙ СЛУШАТЕЛЬ ЧАТА ДЛЯ НЕПРОЧИТАННЫХ СООБЩЕНИЙ ---
+    // --- СЛУШАТЕЛЬ СООБЩЕНИЙ ЧАТА ---
     async function attachBackgroundChatWatcher(nick, clanId) {
         stopChatListener();
         knownMessageIds = new Set();
         initialChatLoaded = false;
+        selectedMsgIds.clear();
         unreadChatCount = loadSavedUnreadCount(nick, clanId);
         updateUnreadIndicators();
 
@@ -961,7 +1068,7 @@
             await ensureAuthSession();
             const { db, collection, query, orderBy, limit, onSnapshot } = await getFs();
             const msgsCol = collection(db, "clans", clanId, "messages");
-            const q = query(msgsCol, orderBy("createdAt", "asc"), limit(80));
+            const q = query(msgsCol, orderBy("createdAt", "asc"), limit(100));
 
             chatUnsub = onSnapshot(
                 q,
@@ -970,6 +1077,7 @@
                     snap.forEach((docSnap) => {
                         docs.push({ id: docSnap.id, ...docSnap.data() });
                     });
+                    latestChatDocs = docs;
 
                     if (!initialChatLoaded) {
                         initialChatLoaded = true;
@@ -1040,6 +1148,8 @@
 
         clanPageOpen = true;
         clanSubView = "hub";
+        managedMemberNick = null;
+        selectedMsgIds.clear();
         viewedOtherClanId = targetClanId;
         const overlay = document.getElementById("clanPageOverlay");
         if (overlay) overlay.style.display = "flex";
@@ -1062,6 +1172,8 @@
         }
         if (clanSubView !== "hub" && currentClanData) {
             clanSubView = "hub";
+            managedMemberNick = null;
+            selectedMsgIds.clear();
             renderClanHubView(currentClanData, getActiveNick());
             return;
         }
@@ -1079,6 +1191,8 @@
         clanPageOpen = false;
         viewedOtherClanId = null;
         clanSubView = "hub";
+        managedMemberNick = null;
+        selectedMsgIds.clear();
         clearMemberLiveListeners();
         if (currentClanUnsub) {
             currentClanUnsub();
@@ -1119,7 +1233,7 @@
                 if (clanSubView === "hub") {
                     renderClanHubView(currentClanData, nick);
                 } else if (clanSubView === "chat") {
-                    updateChatOnlineCounter();
+                    updateChatStatsHeader();
                 }
             });
             return;
@@ -1178,7 +1292,7 @@
             if (clanSubView === "hub") {
                 renderClanHubView(currentClanData, nick);
             } else if (clanSubView === "chat") {
-                updateChatOnlineCounter();
+                updateChatStatsHeader();
             }
         });
     }
@@ -1360,6 +1474,9 @@
                     leader: nick,
                     members: [nick],
                     joinRequests: [],
+                    mutedMembers: [],
+                    memberRoles: {},
+                    memberFrames: {},
                     mlBalance: 0.0,
                     createdAt: Date.now()
                 });
@@ -1403,7 +1520,6 @@
 
     function isMemberOnlineNow(cleanNick, data) {
         const myNick = getActiveNick();
-        // Текущий пользователь, находясь на экране клана или в активной вкладке игры, всегда в сети
         if (cleanNick === myNick && !document.hidden && (clanPageOpen || window.gameStarted === true || isElementVisible(document.getElementById("startScreen")))) {
             return true;
         }
@@ -1413,30 +1529,43 @@
         return Boolean(lastActive && Date.now() - lastActive < 18000);
     }
 
-    function countOnlineMembers(memberNicks) {
-        if (!Array.isArray(memberNicks)) return 0;
-        let count = 0;
+    function isMemberSavingSkin(cleanNick, data) {
+        if (!data) return false;
+        if (cleanNick === getActiveNick() && window.gameStarted === true && !window.gameOver) {
+            return true;
+        }
+        return Boolean(data.inGame && isMemberOnlineNow(cleanNick, data));
+    }
+
+    function countOnlineStats(memberNicks) {
+        if (!Array.isArray(memberNicks)) return { online: 0, total: 0, savingSkin: 0 };
+        const total = memberNicks.length;
+        let online = 0;
+        let savingSkin = 0;
         for (const m of memberNicks) {
             const clean = String(m).toLowerCase();
             const uData = membersCache.get(clean);
             if (isMemberOnlineNow(clean, uData)) {
-                count += 1;
+                online += 1;
+            }
+            if (isMemberSavingSkin(clean, uData)) {
+                savingSkin += 1;
             }
         }
-        return count;
+        return { online, total, savingSkin };
     }
 
     function formatMemberStatus(cleanNick, data) {
         if (isMemberOnlineNow(cleanNick, data)) {
-            if (data && data.inGame) {
-                if (data.currentBossName) {
-                    return { text: `В игре • Босс ${data.currentBossName}`, color: "#38bdf8" };
+            if (isMemberSavingSkin(cleanNick, data)) {
+                if (data && data.currentBossName) {
+                    return { text: `Спасает кожицу от ${data.currentBossName}`, color: "#38bdf8" };
                 }
-                const startMs = extractTimestampMs(data.gameStartTime);
+                const startMs = data ? extractTimestampMs(data.gameStartTime) : 0;
                 const diffSec = startMs ? Math.max(0, Math.floor((Date.now() - startMs) / 1000)) : 0;
                 const mins = String(Math.floor(diffSec / 60)).padStart(2, "0");
                 const secs = String(diffSec % 60).padStart(2, "0");
-                return { text: `В игре [${mins}:${secs}]`, color: "#4ade80" };
+                return { text: `Спасает кожицу [${mins}:${secs}]`, color: "#4ade80" };
             }
             return { text: "В сети", color: "#4ade80" };
         }
@@ -1481,11 +1610,11 @@
                 actionButtonsHtml = `<button class="clan-action-btn" style="background:#475569;" disabled>Клан закрыт</button>`;
             }
         } else {
-            // Строгий порядок слева направо: [⚙️] [Вложить] [Чат] [Выйти (красная)]
+            // Строгий порядок слева направо: [⚙️] [Вложить (тёмная прозрачная)] [Чат] [Выйти (красная)]
             actionButtonsHtml = `
                 <div class="clan-toolbar-row">
-                    ${isLeader ? `<button class="clan-mini-btn clan-gear-btn" style="background:rgba(51, 65, 85, 0.88);" title="Настройки клана" onclick="clanOpenSettingsView()">⚙️</button>` : ""}
-                    <button class="clan-mini-btn" style="background:rgba(2, 132, 199, 0.85);" onclick="clanOpenDonateView()">💧 Вложить</button>
+                    ${isLeader ? `<button class="clan-mini-btn clan-gear-btn" style="background:rgba(30, 41, 59, 0.85);" title="Настройки клана" onclick="clanOpenSettingsView()">⚙️</button>` : ""}
+                    <button class="clan-mini-btn" style="background:rgba(15, 23, 33, 0.78); border-color:rgba(148, 163, 184, 0.35);" onclick="clanOpenDonateView()">💧 Вложить</button>
                     <button class="clan-mini-btn" style="background:rgba(22, 163, 74, 0.85);" onclick="clanOpenChatView()">💬 Чат<span id="clanChatBtnRedDot" class="clan-chat-corner-dot"></span></button>
                     <button class="clan-mini-btn" style="background:#dc2626;" onclick="clanLeave('${escapeAttr(clan.id)}')">Выйти</button>
                 </div>
@@ -1544,7 +1673,7 @@
             if (clanSubView === "hub") {
                 paintMembersRows(currentClanData.members || [], currentClanData.leader || "");
             } else if (clanSubView === "chat") {
-                updateChatOnlineCounter();
+                updateChatStatsHeader();
             }
         }, 1000);
     }
@@ -1558,6 +1687,9 @@
             return;
         }
 
+        const myNick = getActiveNick();
+        const myPerms = getMemberRoleMeta(currentClanData, myNick);
+
         listEl.innerHTML = members
             .map((mNick) => {
                 const clean = String(mNick).toLowerCase();
@@ -1565,21 +1697,209 @@
                 const displayName = uData.username || clean;
                 const avaSrc = uData.avatarUrl || "https://via.placeholder.com/70";
                 const status = formatMemberStatus(clean, uData);
-                const crown = clean === String(leaderNick).toLowerCase() ? ` [Глава]` : "";
+                const roleMeta = getMemberRoleMeta(currentClanData, clean);
+                const roleTag = roleMeta.title !== "Участник" ? ` [${roleMeta.title}]` : "";
+                const mutedTag = isUserMutedInClan(currentClanData, clean) ? ` (мут)` : "";
+                const frameStyle = getStaticFrameStyle(extractFrameId(uData, currentClanData));
+
+                let memberMl = extractUserMl(uData);
+                if (clean === myNick) {
+                    memberMl = detectEffectivePlayerMl(uData);
+                }
+
+                const canManageTarget =
+                    clean !== myNick &&
+                    String(currentClanData?.leader || "").toLowerCase() !== clean &&
+                    (myPerms.canPromote || myPerms.canMute || myPerms.canKick);
+
                 return `
                     <div class="clan-member-row">
-                        <div style="display:flex; align-items:center; gap:10px; overflow:hidden;">
-                            <img src="${avaSrc}" class="clan-member-ava" alt="ava">
-                            <div style="overflow:hidden;">
-                                <div style="font-size:13px; font-weight:bold; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(displayName)}${crown}</div>
-                                <div style="font-size:11px; color:${status.color};">${escapeHtml(status.text)}</div>
+                        <div style="display:flex; align-items:center; gap:10px; overflow:hidden; min-width:0;">
+                            <img src="${avaSrc}" class="clan-member-ava" style="${frameStyle}" alt="ava">
+                            <div style="overflow:hidden; min-width:0;">
+                                <div style="font-size:13px; font-weight:bold; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(displayName)}${escapeHtml(roleTag)}${escapeHtml(mutedTag)}</div>
+                                <div style="font-size:11px; color:#cbd5e1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    <span style="color:#38bdf8; font-weight:bold;">💧 ${memberMl.toFixed(3)} мл</span>
+                                    <span style="color:#64748b;"> | </span>
+                                    <span style="color:${status.color};">${escapeHtml(status.text)}</span>
+                                </div>
                             </div>
                         </div>
+                        ${
+                            canManageTarget
+                                ? `<button class="clan-member-gear-btn" title="Управление участником" onclick="clanOpenMemberManage('${escapeAttr(clean)}')">⚙️</button>`
+                                : ""
+                        }
                     </div>
                 `;
             })
             .join("");
     }
+
+    // --- УПРАВЛЕНИЕ УЧАСТНИКОМ (⚙️ В КАРТОЧКЕ УЧАСТНИКА) ---
+    window.clanOpenMemberManage = function (targetNick) {
+        if (!currentClanData) return;
+        const cleanTarget = String(targetNick).toLowerCase();
+        const myNick = getActiveNick();
+        const myPerms = getMemberRoleMeta(currentClanData, myNick);
+        if (!myPerms.canPromote && !myPerms.canMute && !myPerms.canKick) return;
+
+        managedMemberNick = cleanTarget;
+        clanSubView = "memberManage";
+
+        const view = document.getElementById("clanScrollView");
+        if (!view) return;
+
+        const targetRole = getMemberRoleMeta(currentClanData, cleanTarget);
+        const isMuted = isUserMutedInClan(currentClanData, cleanTarget);
+        const uData = membersCache.get(cleanTarget) || {};
+        const displayName = uData.username || cleanTarget;
+
+        view.innerHTML = `
+            <div class="clan-hub-box" style="margin-top: 10px;">
+                <h3 style="margin: 0 0 6px 0; color: #e2e8f0;">${escapeHtml(displayName)}</h3>
+                <div style="font-size:12px; color:#38bdf8; margin-bottom:14px;">Звание: ${escapeHtml(targetRole.title)}</div>
+
+                ${
+                    myPerms.canPromote
+                        ? `
+                    <div style="width:100%; font-size:12px; font-weight:bold; color:#cbd5e1; text-align:left; margin-bottom:6px;">Звание и права:</div>
+                    <div class="clan-perm-toggle" onclick="clanToggleMemberRole('${escapeAttr(cleanTarget)}', 'filler')">
+                        <span>Звание «Наполнитель»</span>
+                        <span style="font-weight:bold; color:${targetRole.isFiller ? "#4ade80" : "#94a3b8"};">${targetRole.isFiller ? "Выдано" : "Нет"}</span>
+                    </div>
+                    <div class="clan-perm-toggle" onclick="clanToggleMemberRole('${escapeAttr(cleanTarget)}', 'canDeleteMsg')">
+                        <span>Удалять сообщения в чате</span>
+                        <span style="font-weight:bold; color:${targetRole.canDeleteMsg ? "#4ade80" : "#94a3b8"};">${targetRole.canDeleteMsg ? "Да" : "Нет"}</span>
+                    </div>
+                    <div class="clan-perm-toggle" onclick="clanToggleMemberRole('${escapeAttr(cleanTarget)}', 'canMute')">
+                        <span>Мутить участников в чате</span>
+                        <span style="font-weight:bold; color:${targetRole.canMute ? "#4ade80" : "#94a3b8"};">${targetRole.canMute ? "Да" : "Нет"}</span>
+                    </div>
+                    <div class="clan-perm-toggle" onclick="clanToggleMemberRole('${escapeAttr(cleanTarget)}', 'canKick')">
+                        <span>Кикать участников</span>
+                        <span style="font-weight:bold; color:${targetRole.canKick ? "#4ade80" : "#94a3b8"};">${targetRole.canKick ? "Да" : "Нет"}</span>
+                    </div>
+                `
+                        : ""
+                }
+
+                <div style="display:flex; gap:8px; width:100%; margin-top:10px;">
+                    ${
+                        myPerms.canMute
+                            ? `<button class="clan-action-btn" style="flex:1; background:${isMuted ? "#16a34a" : "#d97706"};" onclick="clanToggleMuteMember('${escapeAttr(cleanTarget)}')">${isMuted ? "Размутить в чате" : "Замутить в чате"}</button>`
+                            : ""
+                    }
+                    ${
+                        myPerms.canKick
+                            ? `<button class="clan-action-btn" style="flex:1; background:#dc2626;" onclick="clanKickMember('${escapeAttr(cleanTarget)}')">Кикнуть</button>`
+                            : ""
+                    }
+                </div>
+            </div>
+        `;
+    };
+
+    window.clanToggleMemberRole = async function (targetNick, permKey) {
+        if (!currentClanData) return;
+        const myNick = getActiveNick();
+        const myPerms = getMemberRoleMeta(currentClanData, myNick);
+        if (!myPerms.canPromote) return;
+
+        const cleanTarget = String(targetNick).toLowerCase();
+        const currentRole = getMemberRoleMeta(currentClanData, cleanTarget);
+        const existingMap =
+            currentClanData.memberRoles && typeof currentClanData.memberRoles === "object"
+                ? { ...currentClanData.memberRoles }
+                : {};
+        const prevObj = existingMap[cleanTarget] && typeof existingMap[cleanTarget] === "object" ? { ...existingMap[cleanTarget] } : {};
+
+        if (permKey === "filler") {
+            const nextFiller = !currentRole.isFiller;
+            prevObj.isFiller = nextFiller;
+            prevObj.role = nextFiller ? "filler" : "member";
+        } else {
+            prevObj[permKey] = !currentRole[permKey];
+        }
+
+        existingMap[cleanTarget] = prevObj;
+
+        try {
+            await ensureAuthSession();
+            const { db, doc, updateDoc } = await getFs();
+            await updateDoc(doc(db, "clans", currentClanData.id), {
+                memberRoles: existingMap
+            });
+            currentClanData = { ...currentClanData, memberRoles: existingMap };
+            clanOpenMemberManage(cleanTarget);
+        } catch (err) {
+            alert("Ошибка изменения прав: " + (err.message || ""));
+        }
+    };
+
+    window.clanToggleMuteMember = async function (targetNick) {
+        if (!currentClanData) return;
+        const myNick = getActiveNick();
+        const myPerms = getMemberRoleMeta(currentClanData, myNick);
+        if (!myPerms.canMute) return;
+
+        const cleanTarget = String(targetNick).toLowerCase();
+        const muted = Array.isArray(currentClanData.mutedMembers)
+            ? currentClanData.mutedMembers.map((x) => String(x).toLowerCase())
+            : [];
+        const nextMuted = muted.includes(cleanTarget)
+            ? muted.filter((x) => x !== cleanTarget)
+            : [...muted, cleanTarget];
+
+        try {
+            await ensureAuthSession();
+            const { db, doc, updateDoc } = await getFs();
+            await updateDoc(doc(db, "clans", currentClanData.id), {
+                mutedMembers: nextMuted
+            });
+            currentClanData = { ...currentClanData, mutedMembers: nextMuted };
+            clanOpenMemberManage(cleanTarget);
+        } catch (err) {
+            alert("Ошибка мута: " + (err.message || ""));
+        }
+    };
+
+    window.clanKickMember = async function (targetNick) {
+        if (!currentClanData) return;
+        const myNick = getActiveNick();
+        const myPerms = getMemberRoleMeta(currentClanData, myNick);
+        if (!myPerms.canKick) return;
+
+        const cleanTarget = String(targetNick).toLowerCase();
+        if (!confirm(`Исключить ${cleanTarget} из клана?`)) return;
+
+        try {
+            await ensureAuthSession();
+            const { db, doc, runTransaction, updateDoc } = await getFs();
+            const clanRef = doc(db, "clans", currentClanData.id);
+            const targetUserRef = doc(db, "users", cleanTarget);
+
+            await runTransaction(db, async (tx) => {
+                const cSnap = await tx.get(clanRef);
+                if (!cSnap.exists()) return;
+                const cData = cSnap.data();
+                const nextMembers = (Array.isArray(cData.members) ? cData.members : []).filter(
+                    (m) => String(m).toLowerCase() !== cleanTarget
+                );
+                const nextMuted = (Array.isArray(cData.mutedMembers) ? cData.mutedMembers : []).filter(
+                    (m) => String(m).toLowerCase() !== cleanTarget
+                );
+                tx.update(clanRef, { members: nextMembers, mutedMembers: nextMuted });
+            });
+
+            await updateDoc(targetUserRef, { clanId: null, clanName: null }).catch(() => {});
+            userClanCache.set(cleanTarget, null);
+            clanSubView = "hub";
+            managedMemberNick = null;
+        } catch (err) {
+            alert("Ошибка при исключении: " + (err.message || ""));
+        }
+    };
 
     // --- ОКНО НАСТРОЕК КЛАНА (⚙️) ---
     window.clanOpenSettingsView = function () {
@@ -1739,7 +2059,7 @@
             }
         } catch (_) {}
 
-        const myBalance = detectLocalPlayerMl(fsUserData);
+        const myBalance = detectEffectivePlayerMl(fsUserData);
         const clanMl = Number(currentClanData.mlBalance || 0);
 
         view.innerHTML = `
@@ -1749,17 +2069,17 @@
                 <div style="font-size:13px; color:#cbd5e1; margin-bottom:14px;">Ваш баланс: <b id="clanDonateMyBal" style="color:#4ade80;">${myBalance.toFixed(3)} мл</b></div>
 
                 <div class="clan-preset-grid">
-                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(1)">1 мл</button>
-                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(5)">5 мл</button>
-                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(10)">10 мл</button>
-                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(25)">25 мл</button>
-                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(50)">50 мл</button>
-                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(${myBalance.toFixed(3)})">Всё</button>
+                    <button class="clan-mini-btn" style="background:rgba(15,23,33,0.78); border-color:rgba(148,163,184,0.32);" onclick="clanSetDonateVal(1)">1 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(15,23,33,0.78); border-color:rgba(148,163,184,0.32);" onclick="clanSetDonateVal(5)">5 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(15,23,33,0.78); border-color:rgba(148,163,184,0.32);" onclick="clanSetDonateVal(10)">10 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(15,23,33,0.78); border-color:rgba(148,163,184,0.32);" onclick="clanSetDonateVal(25)">25 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(15,23,33,0.78); border-color:rgba(148,163,184,0.32);" onclick="clanSetDonateVal(50)">50 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(15,23,33,0.78); border-color:rgba(148,163,184,0.32);" onclick="clanSetDonateVal(${myBalance.toFixed(3)})">Всё</button>
                 </div>
 
                 <input type="number" id="clanDonateAmount" class="clan-input" step="0.001" min="0.001" placeholder="Введите количество мл..." style="margin-bottom:14px;">
 
-                <button class="clan-create-btn" style="background:rgba(2, 132, 199, 0.78);" onclick="clanSubmitDonate()">Вложить в клан</button>
+                <button class="clan-create-btn" style="background:rgba(15, 23, 33, 0.78); border-color:rgba(148, 163, 184, 0.35);" onclick="clanSubmitDonate()">Вложить миллилитры в клан</button>
             </div>
         `;
     };
@@ -1789,7 +2109,7 @@
             await runTransaction(db, async (tx) => {
                 const uSnap = await tx.get(userRef);
                 const uData = uSnap.exists() ? uSnap.data() : {};
-                const availableMl = detectLocalPlayerMl(uData);
+                const availableMl = detectEffectivePlayerMl(uData);
 
                 if (availableMl + 1e-9 < amount) {
                     throw new Error(`Недостаточно миллилитров на балансе! Доступно: ${availableMl.toFixed(3)} мл`);
@@ -1813,7 +2133,7 @@
 
                 tx.set(userRef, { [fieldKey]: nextUserMl }, { merge: true });
                 tx.update(clanRef, { mlBalance: nextClanMl });
-                syncLocalPlayerMlDown(amount, uData);
+                applyLocalPlayerMlValue(nextUserMl);
             });
 
             clanSubView = "hub";
@@ -1824,12 +2144,77 @@
     };
 
     // --- ГРУППОВОЙ ЧАТ КЛАНА ---
-    function updateChatOnlineCounter() {
-        const el = document.getElementById("clanChatOnlineCounter");
+    function updateChatStatsHeader() {
+        const el = document.getElementById("clanChatStats");
         if (!el || !currentClanData) return;
-        const onlineCount = countOnlineMembers(currentClanData.members || []);
-        el.textContent = `В сети: ${onlineCount}`;
+        const stats = countOnlineStats(currentClanData.members || []);
+        el.innerHTML = `В сети: ${stats.online} / ${stats.total} &nbsp;•&nbsp; <span style="color:#4ade80;">Спасают кожицу: ${stats.savingSkin} / ${stats.total}</span>`;
     }
+
+    function updateSelectionBar(nick) {
+        const bar = document.getElementById("clanChatSelectionBar");
+        const countEl = document.getElementById("clanChatSelectedCount");
+        if (!bar || !countEl) return;
+
+        const myPerms = getMemberRoleMeta(currentClanData, nick);
+        const deletableIds = Array.from(selectedMsgIds).filter((id) => {
+            const msg = latestChatDocs.find((d) => d.id === id);
+            if (!msg) return false;
+            const isMine = String(msg.sender || "").toLowerCase() === nick;
+            return isMine || myPerms.canDeleteMsg;
+        });
+
+        if (deletableIds.length > 0) {
+            bar.style.display = "flex";
+            countEl.textContent = `Выбрано: ${deletableIds.length}`;
+        } else {
+            bar.style.display = "none";
+        }
+    }
+
+    window.clanToggleSelectMessage = function (msgId) {
+        const nick = getActiveNick();
+        const msg = latestChatDocs.find((d) => d.id === msgId);
+        if (!msg) return;
+
+        const isMine = String(msg.sender || "").toLowerCase() === nick;
+        const myPerms = getMemberRoleMeta(currentClanData, nick);
+        if (!isMine && !myPerms.canDeleteMsg) return;
+
+        if (selectedMsgIds.has(msgId)) {
+            selectedMsgIds.delete(msgId);
+        } else {
+            selectedMsgIds.add(msgId);
+        }
+        renderChatMessagesList(latestChatDocs, nick);
+    };
+
+    window.clanDeleteSelectedMessages = async function () {
+        if (!currentClanData || !selectedMsgIds.size) return;
+        const nick = getActiveNick();
+        const myPerms = getMemberRoleMeta(currentClanData, nick);
+
+        const toDelete = Array.from(selectedMsgIds).filter((id) => {
+            const msg = latestChatDocs.find((d) => d.id === id);
+            if (!msg) return false;
+            const isMine = String(msg.sender || "").toLowerCase() === nick;
+            return isMine || myPerms.canDeleteMsg;
+        });
+
+        if (!toDelete.length) return;
+
+        try {
+            await ensureAuthSession();
+            const { db, doc, deleteDoc } = await getFs();
+            for (const id of toDelete) {
+                await deleteDoc(doc(db, "clans", currentClanData.id, "messages", id));
+                selectedMsgIds.delete(id);
+            }
+            updateSelectionBar(nick);
+        } catch (err) {
+            alert("Ошибка удаления сообщения: " + (err.message || ""));
+        }
+    };
 
     function renderChatMessagesList(docs, nick) {
         const box = document.getElementById("clanChatMessages");
@@ -1837,8 +2222,11 @@
 
         if (!docs.length) {
             box.innerHTML = `<div style="font-size:12px; color:#94a3b8; text-align:center; margin-top:24px;">Сообщений пока нет. Напишите первым!</div>`;
+            updateSelectionBar(nick);
             return;
         }
+
+        const myPerms = getMemberRoleMeta(currentClanData, nick);
 
         const rows = docs.map((m) => {
             const senderClean = String(m.sender || "").toLowerCase();
@@ -1846,13 +2234,18 @@
             const displayNick = cachedUser.username || m.senderName || senderClean;
             const ava = cachedUser.avatarUrl || m.avatarUrl || "https://via.placeholder.com/70";
             const isMine = senderClean === nick;
+            const isSelected = selectedMsgIds.has(m.id);
+            const canSelect = isMine || myPerms.canDeleteMsg;
+            const frameStyle = getStaticFrameStyle(extractFrameId(cachedUser, currentClanData));
             const timeStr = m.createdAt
                 ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                 : "";
 
             return `
-                <div class="clan-chat-msg ${isMine ? "mine" : ""}">
-                    <img src="${ava}" class="clan-chat-ava" alt="ava">
+                <div class="clan-chat-msg ${isMine ? "mine" : ""} ${isSelected ? "selected" : ""}" ${
+                    canSelect ? `onclick="clanToggleSelectMessage('${escapeAttr(m.id)}')"` : ""
+                }>
+                    <img src="${ava}" class="clan-chat-ava" style="${frameStyle}" alt="ava">
                     <div style="flex:1; min-width:0;">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:2px;">
                             <span style="font-size:12px; font-weight:bold; color:${isMine ? "#38bdf8" : "#4ade80"}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(displayNick)}</span>
@@ -1866,32 +2259,43 @@
 
         box.innerHTML = rows.join("");
         box.scrollTop = box.scrollHeight;
+        updateSelectionBar(nick);
     }
 
     window.clanOpenChatView = async function () {
         if (!currentClanData) return;
         const nick = getActiveNick();
         clanSubView = "chat";
+        selectedMsgIds.clear();
         markChatAsRead();
 
         const view = document.getElementById("clanScrollView");
         if (!view) return;
 
-        const onlineCount = countOnlineMembers(currentClanData.members || []);
+        const stats = countOnlineStats(currentClanData.members || []);
+        const mutedNow = isUserMutedInClan(currentClanData, nick);
 
         view.innerHTML = `
             <div class="clan-hub-box" style="margin-top: 6px;">
                 <div class="clan-chat-header">
                     <div class="clan-chat-title">${escapeHtml(currentClanData.name || "Клан")}</div>
-                    <div id="clanChatOnlineCounter" class="clan-chat-online">В сети: ${onlineCount}</div>
+                    <div id="clanChatStats" class="clan-chat-stats">В сети: ${stats.online} / ${stats.total} &nbsp;•&nbsp; <span style="color:#4ade80;">Спасают кожицу: ${stats.savingSkin} / ${stats.total}</span></div>
+                </div>
+                <div id="clanChatSelectionBar" class="clan-chat-selection-bar">
+                    <span id="clanChatSelectedCount">Выбрано: 0</span>
+                    <button type="button" class="clan-action-btn" style="background:#dc2626; padding:5px 11px; font-size:11px;" onclick="clanDeleteSelectedMessages()">Удалить</button>
                 </div>
                 <div id="clanChatMessages" class="clan-chat-messages">
                     <div style="font-size:12px; color:#94a3b8; text-align:center; margin-top:20px;">Загрузка сообщений...</div>
                 </div>
-                <form class="clan-chat-form" onsubmit="event.preventDefault(); clanSendMessage();">
-                    <input type="text" id="clanChatInput" class="clan-input" maxlength="300" placeholder="Написать в клан..." autocomplete="off">
-                    <button type="submit" class="clan-action-btn" style="background:#16a34a; flex-shrink:0;">Отправить</button>
-                </form>
+                ${
+                    mutedNow
+                        ? `<div style="width:100%; font-size:12px; color:#fbbf24; text-align:center; padding:8px; background:rgba(120,53,15,0.35); border-radius:9px;">Вы замучены в чате клана</div>`
+                        : `<form class="clan-chat-form" onsubmit="event.preventDefault(); clanSendMessage();">
+                            <input type="text" id="clanChatInput" class="clan-input" maxlength="300" placeholder="Написать в клан..." autocomplete="off">
+                            <button type="submit" class="clan-action-btn" style="background:#16a34a; flex-shrink:0;">Отправить</button>
+                        </form>`
+                }
             </div>
         `;
 
@@ -1901,12 +2305,13 @@
 
         try {
             const { db, collection, query, orderBy, limit, getDocs } = await getFs();
-            const snap = await getDocs(query(collection(db, "clans", currentClanData.id, "messages"), orderBy("createdAt", "asc"), limit(80)));
+            const snap = await getDocs(query(collection(db, "clans", currentClanData.id, "messages"), orderBy("createdAt", "asc"), limit(100)));
             const docs = [];
             snap.forEach((docSnap) => {
                 knownMessageIds.add(docSnap.id);
                 docs.push({ id: docSnap.id, ...docSnap.data() });
             });
+            latestChatDocs = docs;
             renderChatMessagesList(docs, nick);
         } catch (err) {
             const box = document.getElementById("clanChatMessages");
@@ -1920,6 +2325,10 @@
         if (!currentClanData) return;
         const nick = getActiveNick();
         if (!nick) return;
+        if (isUserMutedInClan(currentClanData, nick)) {
+            alert("Вы замучены в чате клана.");
+            return;
+        }
 
         const inp = document.getElementById("clanChatInput");
         const text = (inp ? inp.value : "").trim();
