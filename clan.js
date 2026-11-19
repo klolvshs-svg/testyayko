@@ -1,4 +1,4 @@
-// clan.js — Оптимизированный модуль кланов (без лагов, крупные бомбы, плавный спуск на телефоне)
+// clan.js — Модуль кланов (стабильный бейдж в друзьях, вложение мл, групповой чат, настройки ⚙️)
 
 (function () {
     const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -8,15 +8,19 @@
     let authApi = null;
     let clanPageOpen = false;
     let currentClanUnsub = null;
+    let chatUnsub = null;
     let currentClanData = null;
     let currentClanId = null;
     let viewedOtherClanId = null;
+    let clanSubView = "hub"; // "hub" | "settings" | "chat" | "donate"
     let membersCache = new Map();
     let userClanCache = new Map();
+    let pendingClanLookups = new Set();
     let createAvatarDataUrl = "";
+    let editAvatarDataUrl = null;
     let liveTimerInterval = null;
     let decorAnimId = null;
-    let enrichTimer = null;
+    let friendsObserverAttached = false;
 
     function getActiveNick() {
         return (
@@ -47,11 +51,14 @@
             doc: mod.doc,
             getDoc: mod.getDoc,
             setDoc: mod.setDoc,
+            addDoc: mod.addDoc,
             updateDoc: mod.updateDoc,
             deleteDoc: mod.deleteDoc,
             collection: mod.collection,
             query: mod.query,
             where: mod.where,
+            orderBy: mod.orderBy,
+            limit: mod.limit,
             getDocs: mod.getDocs,
             onSnapshot: mod.onSnapshot,
             runTransaction: mod.runTransaction,
@@ -110,6 +117,57 @@
                 display: none;
             }
 
+            /* Улучшение карточки друга для стабильного отображения клана на ПК и телефоне */
+            #friendsResultsContainer .user-result-card {
+                min-height: 76px !important;
+                padding: 10px 12px !important;
+                align-items: center !important;
+                box-sizing: border-box !important;
+            }
+            .clan-badge-link {
+                display: inline-block;
+                margin-top: 5px;
+                padding: 3px 9px;
+                border-radius: 7px;
+                background: rgba(56, 189, 248, 0.16);
+                border: 1px solid rgba(56, 189, 248, 0.45);
+                color: #7dd3fc;
+                font-size: 11px;
+                font-weight: bold;
+                cursor: pointer;
+                line-height: 1.2;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .clan-badge-link:hover {
+                background: rgba(56, 189, 248, 0.28);
+            }
+            .clan-badge-none {
+                display: inline-block;
+                margin-top: 5px;
+                padding: 3px 9px;
+                border-radius: 7px;
+                background: rgba(148, 163, 184, 0.12);
+                border: 1px solid rgba(148, 163, 184, 0.25);
+                color: #94a3b8;
+                font-size: 11px;
+                font-weight: 600;
+                line-height: 1.2;
+            }
+            @media (max-width: 480px) {
+                #friendsResultsContainer .user-result-card {
+                    min-height: 82px !important;
+                    padding: 9px 10px !important;
+                }
+                .clan-badge-link,
+                .clan-badge-none {
+                    font-size: 10px;
+                    padding: 2px 7px;
+                }
+            }
+
             #clanPageOverlay {
                 position: fixed;
                 inset: 0;
@@ -159,7 +217,7 @@
                 height: 100%;
                 overflow-y: auto;
                 -webkit-overflow-scrolling: touch;
-                padding: 72px 18px 36px 18px;
+                padding: 68px 14px 28px 14px;
                 box-sizing: border-box;
                 display: flex;
                 flex-direction: column;
@@ -240,8 +298,8 @@
             }
 
             .clan-square-ava {
-                width: 96px;
-                height: 96px;
+                width: 92px;
+                height: 92px;
                 border-radius: 0 !important;
                 object-fit: cover;
                 border: 2px solid rgba(148, 163, 184, 0.45);
@@ -269,10 +327,10 @@
             .clan-hub-box {
                 width: 100%;
                 max-width: 460px;
-                background: rgba(15, 23, 33, 0.8);
+                background: rgba(15, 23, 33, 0.82);
                 border: 1px solid rgba(148, 163, 184, 0.25);
                 border-radius: 16px;
-                padding: 18px;
+                padding: 16px;
                 box-sizing: border-box;
                 display: flex;
                 flex-direction: column;
@@ -282,9 +340,9 @@
 
             .clan-name-green {
                 color: #4ade80;
-                font-size: 24px;
+                font-size: 23px;
                 font-weight: bold;
-                margin: 12px 0 4px 0;
+                margin: 10px 0 4px 0;
                 text-align: center;
                 word-break: break-word;
             }
@@ -292,16 +350,52 @@
                 color: #38bdf8;
                 font-size: 16px;
                 font-weight: bold;
-                margin-bottom: 8px;
+                margin-bottom: 6px;
                 text-align: center;
             }
             .clan-desc-text {
                 color: #cbd5e1;
                 font-size: 13px;
                 text-align: center;
-                margin-bottom: 14px;
+                margin-bottom: 12px;
                 line-height: 1.4;
                 word-break: break-word;
+            }
+
+            /* Горизонтальный ряд компактных кнопок в клане */
+            .clan-toolbar-row {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                flex-wrap: nowrap;
+                margin-bottom: 12px;
+            }
+            .clan-mini-btn {
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                border-radius: 9px;
+                padding: 7px 10px;
+                font-size: 12px;
+                font-weight: bold;
+                cursor: pointer;
+                color: #fff;
+                white-space: nowrap;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                transition: transform 0.1s, opacity 0.2s;
+            }
+            .clan-mini-btn:active {
+                transform: scale(0.95);
+            }
+            .clan-gear-btn {
+                width: 34px;
+                height: 32px;
+                padding: 0;
+                font-size: 16px;
+                flex-shrink: 0;
             }
 
             .clan-members-box {
@@ -348,20 +442,56 @@
             .clan-action-btn:active {
                 transform: scale(0.96);
             }
-            .clan-badge-link {
-                display: inline-block;
-                margin-top: 3px;
-                padding: 2px 7px;
-                border-radius: 6px;
-                background: rgba(56, 189, 248, 0.16);
-                border: 1px solid rgba(56, 189, 248, 0.45);
-                color: #7dd3fc;
-                font-size: 10px;
-                font-weight: bold;
-                cursor: pointer;
+
+            /* Групповой чат клана */
+            .clan-chat-messages {
+                width: 100%;
+                height: 320px;
+                max-height: 52vh;
+                overflow-y: auto;
+                background: rgba(10, 16, 24, 0.75);
+                border: 1px solid rgba(148, 163, 184, 0.22);
+                border-radius: 12px;
+                padding: 10px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                gap: 9px;
+                margin-bottom: 10px;
             }
-            .clan-badge-link:hover {
-                background: rgba(56, 189, 248, 0.28);
+            .clan-chat-msg {
+                display: flex;
+                align-items: flex-start;
+                gap: 8px;
+                background: rgba(30, 41, 59, 0.65);
+                border-radius: 10px;
+                padding: 7px 9px;
+                text-align: left;
+            }
+            .clan-chat-msg.mine {
+                background: rgba(14, 116, 144, 0.35);
+                border: 1px solid rgba(56, 189, 248, 0.28);
+            }
+            .clan-chat-ava {
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 1px solid rgba(148, 163, 184, 0.5);
+                flex-shrink: 0;
+                margin-top: 2px;
+            }
+            .clan-chat-form {
+                width: 100%;
+                display: flex;
+                gap: 8px;
+            }
+            .clan-preset-grid {
+                width: 100%;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 6px;
+                margin-bottom: 10px;
             }
         `;
         document.head.appendChild(style);
@@ -497,6 +627,13 @@
         btn.style.display = hide ? "none" : "flex";
     }
 
+    function stopChatListener() {
+        if (chatUnsub) {
+            chatUnsub();
+            chatUnsub = null;
+        }
+    }
+
     window.openClanPage = async function (targetClanId = null) {
         const nick = getActiveNick();
         if (!nick) {
@@ -508,6 +645,7 @@
         if (profileDrawer) profileDrawer.classList.remove("open");
 
         clanPageOpen = true;
+        clanSubView = "hub";
         viewedOtherClanId = targetClanId;
         const overlay = document.getElementById("clanPageOverlay");
         if (overlay) overlay.style.display = "flex";
@@ -527,8 +665,16 @@
             renderNoClanView("");
             return;
         }
+        if (clanSubView !== "hub" && currentClanData) {
+            stopChatListener();
+            clanSubView = "hub";
+            renderClanHubView(currentClanData, getActiveNick());
+            return;
+        }
         if (viewedOtherClanId) {
+            stopChatListener();
             viewedOtherClanId = null;
+            clanSubView = "hub";
             const nick = getActiveNick();
             syncUserClanAndRender(nick, null);
             return;
@@ -539,6 +685,8 @@
     function closeClanPage() {
         clanPageOpen = false;
         viewedOtherClanId = null;
+        clanSubView = "hub";
+        stopChatListener();
         if (currentClanUnsub) {
             currentClanUnsub();
             currentClanUnsub = null;
@@ -570,12 +718,15 @@
                 if (!snap.exists()) {
                     alert("Этот клан был удалён.");
                     viewedOtherClanId = null;
+                    clanSubView = "hub";
                     await syncUserClanAndRender(nick, null);
                     return;
                 }
                 currentClanData = { id: snap.id, ...snap.data() };
                 await refreshMembersCache(currentClanData.members || []);
-                renderClanHubView(currentClanData, nick);
+                if (clanSubView === "hub") {
+                    renderClanHubView(currentClanData, nick);
+                }
             });
             return;
         }
@@ -594,25 +745,32 @@
         currentClanUnsub = onSnapshot(doc(db, "clans", userClanId), async (snap) => {
             if (!clanPageOpen) return;
             if (!snap.exists()) {
-                await updateDoc(doc(db, "users", nick), { clanId: null }).catch(() => {});
+                await updateDoc(doc(db, "users", nick), { clanId: null, clanName: null }).catch(() => {});
+                userClanCache.set(nick, null);
                 currentClanId = null;
                 currentClanData = null;
+                clanSubView = "hub";
                 renderNoClanView("");
                 return;
             }
             const data = snap.data();
             const members = Array.isArray(data.members) ? data.members : [];
             if (!members.includes(nick)) {
-                await updateDoc(doc(db, "users", nick), { clanId: null }).catch(() => {});
+                await updateDoc(doc(db, "users", nick), { clanId: null, clanName: null }).catch(() => {});
+                userClanCache.set(nick, null);
                 currentClanId = null;
                 currentClanData = null;
+                clanSubView = "hub";
                 renderNoClanView("");
                 return;
             }
             currentClanData = { id: snap.id, ...data };
+            userClanCache.set(nick, { clanId: snap.id, clanName: data.name || snap.id });
             updateReqBadge(currentClanData);
             await refreshMembersCache(members);
-            renderClanHubView(currentClanData, nick);
+            if (clanSubView === "hub") {
+                renderClanHubView(currentClanData, nick);
+            }
         });
     }
 
@@ -833,6 +991,7 @@
 
             userClanCache.set(nick, { clanId, clanName: rawName });
             viewedOtherClanId = null;
+            clanSubView = "hub";
             await syncUserClanAndRender(nick, null);
         } catch (err) {
             alert(`${err.message || "Ошибка создания клана"} ${err.code ? "[" + err.code + "]" : ""}`);
@@ -891,6 +1050,8 @@
         const view = document.getElementById("clanScrollView");
         if (!view || !clan) return;
         view.dataset.mode = "hub";
+        clanSubView = "hub";
+        stopChatListener();
 
         const members = Array.isArray(clan.members) ? clan.members : [];
         const isMember = members.includes(myNick);
@@ -917,10 +1078,15 @@
                 actionButtonsHtml = `<button class="clan-action-btn" style="background:#475569;" disabled>Клан закрыт</button>`;
             }
         } else {
-            actionButtonsHtml = `<div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:10px;">
-                <button class="clan-action-btn" style="background:#475569;" onclick="clanLeave('${escapeAttr(clan.id)}')">Выйти из клана</button>
-                ${isLeader ? `<button class="clan-action-btn" style="background:#dc2626;" onclick="clanDelete('${escapeAttr(clan.id)}')">Удалить клан</button>` : ""}
-            </div>`;
+            // Горизонтальные компактные кнопки: Выйти | Вложить мл | Чат | ⚙️ (справа)
+            actionButtonsHtml = `
+                <div class="clan-toolbar-row">
+                    <button class="clan-mini-btn" style="background:rgba(71, 85, 105, 0.8);" onclick="clanLeave('${escapeAttr(clan.id)}')">Выйти</button>
+                    <button class="clan-mini-btn" style="background:rgba(2, 132, 199, 0.82);" onclick="clanOpenDonateView()">💧 Вложить</button>
+                    <button class="clan-mini-btn" style="background:rgba(22, 163, 74, 0.82);" onclick="clanOpenChatView()">💬 Чат</button>
+                    ${isLeader ? `<button class="clan-mini-btn clan-gear-btn" style="background:rgba(51, 65, 85, 0.88);" title="Настройки клана" onclick="clanOpenSettingsView()">⚙️</button>` : ""}
+                </div>
+            `;
         }
 
         let requestsHtml = "";
@@ -959,7 +1125,7 @@
                 ${actionButtonsHtml}
                 ${requestsHtml}
 
-                <div style="width:100%; font-size:13px; font-weight:bold; color:#cbd5e1; text-align:left; margin-top:6px;">
+                <div style="width:100%; font-size:13px; font-weight:bold; color:#cbd5e1; text-align:left; margin-top:4px;">
                     Участники (${members.length})
                 </div>
                 <div id="clanMembersList" class="clan-members-box"></div>
@@ -970,7 +1136,7 @@
 
         if (liveTimerInterval) clearInterval(liveTimerInterval);
         liveTimerInterval = setInterval(() => {
-            if (!clanPageOpen || !currentClanData) return;
+            if (!clanPageOpen || !currentClanData || clanSubView !== "hub") return;
             paintMembersRows(currentClanData.members || [], currentClanData.leader || "");
         }, 1000);
     }
@@ -1007,6 +1173,349 @@
             .join("");
     }
 
+    // --- ОКНО НАСТРОЕК КЛАНА (⚙️) ---
+    window.clanOpenSettingsView = function () {
+        if (!currentClanData) return;
+        const nick = getActiveNick();
+        if (currentClanData.leader !== nick) return;
+
+        clanSubView = "settings";
+        editAvatarDataUrl = null;
+        const view = document.getElementById("clanScrollView");
+        if (!view) return;
+
+        const avaPreview = currentClanData.avatarUrl
+            ? `<img src="${currentClanData.avatarUrl}" style="width:100%; height:100%; object-fit:cover; display:block;">`
+            : "";
+
+        view.innerHTML = `
+            <div class="clan-hub-box" style="margin-top: 8px;">
+                <h3 style="margin: 0 0 14px 0; color: #e2e8f0;">Настройки клана</h3>
+
+                <label style="font-size:12px; color:#cbd5e1; margin-bottom:6px;">Аватарка клана</label>
+                <div id="clanEditAvaPreview" class="clan-square-ava" style="margin-bottom:8px;">${avaPreview}</div>
+                <input type="file" accept="image/*" class="clan-input" style="padding:7px; font-size:12px; margin-bottom:12px;" onchange="clanOnEditAvaChange(this)">
+
+                <label style="font-size:12px; color:#cbd5e1; align-self:flex-start; margin-bottom:4px;">Название клана</label>
+                <input type="text" id="clanEditName" class="clan-input" maxlength="24" value="${escapeHtml(currentClanData.name || "")}" style="margin-bottom:12px;">
+
+                <label style="font-size:12px; color:#cbd5e1; align-self:flex-start; margin-bottom:4px;">Описание клана</label>
+                <textarea id="clanEditDesc" class="clan-input" rows="3" maxlength="160" style="resize:none; margin-bottom:12px;">${escapeHtml(currentClanData.description || "")}</textarea>
+
+                <label style="font-size:12px; color:#cbd5e1; align-self:flex-start; margin-bottom:4px;">Тип доступа</label>
+                <select id="clanEditAccess" class="clan-input" style="margin-bottom:16px;">
+                    <option value="open" ${currentClanData.accessType === "open" ? "selected" : ""}>Открытый</option>
+                    <option value="closed" ${currentClanData.accessType === "closed" ? "selected" : ""}>Закрытый</option>
+                    <option value="invite" ${currentClanData.accessType === "invite" ? "selected" : ""}>По приглашению</option>
+                </select>
+
+                <button class="clan-create-btn" style="margin-bottom: 14px;" onclick="clanSaveSettings()">Сохранить изменения</button>
+
+                <div style="width:100%; border-top: 1px solid rgba(148, 163, 184, 0.2); padding-top: 14px; margin-top: 4px;">
+                    <button class="clan-action-btn" style="width:100%; background:#dc2626;" onclick="clanDelete('${escapeAttr(currentClanData.id)}')">Удалить клан</button>
+                </div>
+            </div>
+        `;
+    };
+
+    window.clanOnEditAvaChange = function (input) {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            editAvatarDataUrl = ev.target.result;
+            const prev = document.getElementById("clanEditAvaPreview");
+            if (prev) {
+                prev.innerHTML = `<img src="${editAvatarDataUrl}" style="width:100%; height:100%; object-fit:cover; display:block;">`;
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    window.clanSaveSettings = async function () {
+        if (!currentClanData) return;
+        const nick = getActiveNick();
+        if (currentClanData.leader !== nick) return;
+
+        const rawName = (document.getElementById("clanEditName")?.value || "").trim();
+        const desc = (document.getElementById("clanEditDesc")?.value || "").trim();
+        const accessType = document.getElementById("clanEditAccess")?.value || "open";
+
+        if (rawName.length < 2) {
+            alert("Название клана должно быть не короче 2 символов!");
+            return;
+        }
+
+        const newNameLower = rawName.toLowerCase();
+        const oldNameLower = (currentClanData.nameLower || currentClanData.name || "").toLowerCase();
+        const clanId = currentClanData.id;
+
+        try {
+            await ensureAuthSession();
+            const { db, doc, runTransaction, updateDoc } = await getFs();
+            const clanRef = doc(db, "clans", clanId);
+
+            await runTransaction(db, async (tx) => {
+                const cSnap = await tx.get(clanRef);
+                if (!cSnap.exists()) throw new Error("Клан не найден");
+                const cData = cSnap.data();
+
+                if (newNameLower !== oldNameLower) {
+                    const newLockRef = doc(db, "clanNames", newNameLower);
+                    const newLockSnap = await tx.get(newLockRef);
+                    if (newLockSnap.exists()) {
+                        throw new Error("Клан с таким названием уже существует!");
+                    }
+                    if (oldNameLower) {
+                        tx.delete(doc(db, "clanNames", oldNameLower));
+                    }
+                    tx.set(newLockRef, {
+                        clanId,
+                        name: rawName,
+                        createdBy: nick,
+                        createdAt: Date.now()
+                    });
+                }
+
+                const patch = {
+                    name: rawName,
+                    nameLower: newNameLower,
+                    description: desc,
+                    accessType
+                };
+                if (editAvatarDataUrl !== null) {
+                    patch.avatarUrl = editAvatarDataUrl;
+                }
+                tx.update(clanRef, patch);
+            });
+
+            // Обновляем отображаемое название клана у всех участников
+            const members = Array.isArray(currentClanData.members) ? currentClanData.members : [];
+            for (const m of members) {
+                const mClean = String(m).toLowerCase();
+                userClanCache.set(mClean, { clanId, clanName: rawName });
+                await updateDoc(doc(db, "users", mClean), { clanName: rawName }).catch(() => {});
+            }
+
+            clanSubView = "hub";
+            renderClanHubView({ ...currentClanData, name: rawName, nameLower: newNameLower, description: desc, accessType, avatarUrl: editAvatarDataUrl !== null ? editAvatarDataUrl : currentClanData.avatarUrl }, nick);
+        } catch (err) {
+            alert(err.message || "Ошибка сохранения настроек");
+        }
+    };
+
+    // --- ОКНО ВЛОЖЕНИЯ МИЛЛИЛИТРОВ В КЛАН ---
+    window.clanOpenDonateView = async function () {
+        if (!currentClanData) return;
+        const nick = getActiveNick();
+        clanSubView = "donate";
+
+        const view = document.getElementById("clanScrollView");
+        if (!view) return;
+
+        let myBalance = 0;
+        try {
+            await ensureAuthSession();
+            const { db, doc, getDoc } = await getFs();
+            const uSnap = await getDoc(doc(db, "users", nick));
+            if (uSnap.exists()) {
+                const d = uSnap.data();
+                myBalance = Number(d.ml ?? d.milliliters ?? d.balance ?? 0);
+            }
+        } catch (_) {}
+
+        const clanMl = Number(currentClanData.mlBalance || 0);
+
+        view.innerHTML = `
+            <div class="clan-hub-box" style="margin-top: 12px;">
+                <h3 style="margin: 0 0 8px 0; color: #38bdf8;">Вложить миллилитры в клан</h3>
+                <div style="font-size:13px; color:#cbd5e1; margin-bottom:4px;">Казна клана: <b style="color:#38bdf8;">${clanMl.toFixed(3)} мл</b></div>
+                <div style="font-size:13px; color:#cbd5e1; margin-bottom:14px;">Ваш баланс: <b id="clanDonateMyBal" style="color:#4ade80;">${myBalance.toFixed(3)} мл</b></div>
+
+                <div class="clan-preset-grid">
+                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(1)">1 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(5)">5 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(10)">10 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(25)">25 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(50)">50 мл</button>
+                    <button class="clan-mini-btn" style="background:rgba(30,41,59,0.85);" onclick="clanSetDonateVal(${myBalance.toFixed(3)})">Всё</button>
+                </div>
+
+                <input type="number" id="clanDonateAmount" class="clan-input" step="0.001" min="0.001" placeholder="Введите количество мл..." style="margin-bottom:14px;">
+
+                <button class="clan-create-btn" style="background:rgba(2, 132, 199, 0.78);" onclick="clanSubmitDonate()">Вложить в клан</button>
+            </div>
+        `;
+    };
+
+    window.clanSetDonateVal = function (val) {
+        const inp = document.getElementById("clanDonateAmount");
+        if (inp) inp.value = Number(val || 0);
+    };
+
+    window.clanSubmitDonate = async function () {
+        if (!currentClanData) return;
+        const nick = getActiveNick();
+        const inp = document.getElementById("clanDonateAmount");
+        const amount = Math.round((parseFloat(inp ? inp.value : "0") || 0) * 1000) / 1000;
+
+        if (amount <= 0) {
+            alert("Укажите сумму больше 0 мл!");
+            return;
+        }
+
+        try {
+            await ensureAuthSession();
+            const { db, doc, runTransaction } = await getFs();
+            const userRef = doc(db, "users", nick);
+            const clanRef = doc(db, "clans", currentClanData.id);
+
+            await runTransaction(db, async (tx) => {
+                const uSnap = await tx.get(userRef);
+                if (!uSnap.exists()) throw new Error("Профиль игрока не найден");
+                const uData = uSnap.data();
+
+                const fieldKey =
+                    typeof uData.ml === "number"
+                        ? "ml"
+                        : typeof uData.milliliters === "number"
+                        ? "milliliters"
+                        : typeof uData.balance === "number"
+                        ? "balance"
+                        : "ml";
+
+                const currentUserMl = Number(uData[fieldKey] || 0);
+                if (currentUserMl + 1e-9 < amount) {
+                    throw new Error("Недостаточно миллилитров на балансе!");
+                }
+
+                const cSnap = await tx.get(clanRef);
+                if (!cSnap.exists()) throw new Error("Клан не найден");
+                const currentClanMl = Number(cSnap.data().mlBalance || 0);
+
+                const nextUserMl = Math.max(0, Math.round((currentUserMl - amount) * 1000) / 1000);
+                const nextClanMl = Math.round((currentClanMl + amount) * 1000) / 1000;
+
+                tx.update(userRef, { [fieldKey]: nextUserMl });
+                tx.update(clanRef, { mlBalance: nextClanMl });
+            });
+
+            if (typeof window.ml === "number") {
+                window.ml = Math.max(0, Math.round((window.ml - amount) * 1000) / 1000);
+            }
+
+            clanSubView = "hub";
+            renderClanHubView(currentClanData, nick);
+        } catch (err) {
+            alert(err.message || "Ошибка при вложении миллилитров");
+        }
+    };
+
+    // --- ГРУППОВОЙ ЧАТ КЛАНА ---
+    window.clanOpenChatView = async function () {
+        if (!currentClanData) return;
+        const nick = getActiveNick();
+        clanSubView = "chat";
+        stopChatListener();
+
+        const view = document.getElementById("clanScrollView");
+        if (!view) return;
+
+        view.innerHTML = `
+            <div class="clan-hub-box" style="margin-top: 6px;">
+                <h3 style="margin: 0 0 10px 0; color: #4ade80;">Чат клана: ${escapeHtml(currentClanData.name || "")}</h3>
+                <div id="clanChatMessages" class="clan-chat-messages">
+                    <div style="font-size:12px; color:#94a3b8; text-align:center; margin-top:20px;">Загрузка сообщений...</div>
+                </div>
+                <form class="clan-chat-form" onsubmit="event.preventDefault(); clanSendMessage();">
+                    <input type="text" id="clanChatInput" class="clan-input" maxlength="300" placeholder="Написать в клан..." autocomplete="off">
+                    <button type="submit" class="clan-action-btn" style="background:#16a34a; flex-shrink:0;">Отправить</button>
+                </form>
+            </div>
+        `;
+
+        await ensureAuthSession();
+        const { db, collection, query, orderBy, limit, onSnapshot } = await getFs();
+        const msgsCol = collection(db, "clans", currentClanData.id, "messages");
+        const q = query(msgsCol, orderBy("createdAt", "asc"), limit(80));
+
+        chatUnsub = onSnapshot(
+            q,
+            (snap) => {
+                if (!clanPageOpen || clanSubView !== "chat") return;
+                const box = document.getElementById("clanChatMessages");
+                if (!box) return;
+
+                if (snap.empty) {
+                    box.innerHTML = `<div style="font-size:12px; color:#94a3b8; text-align:center; margin-top:24px;">Сообщений пока нет. Напишите первым!</div>`;
+                    return;
+                }
+
+                const rows = [];
+                snap.forEach((docSnap) => {
+                    const m = docSnap.data();
+                    const senderClean = String(m.sender || "").toLowerCase();
+                    const cachedUser = membersCache.get(senderClean) || {};
+                    const displayNick = cachedUser.username || m.senderName || senderClean;
+                    const ava = cachedUser.avatarUrl || m.avatarUrl || "https://via.placeholder.com/70";
+                    const isMine = senderClean === nick;
+                    const timeStr = m.createdAt
+                        ? new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        : "";
+
+                    rows.push(`
+                        <div class="clan-chat-msg ${isMine ? "mine" : ""}">
+                            <img src="${ava}" class="clan-chat-ava" alt="ava">
+                            <div style="flex:1; min-width:0;">
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:2px;">
+                                    <span style="font-size:12px; font-weight:bold; color:${isMine ? "#38bdf8" : "#4ade80"}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(displayNick)}</span>
+                                    <span style="font-size:10px; color:#94a3b8; flex-shrink:0;">${escapeHtml(timeStr)}</span>
+                                </div>
+                                <div style="font-size:13px; color:#f1f5f9; word-break:break-word; line-height:1.35;">${escapeHtml(m.text || "")}</div>
+                            </div>
+                        </div>
+                    `);
+                });
+
+                box.innerHTML = rows.join("");
+                box.scrollTop = box.scrollHeight;
+            },
+            (err) => {
+                const box = document.getElementById("clanChatMessages");
+                if (box) {
+                    box.innerHTML = `<div style="font-size:12px; color:#f87171; text-align:center; margin-top:20px;">Ошибка чата: ${escapeHtml(err.message || "")}</div>`;
+                }
+            }
+        );
+    };
+
+    window.clanSendMessage = async function () {
+        if (!currentClanData) return;
+        const nick = getActiveNick();
+        if (!nick) return;
+
+        const inp = document.getElementById("clanChatInput");
+        const text = (inp ? inp.value : "").trim();
+        if (!text) return;
+        inp.value = "";
+
+        const me = membersCache.get(nick) || {};
+
+        try {
+            await ensureAuthSession();
+            const { db, collection, addDoc } = await getFs();
+            await addDoc(collection(db, "clans", currentClanData.id, "messages"), {
+                sender: nick,
+                senderName: me.username || nick,
+                avatarUrl: me.avatarUrl || "",
+                text,
+                createdAt: Date.now()
+            });
+        } catch (err) {
+            alert("Не удалось отправить сообщение: " + (err.message || ""));
+        }
+    };
+
     window.clanJoinOpen = async function (clanId) {
         const nick = getActiveNick();
         if (!nick) return;
@@ -1042,6 +1551,7 @@
 
             userClanCache.set(nick, { clanId, clanName: joinedName });
             viewedOtherClanId = null;
+            clanSubView = "hub";
             await syncUserClanAndRender(nick, null);
         } catch (err) {
             alert(err.message || "Не удалось вступить в клан");
@@ -1083,6 +1593,7 @@
                 tx.update(clanRef, updateObj);
                 tx.update(reqUserRef, { clanId, clanName: cData.name || clanId });
             });
+            userClanCache.set(String(reqNick).toLowerCase(), { clanId, clanName: currentClanData?.name || clanId });
         } catch (err) {
             alert("Ошибка принятия заявки: " + err.message);
         }
@@ -1128,6 +1639,7 @@
 
             userClanCache.set(nick, null);
             viewedOtherClanId = null;
+            clanSubView = "hub";
             await syncUserClanAndRender(nick, null);
         } catch (err) {
             alert("Ошибка выхода из клана: " + err.message);
@@ -1137,7 +1649,7 @@
     window.clanDelete = async function (clanId) {
         const nick = getActiveNick();
         if (!nick) return;
-        if (!confirm("Удалить клан навсегда? Название освободится.")) return;
+        if (!confirm("Вы точно хотите удалить клан навсегда? Это действие нельзя отменить.")) return;
 
         try {
             await ensureAuthSession();
@@ -1149,7 +1661,9 @@
 
             const members = Array.isArray(cData.members) ? cData.members : [];
             for (const m of members) {
-                await updateDoc(doc(db, "users", String(m).toLowerCase()), {
+                const mClean = String(m).toLowerCase();
+                userClanCache.set(mClean, null);
+                await updateDoc(doc(db, "users", mClean), {
                     clanId: null,
                     clanName: null
                 }).catch(() => {});
@@ -1162,6 +1676,7 @@
 
             userClanCache.set(nick, null);
             viewedOtherClanId = null;
+            clanSubView = "hub";
             await syncUserClanAndRender(nick, null);
         } catch (err) {
             alert("Ошибка удаления клана: " + err.message);
@@ -1177,6 +1692,40 @@
         });
     };
 
+    // --- СТАБИЛЬНОЕ ОТОБРАЖЕНИЕ КЛАНА В КАРТОЧКАХ ДРУЗЕЙ (БЕЗ МИГАНИЯ) ---
+    function applyBadgeToCard(card, info) {
+        const nameEl = card.querySelector(".user-result-name");
+        const metaEl = card.querySelector(".user-result-meta");
+        if (!nameEl || !metaEl || !metaEl.parentElement) return;
+
+        const targetParent = metaEl.parentElement;
+        let badge = targetParent.querySelector(".clan-friend-status-badge");
+
+        if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "clan-friend-status-badge";
+            targetParent.appendChild(badge);
+        }
+
+        if (info && info.clanId) {
+            const label = `Клан: ${info.clanName || info.clanId}`;
+            if (badge.textContent !== label || !badge.classList.contains("clan-badge-link")) {
+                badge.className = "clan-friend-status-badge clan-badge-link";
+                badge.textContent = label;
+                badge.onclick = (ev) => {
+                    ev.stopPropagation();
+                    openClanPage(info.clanId);
+                };
+            }
+        } else {
+            if (badge.textContent !== "Не в клане" || !badge.classList.contains("clan-badge-none")) {
+                badge.className = "clan-friend-status-badge clan-badge-none";
+                badge.textContent = "Не в клане";
+                badge.onclick = null;
+            }
+        }
+    }
+
     async function enrichFriendsWithClans() {
         const container = document.getElementById("friendsResultsContainer");
         if (!container) return;
@@ -1184,51 +1733,58 @@
         const cards = container.querySelectorAll(".user-result-card");
         if (!cards.length) return;
 
-        const unenriched = Array.from(cards).filter((c) => c.dataset.clanEnriched !== "1");
-        if (!unenriched.length) return;
+        const nicksToFetch = [];
+
+        for (const card of cards) {
+            const nameEl = card.querySelector(".user-result-name");
+            if (!nameEl) continue;
+            const friendNick = nameEl.textContent.trim().toLowerCase();
+            if (!friendNick) continue;
+
+            if (userClanCache.has(friendNick)) {
+                // Мгновенная отрисовка из кэша в тот же кадр, чтобы бейдж никогда не пропадал при перерисовке списка
+                applyBadgeToCard(card, userClanCache.get(friendNick));
+            } else if (!pendingClanLookups.has(friendNick)) {
+                nicksToFetch.push(friendNick);
+            }
+        }
+
+        if (!nicksToFetch.length) return;
 
         await ensureAuthSession();
         const { db, doc, getDoc } = await getFs();
 
-        for (const card of unenriched) {
-            card.dataset.clanEnriched = "1";
-            const nameEl = card.querySelector(".user-result-name");
-            const metaEl = card.querySelector(".user-result-meta");
-            if (!nameEl || !metaEl) continue;
-
-            const friendNick = nameEl.textContent.trim().toLowerCase();
-            if (!friendNick) continue;
-
-            let info = userClanCache.get(friendNick);
-            if (info === undefined) {
-                try {
-                    const uSnap = await getDoc(doc(db, "users", friendNick));
-                    if (uSnap.exists() && uSnap.data().clanId) {
-                        const cId = uSnap.data().clanId;
-                        let cName = uSnap.data().clanName || "";
-                        if (!cName) {
-                            const cSnap = await getDoc(doc(db, "clans", cId));
-                            if (cSnap.exists()) cName = cSnap.data().name || cId;
-                        }
-                        info = { clanId: cId, clanName: cName };
-                    } else {
-                        info = null;
+        for (const friendNick of nicksToFetch) {
+            if (pendingClanLookups.has(friendNick)) continue;
+            pendingClanLookups.add(friendNick);
+            try {
+                const uSnap = await getDoc(doc(db, "users", friendNick));
+                let info = null;
+                if (uSnap.exists() && uSnap.data().clanId) {
+                    const cId = uSnap.data().clanId;
+                    let cName = uSnap.data().clanName || "";
+                    if (!cName) {
+                        const cSnap = await getDoc(doc(db, "clans", cId));
+                        if (cSnap.exists()) cName = cSnap.data().name || cId;
                     }
-                } catch (_) {
-                    info = null;
+                    info = { clanId: cId, clanName: cName };
                 }
                 userClanCache.set(friendNick, info);
+            } catch (_) {
+                userClanCache.set(friendNick, null);
+            } finally {
+                pendingClanLookups.delete(friendNick);
             }
+        }
 
-            if (info && info.clanId) {
-                const badge = document.createElement("span");
-                badge.className = "clan-badge-link";
-                badge.textContent = `Клан: ${info.clanName || info.clanId}`;
-                badge.onclick = (ev) => {
-                    ev.stopPropagation();
-                    openClanPage(info.clanId);
-                };
-                metaEl.parentElement.appendChild(badge);
+        // Обновляем все карточки после загрузки
+        const updatedCards = container.querySelectorAll(".user-result-card");
+        for (const card of updatedCards) {
+            const nameEl = card.querySelector(".user-result-name");
+            if (!nameEl) continue;
+            const friendNick = nameEl.textContent.trim().toLowerCase();
+            if (userClanCache.has(friendNick)) {
+                applyBadgeToCard(card, userClanCache.get(friendNick));
             }
         }
     }
@@ -1245,21 +1801,27 @@
         return String(str || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
     }
 
-    function startLightSync() {
+    function attachFriendsObserver() {
         const friendsBox = document.getElementById("friendsResultsContainer");
-        if (friendsBox) {
+        if (friendsBox && !friendsObserverAttached) {
+            friendsObserverAttached = true;
             const obs = new MutationObserver(() => {
-                if (enrichTimer) clearTimeout(enrichTimer);
-                enrichTimer = setTimeout(enrichFriendsWithClans, 120);
+                enrichFriendsWithClans();
             });
             obs.observe(friendsBox, { childList: true });
+            enrichFriendsWithClans();
         }
+    }
+
+    function startLightSync() {
+        attachFriendsObserver();
         setInterval(() => {
             updateOpenClanBtnVisibility();
+            attachFriendsObserver();
             if (document.getElementById("friendsResultsContainer")?.children.length) {
                 enrichFriendsWithClans().catch(() => {});
             }
-        }, 700);
+        }, 600);
     }
 
     setTimeout(() => {
