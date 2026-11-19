@@ -1,4 +1,4 @@
-// clan.js — Модуль кланов с авторизацией Auth, тёмной кнопкой создания и текстурой batyabomb.png
+// clan.js — Модуль кланов (бомба увеличена до размера снежинки, правила Firestore в шагах ниже)
 
 (function () {
     const FIRESTORE_URL = "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -407,16 +407,16 @@
 
         const symbols = ["🗡", "🛡", "💧", "❄️"];
         const items = Array.from({ length: 16 }, () => {
-            const isBomb = Math.random() < 0.25;
+            const isBomb = Math.random() < 0.28;
             return {
                 x: Math.random() * window.innerWidth,
                 y: Math.random() * window.innerHeight,
-                speed: 2.2 + Math.random() * 2.4,
+                speed: 2.3 + Math.random() * 2.5,
                 rot: Math.random() * Math.PI * 2,
                 vRot: (Math.random() - 0.5) * 0.035,
                 isBomb,
                 sym: symbols[Math.floor(Math.random() * symbols.length)],
-                size: 32 + Math.floor(Math.random() * 8)
+                size: isBomb ? 52 : 34 + Math.floor(Math.random() * 6)
             };
         });
 
@@ -444,8 +444,8 @@
                 for (const it of items) {
                     it.y += it.speed * dt;
                     it.rot += it.vRot * dt;
-                    if (it.y > h + 45) {
-                        it.y = -45;
+                    if (it.y > h + 55) {
+                        it.y = -55;
                         it.x = Math.random() * w;
                     }
                     c.save();
