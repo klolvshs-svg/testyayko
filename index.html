@@ -173,7 +173,7 @@
             <div id="fallbackEmoji" style="font-size: 60px; display: none;">🥚</div>
         </div>
         
-        <h1 style="font-size: 42px; margin: 0 0 10px 0; color: #164e87; text-shadow: 0 0 18px rgba(22, 78, 135, 0.55);">СПАСИ КОЖИЦУ</h1>
+        <h1 style="font-size: 42px; margin: 0 0 10px 0; color: #7cc6fe; font-family: 'Trebuchet MS', 'Segoe UI', Arial, sans-serif; letter-spacing: 1.5px; text-shadow: 0 0 18px rgba(124, 198, 254, 0.45);">СПАСИ КОЖИЦУ</h1>
         <p style="font-size: 18px; color: #aaa; margin-bottom: 25px;">Битва с боссами и выживание</p>
         <div style="position: relative; z-index: 25;">
             <button class="btn btn-withdraw" style="font-size: 20px; padding: 16px 36px;" onclick="startTheGame()">Играть ▶</button><br>
@@ -432,31 +432,30 @@
             showWithdrawModal();
         }
 
-        // Цвета внутри свечения под внешний синий (0, 210, 255) — ледяная, аквамариновая, лавандовая и сапфировая гамма
+        // Светлые яркие радужные оттенки внутри свечения (ближе к белому, но хорошо различимые)
         function getDashaItemInnerGlowRgb(type) {
             switch (type) {
-                case "sword":
-                    return "186, 230, 253"; // ледяной небесно-голубой
-                case "table":
-                    return "153, 246, 228"; // светлый аквамарин / бирюза
                 case "bomb":
-                    return "199, 210, 254"; // холодный лавандово-индиговый
+                    return "255, 196, 204"; // светлый красный / розовато-коралловый
+                case "barricade":
+                    return "255, 214, 170"; // светлый оранжевый / персиковый
+                case "table":
+                    return "255, 248, 178"; // светлый жёлтый / лимонный
                 case "shield":
                 case "helmet":
-                    return "167, 243, 208"; // мятно-ледяной
+                    return "198, 255, 218"; // светлый зелёный / мятный
                 case "fan":
                 case "fan_item":
-                    return "165, 243, 252"; // морозный циан
+                    return "194, 252, 255"; // светлый циан / аква
+                case "sword":
+                    return "198, 232, 255"; // светлый синий / небесный
                 case "white_drop":
                 case "drop1":
                 case "splash":
-                    return "224, 242, 254"; // кристально-белый с голубым отливом
-                case "barricade":
-                    return "147, 197, 253"; // сапфирово-голубой
                 case "random_cube":
-                    return "216, 180, 254"; // холодный сиренево-голубой
+                    return "234, 206, 255"; // светлый фиолетовый / сиреневый
                 default:
-                    return "224, 242, 254";
+                    return "236, 246, 255";
             }
         }
 
