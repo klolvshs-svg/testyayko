@@ -7,7 +7,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Спаси Яйцо - Битва с Боссами</title>
+    <title>Спаси Кожицу - Битва с Боссами</title>
     <style>
         body {
             margin: 0;
@@ -38,9 +38,8 @@
             align-items: center;
             z-index: 10;
         }
-        /* Более тёмный экран проигрыша */
         #gameOverScreen {
-            background: rgba(4, 7, 12, 0.98);
+            background: rgba(15, 23, 33, 0.78);
         }
         /* Стартовый экран */
         #startScreen {
@@ -57,7 +56,7 @@
             z-index: 20;
         }
         .btn {
-            background: #15558a;
+            background: #248bda;
             color: white;
             border: none;
             padding: 14px 28px;
@@ -72,7 +71,7 @@
             z-index: 25;
         }
         .btn:active { transform: scale(0.96); }
-        .btn-withdraw { background: #17662b; }
+        .btn-withdraw { background: #28a745; }
         .btn-secondary { background: #6c757d; }
         
         /* Кнопка паузы в углу */
@@ -174,7 +173,7 @@
             <div id="fallbackEmoji" style="font-size: 60px; display: none;">🥚</div>
         </div>
         
-        <h1 style="font-size: 42px; margin: 0 0 10px 0; color: #00d2ff; text-shadow: 0 0 20px rgba(0,210,255,0.4);">СПАСИ ЯЙЦО</h1>
+        <h1 style="font-size: 42px; margin: 0 0 10px 0; color: #164e87; text-shadow: 0 0 18px rgba(22, 78, 135, 0.55);">СПАСИ КОЖИЦУ</h1>
         <p style="font-size: 18px; color: #aaa; margin-bottom: 25px;">Битва с боссами и выживание</p>
         <div style="position: relative; z-index: 25;">
             <button class="btn btn-withdraw" style="font-size: 20px; padding: 16px 36px;" onclick="startTheGame()">Играть ▶</button><br>
@@ -433,30 +432,31 @@
             showWithdrawModal();
         }
 
+        // Цвета внутри свечения под внешний синий (0, 210, 255) — ледяная, аквамариновая, лавандовая и сапфировая гамма
         function getDashaItemInnerGlowRgb(type) {
             switch (type) {
                 case "sword":
-                    return "125, 211, 252"; // голубой
+                    return "186, 230, 253"; // ледяной небесно-голубой
                 case "table":
-                    return "250, 204, 21";  // жёлтый
+                    return "153, 246, 228"; // светлый аквамарин / бирюза
                 case "bomb":
-                    return "248, 113, 113"; // красный
+                    return "199, 210, 254"; // холодный лавандово-индиговый
                 case "shield":
                 case "helmet":
-                    return "74, 222, 128";  // зелёный
+                    return "167, 243, 208"; // мятно-ледяной
                 case "fan":
                 case "fan_item":
-                    return "45, 212, 191";  // бирюзовый
+                    return "165, 243, 252"; // морозный циан
                 case "white_drop":
                 case "drop1":
                 case "splash":
-                    return "192, 132, 252"; // сиреневый
+                    return "224, 242, 254"; // кристально-белый с голубым отливом
                 case "barricade":
-                    return "251, 146, 60";  // оранжевый
+                    return "147, 197, 253"; // сапфирово-голубой
                 case "random_cube":
-                    return "244, 114, 182"; // розовый
+                    return "216, 180, 254"; // холодный сиренево-голубой
                 default:
-                    return "255, 255, 255";
+                    return "224, 242, 254";
             }
         }
 
@@ -555,6 +555,12 @@
         }
 
         function gameLoop() {
+            // При поражении оставляем последний кадр игры застывшим на фоне
+            if (gameOver) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
             ctx.fillStyle = "#0f1721";
             ctx.fillRect(0, 0, W, H);
 
@@ -624,11 +630,6 @@
                     ctx.textAlign = "center";
                     ctx.fillText("🥚", renderPlayerX, renderPlayerY + 15);
                 }
-                requestAnimationFrame(gameLoop);
-                return;
-            }
-
-            if (gameOver) {
                 requestAnimationFrame(gameLoop);
                 return;
             }
@@ -1191,8 +1192,6 @@
 
                 if (!items[i]) continue;
 
-                // СВЕЧЕНИЕ ТОЛЬКО В БОЮ С ДАШЕЙ И ДО ЕЁ ПОБЕДЫ:
-                // С начала боя при HP >= 300 светится ровно без мигания; при HP < 300 — 15 сек мигает / 10 сек не мигает
                 let renderWithMoon = false;
                 let alpha = 1.0;
 
