@@ -239,18 +239,37 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        const dpr = window.devicePixelRatio || 1;
-        const W = window.innerWidth;
-        const H = window.innerHeight;
+        let dpr = window.devicePixelRatio || 1;
+        let W = window.innerWidth;
+        let H = window.innerHeight;
 
-        canvas.width = W * dpr;
-        canvas.height = H * dpr;
-        canvas.style.width = W + 'px';
-        canvas.style.height = H + 'px';
+        const player = { x: W / 2, y: H - 70, radius: 25 };
+        let bossX = W / 2;
+        let bossY = 75;
+        let targetX = W / 2;
 
-        ctx.scale(dpr, dpr);
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+        function applyViewportSize() {
+            dpr = window.devicePixelRatio || 1;
+            W = window.innerWidth;
+            H = window.innerHeight;
+
+            canvas.width = Math.round(W * dpr);
+            canvas.height = Math.round(H * dpr);
+            canvas.style.width = W + 'px';
+            canvas.style.height = H + 'px';
+
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            player.y = H - 70;
+            player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
+            targetX = Math.max(player.radius, Math.min(W - player.radius, targetX));
+            bossX = Math.max(50, Math.min(W - 50, bossX));
+        }
+
+        applyViewportSize();
+        window.addEventListener("resize", applyViewportSize);
 
         let totalBank = parseFloat(localStorage.getItem("egg_total_ml_bank") || "0.0");
         let lastPromoCode = localStorage.getItem("egg_last_promo_code") || "";
@@ -264,11 +283,8 @@
 
         let invincibleUntil = 0; 
         let eggSlowUntil = 0;    
-        let targetX = W / 2;
 
         let fanWindAnimation = null;
-
-        const player = { x: W / 2, y: H - 70, radius: 25 };
 
         let dashaTriggered = false;
         let dashaDefeated = false;
@@ -289,8 +305,6 @@
         let bossDropStep = 0; 
         let lastBossDropTime = 0;
 
-        let bossX = W / 2;
-        let bossY = 75;
         let bossSpeedX = 2.8;
         let bossMaxHp = 500; 
         let bossHp = 500;
@@ -351,6 +365,7 @@
         });
 
         function startTheGame() {
+            applyViewportSize();
             gameStarted = true;
             isPaused = false;
             gameOver = false;
@@ -375,6 +390,7 @@
             lastBossDropTime = 0;
             bossHp = 500;
             bossMaxHp = 500;
+            bossX = W / 2;
             hasShield = false;
             hasHelmet = false;
             fanExpiresAt = 0;
@@ -699,7 +715,13 @@
                         });
                     }
 
-                    let activeTables = items.filter(it => it.type === "table" || it.type === "sword").length;
+                    let activeTables = 0;
+                    let barricades = [];
+                    for (let k = 0; k < items.length; k++) {
+                        const itk = items[k];
+                        if (itk.type === "table" || itk.type === "sword") activeTables++;
+                        else if (itk.type === "barricade") barricades.push(itk);
+                    }
                     
                     let tableSpawnChance = (bossHp > 400) ? 0.024 : 0.0168; 
                     let maxActiveTables = (bossHp > 400) ? 3 : 3;
@@ -724,14 +746,14 @@
                     }
 
                     if (bossHp < 150) {
-                        tableSpawnChance = 0.07; 
-                        maxActiveTables = 9;
+                        tableSpawnChance = 0.055; 
+                        maxActiveTables = 7;
 
                         if (Math.random() < 0.0044) {
                             items.push({
-                                x: player.x,
+                                x: Math.max(30, Math.min(W - 30, player.x)),
                                 y: -30,
-                                vy: 4.5 + Math.random() * 1.5,
+                                vy: 4.5 + Math.random() * 1.2,
                                 vx: 0,
                                 type: "fan_item",
                                 rotation: 0,
@@ -741,7 +763,7 @@
                             });
                         }
 
-                        if (Math.random() < 0.055) {
+                        if (Math.random() < 0.04) {
                             let spawnMode = Math.random();
                             let fromLeft = Math.random() < 0.5;
                             let cornerItemType = Math.random() < 0.55 ? "table" : "sword";
@@ -749,7 +771,7 @@
                             let spawnX, spawnVx, spawnVy;
                             if (spawnMode < 0.6) {
                                 spawnX = fromLeft ? 20 : W - 20;
-                                spawnVx = fromLeft ? (3.5 + Math.random() * 2.5) : -(3.5 + Math.random() * 2.5);
+                                spawnVx = fromLeft ? (3.5 + Math.random() * 2.0) : -(3.5 + Math.random() * 2.0);
                                 spawnVy = 1.5 + Math.random() * 1.5;
                             } else {
                                 spawnX = W / 2 + (Math.random() - 0.5) * (W * 0.5);
@@ -799,6 +821,24 @@
                                 shouldFlicker: Math.random() < 0.35
                             });
                         });
+                    }
+
+                    // Проверка столкновений табуреток/мечей с баррикадами без лишнего вложенного перебора
+                    if (barricades.length > 0) {
+                        for (let i = items.length - 1; i >= 0; i--) {
+                            const it = items[i];
+                            if (it && (it.type === "table" || it.type === "sword")) {
+                                for (let b = 0; b < barricades.length; b++) {
+                                    const bar = barricades[b];
+                                    const dx = it.x - bar.x;
+                                    const dy = it.y - bar.y;
+                                    if (dx * dx + dy * dy < 1225) {
+                                        items.splice(i, 1);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -975,9 +1015,6 @@
             }
 
             let globalSpeedMul = 1 + Math.floor(mlEarned / 10) * 0.08;
-            if (currentBoss === "dasha" && bossState === "active" && bossHp < 150) {
-                globalSpeedMul *= 0.65; 
-            }
             const speedMultiplier = globalSpeedMul;
 
             for (let f = flyingFists.length - 1; f >= 0; f--) {
@@ -1173,16 +1210,6 @@
                     } else {
                         item.x += (item.vx || 0);
                         item.y += (item.vy || item.speed);
-                    }
-
-                    for (let j = items.length - 1; j >= 0; j--) {
-                        if (i !== j && items[j].type === "barricade") {
-                            let bar = items[j];
-                            if (Math.hypot(item.x - bar.x, item.y - bar.y) < 35) {
-                                items.splice(i, 1);
-                                break;
-                            }
-                        }
                     }
                 } else {
                     item.y += (item.speed || item.vy || 4);
