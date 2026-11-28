@@ -300,6 +300,7 @@
         let gelyaFourDropsSpawned = false;
         let gelyaShakeUntil = 0;
         let flyingGelya18Plus = [];
+        let flyingGelyaTongues = [];
         let victoryTimer = 0;
         let activeWaterStreams = [];  
         let flyingFists = []; 
@@ -418,6 +419,7 @@
             gelyaFourDropsSpawned = false;
             gelyaShakeUntil = 0;
             flyingGelya18Plus = [];
+            flyingGelyaTongues = [];
             activeWaterStreams = [];
             flyingFists = [];
             flyingWhiteDrops = [];
@@ -598,7 +600,20 @@
             }
             else if (item.type === "shield") ctx.fillText("🛡", item.x, item.y);
             else if (item.type === "helmet") ctx.fillText("🪖", item.x, item.y);
-            else if (item.type === "drop1") ctx.fillText("💧", item.x, item.y);
+            else if (item.type === "drop1") {
+                if (item.rotation || item.rotationSpeed) {
+                    ctx.save();
+                    ctx.translate(item.x, item.y);
+                    item.rotation = (item.rotation || 0) + (item.rotationSpeed || 0);
+                    ctx.rotate(item.rotation);
+                    ctx.font = "35px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("💧", 0, 11);
+                    ctx.restore();
+                } else {
+                    ctx.fillText("💧", item.x, item.y);
+                }
+            }
             else if (item.type === "splash") ctx.fillText("💦", item.x, item.y);
             else if (item.type === "torii") ctx.fillText("⛩", item.x, item.y);
             else if (item.type === "blood") {
@@ -616,6 +631,7 @@
                 }
             }
             else if (item.type === "gelya_18_plus") drawCrossed18Plus(item.x, item.y, 34);
+            else if (item.type === "gelya_tongue") ctx.fillText("👅", item.x, item.y);
             else if (item.type === "snow") ctx.fillText("❄️", item.x, item.y);
             else if (item.type === "egg20") ctx.fillText("🥚", item.x, item.y);
             else if (item.type === "boss_fist") ctx.fillText("✊", item.x, item.y);
@@ -1163,6 +1179,7 @@
                 flyingFists = [];
                 flyingWhiteDrops = [];
                 flyingGelya18Plus = [];
+                flyingGelyaTongues = [];
                 bossWhiteSplats = [];
 
                 let scale = 1.0;
@@ -1277,9 +1294,25 @@
                 drawCrossed18Plus(fg.x, fg.y, 30);
 
                 if (Math.hypot(bossX - fg.x, bossY - fg.y) < 28) {
-                    bossHp = Math.max(0, bossHp - 30);
+                    bossHp = Math.max(0, bossHp - 20);
                     gelyaShakeUntil = now + 150;
                     flyingGelya18Plus.splice(g, 1);
+                }
+            }
+
+            for (let t = flyingGelyaTongues.length - 1; t >= 0; t--) {
+                let ft = flyingGelyaTongues[t];
+                let angle = Math.atan2(bossY - ft.y, bossX - ft.x);
+                ft.x += Math.cos(angle) * ft.speed;
+                ft.y += Math.sin(angle) * ft.speed;
+
+                ctx.font = "28px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("👅", ft.x, ft.y);
+
+                if (Math.hypot(bossX - ft.x, bossY - ft.y) < 28) {
+                    bossHp = Math.min(bossMaxHp, bossHp + 20);
+                    flyingGelyaTongues.splice(t, 1);
                 }
             }
 
@@ -1294,10 +1327,11 @@
                     const rand = Math.random();
 
                     if (bossState === "active" && currentBoss === "gelya") {
-                        if (rand < 0.24) type = "gelya_18_plus";
-                        else if (rand >= 0.24 && rand < 0.30 && !hasShield) type = "shield";
-                        else if (rand >= 0.30 && rand < 0.36 && !hasHelmet) type = "helmet";
-                        else if (rand >= 0.36 && rand < 0.45) type = "bomb";
+                        if (rand < 0.09) type = "gelya_tongue";
+                        else if (rand >= 0.09 && rand < 0.31) type = "gelya_18_plus";
+                        else if (rand >= 0.31 && rand < 0.37 && !hasShield) type = "shield";
+                        else if (rand >= 0.37 && rand < 0.43 && !hasHelmet) type = "helmet";
+                        else if (rand >= 0.43 && rand < 0.51) type = "bomb";
                         else type = "blood";
                     } else if (bossState === "active" && currentBoss === "rita") {
                         if (rand < 0.38) type = "boss_fist"; 
@@ -1339,12 +1373,19 @@
                         }
                     }
 
+                    let dropRotSpeed = 0;
+                    if ((type === "blood" || type === "drop1") && Math.random() < 0.55) {
+                        dropRotSpeed = (Math.random() < 0.5 ? -1 : 1) * (0.04 + Math.random() * 0.07);
+                    }
+
                     items.push({
                         x: Math.random() * (W - 60) + 30,
                         y: -30,
                         vx: 0,
                         vy: 4 + Math.random() * 3,
                         speed: (4 + Math.random() * 3) * speedMultiplier,
+                        rotation: dropRotSpeed ? Math.random() * Math.PI * 2 : 0,
+                        rotationSpeed: dropRotSpeed,
                         type: type,
                         flickerOffset: Math.random() * 2000,
                         shouldFlicker: Math.random() < 0.35
@@ -1511,6 +1552,12 @@
 
                     if (item.type === "gelya_18_plus") {
                         flyingGelya18Plus.push({ x: player.x, y: player.y, speed: 14 });
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    if (item.type === "gelya_tongue") {
+                        flyingGelyaTongues.push({ x: player.x, y: player.y, speed: 14 });
                         items.splice(i, 1);
                         continue;
                     }
