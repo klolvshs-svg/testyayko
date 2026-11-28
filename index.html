@@ -663,7 +663,7 @@
             }
             player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
 
-            if (mlEarned >= 1.0 && !dashaTriggered) {
+            if (mlEarned >= 5.0 && !dashaTriggered) {
                 dashaTriggered = true;
                 currentBoss = "dasha";
                 bossState = "intro";
@@ -673,7 +673,7 @@
                 bossX = W / 2; 
             }
 
-            if (mlEarned >= 10.0 && dashaDefeated && !ritaTriggered) {
+            if (mlEarned >= 1.0 && dashaDefeated && !ritaTriggered) {
                 ritaTriggered = true;
                 currentBoss = "rita";
                 bossState = "intro";
@@ -1545,6 +1545,25 @@
                     } else if (now < stream.activeUntil) {
                         ctx.fillStyle = "rgba(255, 220, 50, 0.35)";
                         ctx.fillRect(stream.x - stream.width / 2, 0, stream.width, H);
+
+                        ctx.fillStyle = "rgba(255, 240, 100, 0.9)";
+                        let timeOffset = Date.now() / 2.5;
+                        for (let wy = 0; wy < H; wy += 18) {
+                            let dropY = (wy + timeOffset) % H;
+                            let dropX = stream.x + Math.sin(dropY * 0.05) * 4;
+                            let dropSize = 4 + (wy % 4);
+                            
+                            ctx.beginPath();
+                            ctx.arc(dropX, dropY, dropSize, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                        for (let sp = 10; sp < H; sp += 30) {
+                            let spY = (sp + timeOffset * 1.2) % H;
+                            ctx.fillRect(stream.x - stream.width / 2 - 2, spY, 3, 3);
+                            ctx.fillRect(stream.x + stream.width / 2, spY + 10, 3, 3);
+                        }
 
                         if (Math.abs(player.x - stream.x) < stream.width / 2 + player.radius - 5) {
                             if (!isInvincible) {
