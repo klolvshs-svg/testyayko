@@ -299,6 +299,7 @@
         let gelyaBossEntranceTimer = 0;
         let gelyaFourDropsSpawned = false;
         let gelyaShakeUntil = 0;
+        let lastGelyaArmShotTime = 0;
         let flyingGelya18Plus = [];
         let flyingGelyaTongues = [];
         let victoryTimer = 0;
@@ -318,22 +319,6 @@
 
         let dashaPhaseStartTime = 0;
         let vaporTransitionStartTime = 0;
-
-        const gelyaMusic = new Audio("music/gelyamsuic.mp3");
-        gelyaMusic.loop = true;
-
-        function playGelyaMusic() {
-            gelyaMusic.currentTime = 0;
-            const playPromise = gelyaMusic.play();
-            if (playPromise && typeof playPromise.catch === "function") {
-                playPromise.catch(() => {});
-            }
-        }
-
-        function stopGelyaMusic() {
-            gelyaMusic.pause();
-            gelyaMusic.currentTime = 0;
-        }
 
         // Загрузка текстур
         const dashaImg = new Image();
@@ -413,7 +398,6 @@
         });
 
         function startTheGame() {
-            stopGelyaMusic();
             applyViewportSize();
             gameStarted = true;
             isPaused = false;
@@ -435,6 +419,7 @@
             gelyaBossEntranceTimer = 0;
             gelyaFourDropsSpawned = false;
             gelyaShakeUntil = 0;
+            lastGelyaArmShotTime = 0;
             flyingGelya18Plus = [];
             flyingGelyaTongues = [];
             activeWaterStreams = [];
@@ -487,7 +472,6 @@
         }
 
         function returnToMainMenu() {
-            stopGelyaMusic();
             if (mlEarned > 0) {
                 totalBank += mlEarned;
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
@@ -554,6 +538,52 @@
             ctx.moveTo(-diag, -diag);
             ctx.lineTo(diag, diag);
             ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawGelyaArms(drawBossX, drawBossY, now) {
+            const wave = Math.sin(now * 0.012) * 5;
+            ctx.save();
+            ctx.strokeStyle = "#d92638";
+            ctx.fillStyle = "#e63946";
+            ctx.lineWidth = 7;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            // Левая рука из бока босса
+            const leftShoulderX = drawBossX - 24;
+            const leftShoulderY = drawBossY + 4;
+            const leftElbowX = drawBossX - 42;
+            const leftElbowY = drawBossY + 14 + wave * 0.5;
+            const leftHandX = drawBossX - 54;
+            const leftHandY = drawBossY + 26 + wave;
+
+            ctx.beginPath();
+            ctx.moveTo(leftShoulderX, leftShoulderY);
+            ctx.quadraticCurveTo(leftElbowX, leftElbowY, leftHandX, leftHandY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(leftHandX, leftHandY, 6.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Правая рука из бока босса
+            const rightShoulderX = drawBossX + 24;
+            const rightShoulderY = drawBossY + 4;
+            const rightElbowX = drawBossX + 42;
+            const rightElbowY = drawBossY + 14 - wave * 0.5;
+            const rightHandX = drawBossX + 54;
+            const rightHandY = drawBossY + 26 - wave;
+
+            ctx.beginPath();
+            ctx.moveTo(rightShoulderX, rightShoulderY);
+            ctx.quadraticCurveTo(rightElbowX, rightElbowY, rightHandX, rightHandY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(rightHandX, rightHandY, 6.5, 0, Math.PI * 2);
+            ctx.fill();
+
             ctx.restore();
         }
 
@@ -805,10 +835,10 @@
                     introTimer = now;
                     gelyaBossEntranceTimer = 0;
                     gelyaFourDropsSpawned = false;
+                    lastGelyaArmShotTime = 0;
                     bossMaxHp = 1000;
                     bossHp = 1000;
                     bossX = W / 2;
-                    playGelyaMusic();
                 } else if (mlEarned >= 25.0 && !ritaTriggered) {
                     ritaTriggered = true;
                     currentBoss = "rita";
@@ -845,6 +875,35 @@
                 bossX += bossSpeedX;
                 if (bossX < 50 || bossX > W - 50) {
                     bossSpeedX *= -1;
+                }
+
+                // ЭКСКЛЮЗИВ ГЕЛИ: при HP < 900 и >= 800 достаёт руки и стреляет кровавыми каплями в яйцо
+                if (currentBoss === "gelya" && bossHp < 900 && bossHp >= 800) {
+                    if (now - lastGelyaArmShotTime >= 900) {
+                        lastGelyaArmShotTime = now;
+                        const wave = Math.sin(now * 0.012) * 5;
+                        const shotOrigins = [
+                            { x: bossX - 54, y: bossY + 26 + wave },
+                            { x: bossX + 54, y: bossY + 26 - wave }
+                        ];
+                        shotOrigins.forEach((origin, idx) => {
+                            const dx = player.x - origin.x;
+                            const dy = player.y - origin.y;
+                            const len = Math.hypot(dx, dy) || 1;
+                            const shotSpeed = 6.2;
+                            items.push({
+                                x: origin.x,
+                                y: origin.y,
+                                vx: (dx / len) * shotSpeed,
+                                vy: (dy / len) * shotSpeed,
+                                speed: shotSpeed,
+                                rotation: Math.random() * Math.PI * 2,
+                                rotationSpeed: idx === 0 ? -0.12 : 0.12,
+                                type: "blood",
+                                subType: "gelya_arm_blood"
+                            });
+                        });
+                    }
                 }
 
                 // ЭКСКЛЮЗИВ ДАШИ
@@ -1235,7 +1294,6 @@
                         ritaDefeated = true;
                     } else if (currentBoss === "gelya") {
                         gelyaDefeated = true;
-                        stopGelyaMusic();
                     }
                     bossState = "normal"; 
                 }
@@ -1502,6 +1560,9 @@
                             item.x = W - 25;
                             item.vx = -Math.abs(item.vx || 3.0);
                         }
+                    } else if (item.subType === "gelya_arm_blood") {
+                        item.x += (item.vx || 0);
+                        item.y += (item.vy || 0);
                     } else {
                         item.y += (item.speed || item.vy || 4);
                         if (item.vx) item.x += item.vx;
@@ -1676,7 +1737,7 @@
                     }
                 }
 
-                if (item.y > H + 40 || item.x < -100 || item.x > W + 100) {
+                if (item.y > H + 40 || item.y < -80 || item.x < -100 || item.x > W + 100) {
                     if (bossState !== "victory" && ((item.type === "sword" && item.subType !== "corner_sword") || item.type === "blood")) {
                         mlEarned += 0.015; 
                     }
@@ -1696,6 +1757,10 @@
                 }
                 let drawBossX = bossX + shakeOffsetX;
                 let drawBossY = bossY + shakeOffsetY;
+
+                if (currentBoss === "gelya" && bossHp < 900 && bossHp >= 800) {
+                    drawGelyaArms(drawBossX, drawBossY, now);
+                }
 
                 if (activeImg.complete && activeImg.naturalWidth !== 0) {
                     ctx.drawImage(activeImg, drawBossX - 28, drawBossY - 28, 56, 56);
@@ -1907,7 +1972,6 @@
         }
 
         function showGameOver() {
-            stopGelyaMusic();
             gameOver = true;
             totalBank += mlEarned;
             localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
