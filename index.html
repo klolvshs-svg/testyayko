@@ -663,6 +663,16 @@
             }
             player.x = Math.max(player.radius, Math.min(W - player.radius, player.x));
 
+            if (mlEarned >= 1.0 && !ritaTriggered) {
+                ritaTriggered = true;
+                currentBoss = "rita";
+                bossState = "intro";
+                introTimer = now;
+                bossMaxHp = 200;
+                bossHp = 200; 
+                bossX = W / 2; 
+            }
+
             if (mlEarned >= 5.0 && !dashaTriggered) {
                 dashaTriggered = true;
                 currentBoss = "dasha";
@@ -670,16 +680,6 @@
                 introTimer = now;
                 bossMaxHp = 500;
                 bossHp = 500; 
-                bossX = W / 2; 
-            }
-
-            if (mlEarned >= 1.0 && dashaDefeated && !ritaTriggered) {
-                ritaTriggered = true;
-                currentBoss = "rita";
-                bossState = "intro";
-                introTimer = now;
-                bossMaxHp = 200;
-                bossHp = 200; 
                 bossX = W / 2; 
             }
 
