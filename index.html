@@ -360,12 +360,23 @@
             });
         }
 
-        function canMoveEggDuringIntro() {
-            return bossState === "intro" && currentBoss === "gelya" && gelyaFourDropsSpawned && items.some(it => it.subType === "gelya_intro_blood");
+        function isGelyaBossAppearing() {
+            return bossState === "intro" && currentBoss === "gelya" && gelyaFourDropsSpawned && !items.some(it => it.subType === "gelya_intro_blood");
+        }
+
+        function canMoveEggNow() {
+            if (!gameStarted || isPaused || gameOver || bossState === "victory") return false;
+            if (bossState === "intro") {
+                if (currentBoss === "gelya") {
+                    return !isGelyaBossAppearing();
+                }
+                return false;
+            }
+            return true;
         }
 
         function handleMove(e) {
-            if (!gameStarted || isPaused || gameOver || (bossState === "intro" && !canMoveEggDuringIntro())) return; 
+            if (!canMoveEggNow()) return; 
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             if (clientX > W - 70 && clientY < 70) return;
@@ -376,7 +387,7 @@
         window.addEventListener("mousemove", handleMove);
         window.addEventListener("touchmove", handleMove);
         window.addEventListener("touchstart", (e) => {
-            if (gameStarted && !isPaused && !gameOver && (bossState !== "intro" || canMoveEggDuringIntro())) {
+            if (canMoveEggNow()) {
                 const clientX = e.touches[0].clientX;
                 const clientY = e.touches[0].clientY;
                 if (clientX > W - 70 && clientY < 70) return;
@@ -639,12 +650,12 @@
             if (bossState === "intro") {
                 let passed = now - introTimer;
                 if (passed <= 3000) {
-                    return 0.20 * Math.min(1, passed / 3000);
+                    return 0.13 * Math.min(1, passed / 3000);
                 }
-                return 0.20;
+                return 0.13;
             }
             if (bossState === "active") {
-                return 0.20;
+                return 0.13;
             }
             return 0;
         }
@@ -743,7 +754,7 @@
             const isEggSlowed = now < eggSlowUntil;
             const hasFanActive = now < fanExpiresAt; 
 
-            if ((bossState !== "intro" || canMoveEggDuringIntro()) && bossState !== "victory") {
+            if (canMoveEggNow()) {
                 if (isEggSlowed) {
                     player.x += (targetX - player.x) * 0.10; 
                 } else {
@@ -1267,7 +1278,7 @@
 
                 if (Math.hypot(bossX - fg.x, bossY - fg.y) < 28) {
                     bossHp = Math.max(0, bossHp - 30);
-                    gelyaShakeUntil = now + 260;
+                    gelyaShakeUntil = now + 150;
                     flyingGelya18Plus.splice(g, 1);
                 }
             }
@@ -1612,8 +1623,9 @@
                 let shakeOffsetX = 0;
                 let shakeOffsetY = 0;
                 if (currentBoss === "gelya" && now < gelyaShakeUntil) {
-                    shakeOffsetX = Math.sin(now * 0.08) * 7;
-                    shakeOffsetY = Math.cos(now * 0.11) * 4;
+                    let shakeFade = Math.max(0, (gelyaShakeUntil - now) / 150);
+                    shakeOffsetX = Math.sin(now * 0.06) * 2.5 * shakeFade;
+                    shakeOffsetY = Math.cos(now * 0.08) * 1.5 * shakeFade;
                 }
                 let drawBossX = bossX + shakeOffsetX;
                 let drawBossY = bossY + shakeOffsetY;
