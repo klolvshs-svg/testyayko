@@ -319,6 +319,22 @@
         let dashaPhaseStartTime = 0;
         let vaporTransitionStartTime = 0;
 
+        const gelyaMusic = new Audio("music/gelyamsuic.mp3");
+        gelyaMusic.loop = true;
+
+        function playGelyaMusic() {
+            gelyaMusic.currentTime = 0;
+            const playPromise = gelyaMusic.play();
+            if (playPromise && typeof playPromise.catch === "function") {
+                playPromise.catch(() => {});
+            }
+        }
+
+        function stopGelyaMusic() {
+            gelyaMusic.pause();
+            gelyaMusic.currentTime = 0;
+        }
+
         // Загрузка текстур
         const dashaImg = new Image();
         dashaImg.src = "bosses/dashaboss.webp";
@@ -397,6 +413,7 @@
         });
 
         function startTheGame() {
+            stopGelyaMusic();
             applyViewportSize();
             gameStarted = true;
             isPaused = false;
@@ -470,6 +487,7 @@
         }
 
         function returnToMainMenu() {
+            stopGelyaMusic();
             if (mlEarned > 0) {
                 totalBank += mlEarned;
                 localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
@@ -790,6 +808,7 @@
                     bossMaxHp = 1000;
                     bossHp = 1000;
                     bossX = W / 2;
+                    playGelyaMusic();
                 } else if (mlEarned >= 25.0 && !ritaTriggered) {
                     ritaTriggered = true;
                     currentBoss = "rita";
@@ -1216,6 +1235,7 @@
                         ritaDefeated = true;
                     } else if (currentBoss === "gelya") {
                         gelyaDefeated = true;
+                        stopGelyaMusic();
                     }
                     bossState = "normal"; 
                 }
@@ -1657,7 +1677,7 @@
                 }
 
                 if (item.y > H + 40 || item.x < -100 || item.x > W + 100) {
-                    if (item.type === "sword" && bossState !== "victory" && item.subType !== "corner_sword") {
+                    if (bossState !== "victory" && ((item.type === "sword" && item.subType !== "corner_sword") || item.type === "blood")) {
                         mlEarned += 0.015; 
                     }
                     items.splice(i, 1);
@@ -1887,6 +1907,7 @@
         }
 
         function showGameOver() {
+            stopGelyaMusic();
             gameOver = true;
             totalBank += mlEarned;
             localStorage.setItem("egg_total_ml_bank", totalBank.toFixed(3));
